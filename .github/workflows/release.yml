@@ -27,7 +27,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUSTTARGET: ${{ matrix.target }}
-          EXTRA_FILES: "README.md"
+          EXTRA_FILES: "ladderbors.json"
           SRC_DIR: "caninana"
           ARCHIVE_TYPES: ${{ matrix.archive }}
           MINIFY: "yes"
