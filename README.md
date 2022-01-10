@@ -12,8 +12,8 @@ Caninana is a StarCraft 2 AI. Our goal is to make a strong bot to play versus hu
   - [x] Unit control
   - [x] Full aggression
   - [x] Order units
-  - [ ] Order tech buildings
-  - [ ] Order tech upgrades
+  - [x] Order tech buildings
+  - [x] Order tech upgrades
   - [x] Order upgrades
   - Supported troops
     - [x] Zergling
@@ -25,7 +25,7 @@ Caninana is a StarCraft 2 AI. Our goal is to make a strong bot to play versus hu
     - [ ] Infestors
     - [ ] Mutalisk
     - [ ] Corruptor
-    - [ ] Ultralisk
+    - [x] Ultralisk
     - [ ] Brood Lord
 - Queen manager (Zerg specific)
   - [x] Injection

@@ -186,7 +186,6 @@ impl Player for Caninana {
     }
 
     fn on_step(&mut self, _iteration: usize) -> SC2Result<()> {
-        self.bot_info.build_queue.check_completion(&self._bot);
         self.army_manager
             .process(&mut self._bot, &mut self.bot_info);
         self.production_manager
@@ -197,6 +196,11 @@ impl Player for Caninana {
             .process(&mut self._bot, &mut self.bot_info);
         self.worker_manager
             .process(&mut self._bot, &mut self.bot_info);
+        Ok(())
+    }
+    /// Called once on last step with a result for your bot.
+    fn on_end(&self, _result: GameResult) -> SC2Result<()> {
+        println!("Result {:?}", _result);
         Ok(())
     }
 }

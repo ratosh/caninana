@@ -55,9 +55,9 @@ pub struct CommandQueue {
 
 impl CommandQueue {
     pub fn print_queue(&self) {
-        debug!("----------------------------------");
+        println!("----------------------------------");
         for command in self.queue.iter() {
-            debug!("Pending command {:?}", command);
+            println!("Pending command {:?}", command);
         }
     }
 
@@ -67,7 +67,9 @@ impl CommandQueue {
                 unit_type,
                 wanted_amount,
             } => bot.counter().all().count(unit_type) < wanted_amount,
-            Command::UpgradeCommand { upgrade } => !bot.has_upgrade(upgrade),
+            Command::UpgradeCommand { upgrade } => {
+                !bot.has_upgrade(upgrade) && !bot.is_ordered_upgrade(upgrade)
+            }
         });
     }
 

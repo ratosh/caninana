@@ -44,14 +44,18 @@ impl ResourceManager {
             bases.extend(bot.units.my.structures.of_type(unit_type.clone()));
         }
         let ideal_harversters = bases.sum(|x| x.ideal_harvesters().unwrap());
-        let current_harversters = bases.sum(|x| x.assigned_harvesters().unwrap()) + bot.units.my.workers.idle().len() as u32;
-        if current_harversters > 22 &&
-            bot.can_afford(bot.race_values.start_townhall, false)
+        let current_harversters = bases.sum(|x| x.assigned_harvesters().unwrap())
+            + bot.units.my.workers.idle().len() as u32;
+        if current_harversters > 22
+            && bot.can_afford(bot.race_values.start_townhall, false)
             && ideal_harversters < 64
             && current_harversters >= ideal_harversters
         {
             bot_info.build_queue.push(
-                Command::new_unit(UnitTypeId::Hatchery, bases.len() + 1),
+                Command::new_unit(
+                    bot.race_values.start_townhall,
+                    bot.counter().all().count(bot.race_values.start_townhall) + 1,
+                ),
                 current_harversters > ideal_harversters,
                 80,
             );

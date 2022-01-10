@@ -21,7 +21,11 @@ impl WorkerManager {
         let mut deficit_minerals = Units::new();
         let mut deficit_geysers = Units::new();
 
-        let bases = bot.units.my.townhalls.ready();
+        let bases = bot
+            .units
+            .my
+            .all
+            .filter(|b| bot.owned_expansions().any(|e| e.base.unwrap() == b.tag()));
         for base in bases {
             match base.assigned_harvesters().cmp(&base.ideal_harvesters()) {
                 Ordering::Less => deficit_minerals.extend(
@@ -47,7 +51,8 @@ impl WorkerManager {
                             })
                             .iter()
                             .take(
-                                (base.assigned_harvesters().unwrap() - base.ideal_harvesters().unwrap())
+                                (base.assigned_harvesters().unwrap()
+                                    - base.ideal_harvesters().unwrap())
                                     as usize,
                             )
                             .cloned(),

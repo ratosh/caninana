@@ -2,9 +2,9 @@ use log::debug;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
-use crate::{BotInfo, Manager};
 use crate::command_queue::Command;
 use crate::command_queue::Command::*;
+use crate::{BotInfo, Manager};
 
 #[derive(Default)]
 pub struct ProductionManager {
@@ -15,6 +15,7 @@ impl ProductionManager {
     const PROCESS_DELAY: u32 = 20;
 
     fn produce_units(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
+        bot_info.build_queue.check_completion(bot);
         for command in bot_info.build_queue.into_iter() {
             match command {
                 UnitCommand {
@@ -44,7 +45,7 @@ impl ProductionManager {
             return;
         }
         if let Some(requirement) = unit_type.building_requirement() {
-            if bot.counter().count(requirement) == 0 {
+            if bot.counter().all().count(requirement) == 0 {
                 bot_info
                     .build_queue
                     .push(Command::new_unit(requirement, 1), false, 99);
@@ -169,8 +170,13 @@ impl ProductionManager {
                     .townhalls
                     .closest(bot.start_location)
                     .map_or(bot.start_location, |f| f.position())
-                    .towards(bot.game_info.map_center, 5f32),
-                Default::default(),
+                    .towards(bot.game_info.map_center, 8f32),
+                PlacementOptions {
+                    max_distance: 20,
+                    step: 2,
+                    random: false,
+                    addon: false,
+                },
             ) {
                 debug!("Placing a {:?} at {:?}", unit_type, location);
                 // TODO: improve default building placement
@@ -199,7 +205,8 @@ impl ProductionManager {
                     random: false,
                     addon: false,
                 };
-                if let Some(placement) = bot.find_placement(unit_type, expansion_location, options) {
+                if let Some(placement) = bot.find_placement(unit_type, expansion_location, options)
+                {
                     builder.build(unit_type, placement, false);
                     bot.subtract_resources(bot.race_values.gas, false);
                 }
@@ -272,6 +279,8 @@ impl BuildingRequirement for UnitTypeId {
             UnitTypeId::Overseer => Some(UnitTypeId::Lair),
             UnitTypeId::Lair => Some(UnitTypeId::SpawningPool),
             UnitTypeId::Hive => Some(UnitTypeId::InfestationPit),
+            UnitTypeId::UltraliskCavern => Some(UnitTypeId::Hive),
+            UnitTypeId::Ultralisk => Some(UnitTypeId::UltraliskCavern),
             _ => None,
         }
     }
@@ -287,6 +296,9 @@ impl ProducedOn for UpgradeId {
             UpgradeId::GlialReconstitution => UnitTypeId::RoachWarren,
             UpgradeId::EvolveGroovedSpines | UpgradeId::EvolveMuscularAugments => {
                 UnitTypeId::HydraliskDen
+            }
+            UpgradeId::ChitinousPlating | UpgradeId::AnabolicSynthesis => {
+                UnitTypeId::UltraliskCavern
             }
             UpgradeId::Overlordspeed => UnitTypeId::Hatchery,
             UpgradeId::ZergGroundArmorsLevel1
