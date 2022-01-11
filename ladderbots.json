@@ -1,0 +1,12 @@
+{
+  "Bots": {
+    "caninana": {
+      "Race": "Zerg",
+      "Type": "Binary",
+      "RootPath": "./",
+      "FileName": "caninana.exe",
+      "Args": "",
+      "Debug": false
+    }
+  }
+}
