@@ -13,3 +13,5 @@ Cargo.lock
 /.idea
 /.vscode
 *.iml
+
+*.SC2Replay

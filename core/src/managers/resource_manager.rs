@@ -65,7 +65,7 @@ impl ResourceManager {
     fn order_geysers(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
         let extractor = bot.race_values.gas;
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        let wanted_extractors = if drones < 70 {
+        let wanted_extractors = if drones < 60 {
             1.max(bot.counter().all().count(UnitTypeId::Drone) / 16)
         } else {
             bot.owned_expansions().count() * 2

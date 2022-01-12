@@ -123,9 +123,24 @@ impl WorkerManager {
     }
 
     fn queue_worker(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
-        let wanted_workers = 82.min(bot.owned_expansions().count() * 19);
+        let ideal_miners = bot
+            .units
+            .my
+            .townhalls
+            .iter()
+            .map(|e| e.ideal_harvesters().unwrap_or(0))
+            .sum::<u32>();
+        let ideal_geysers = bot
+            .units
+            .my
+            .gas_buildings
+            .iter()
+            .map(|e| e.ideal_harvesters().unwrap_or(0))
+            .sum::<u32>();
+
+        let wanted_workers = 82.min(ideal_miners + ideal_geysers);
         bot_info.build_queue.push(
-            Command::new_unit(UnitTypeId::Drone, wanted_workers),
+            Command::new_unit(UnitTypeId::Drone, wanted_workers as usize),
             false,
             25,
         );

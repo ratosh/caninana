@@ -196,30 +196,28 @@ impl CreepPlacement for Bot {
                                     > range
                             })
                             .collect::<Vec<Point2>>();
-                        let results = self
-                            .query_placement(
-                                positions
-                                    .iter()
-                                    .map(|pos| (ability, *pos, Some(unit.tag())))
-                                    .collect(),
-                                false,
-                            )
-                            .unwrap();
+                        if let Ok(results) = self.query_placement(
+                            positions
+                                .iter()
+                                .map(|pos| (ability, *pos, Some(unit.tag())))
+                                .collect(),
+                            false,
+                        ) {
+                            let valid_positions = positions
+                                .iter()
+                                .zip(results.iter())
+                                .filter_map(|(pos, res)| {
+                                    if matches!(res, ActionResult::Success) {
+                                        Some(*pos)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect::<Vec<Point2>>();
 
-                        let valid_positions = positions
-                            .iter()
-                            .zip(results.iter())
-                            .filter_map(|(pos, res)| {
-                                if matches!(res, ActionResult::Success) {
-                                    Some(*pos)
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect::<Vec<Point2>>();
-
-                        if !valid_positions.is_empty() {
-                            return valid_positions.iter().closest(spot).cloned();
+                            if !valid_positions.is_empty() {
+                                return valid_positions.iter().closest(spot).cloned();
+                            }
                         }
                     }
                 }
