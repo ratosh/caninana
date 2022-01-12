@@ -7,14 +7,6 @@
       "FileName": "Caninana",
       "Args": "",
       "Debug": false
-    },
-    "Caninana-Win32": {
-      "Race": "Zerg",
-      "Type": "Binary",
-      "RootPath": "./",
-      "FileName": "Caninana.exe",
-      "Args": "",
-      "Debug": false
     }
   }
 }
