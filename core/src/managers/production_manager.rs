@@ -12,6 +12,7 @@ pub struct ProductionManager {
 }
 
 impl ProductionManager {
+    const REQUIREMENT_QUEUE_PRIORITY: usize = 100_000;
     const PROCESS_DELAY: u32 = 20;
 
     fn produce_units(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
@@ -46,9 +47,11 @@ impl ProductionManager {
         }
         if let Some(requirement) = unit_type.building_requirement() {
             if bot.counter().all().count(requirement) == 0 {
-                bot_info
-                    .build_queue
-                    .push(Command::new_unit(requirement, 1), false, 99);
+                bot_info.build_queue.push(
+                    Command::new_unit(requirement, 1),
+                    false,
+                    Self::REQUIREMENT_QUEUE_PRIORITY,
+                );
                 return;
             }
         }
@@ -85,9 +88,11 @@ impl ProductionManager {
             && bot.units.my.structures.of_type(produced_on).is_empty()
         {
             debug!("No building to create, pushing one to the queue");
-            bot_info
-                .build_queue
-                .push(Command::new_unit(produced_on, 1), false, 99);
+            bot_info.build_queue.push(
+                Command::new_unit(produced_on, 1),
+                false,
+                Self::REQUIREMENT_QUEUE_PRIORITY,
+            );
         }
     }
 
@@ -96,9 +101,11 @@ impl ProductionManager {
         if bot.can_afford_upgrade(upgrade) {
             if let Some(requirement) = upgrade.building_requirement() {
                 if bot.counter().count(requirement) == 0 {
-                    bot_info
-                        .build_queue
-                        .push(Command::new_unit(requirement, 1), false, 99);
+                    bot_info.build_queue.push(
+                        Command::new_unit(requirement, 1),
+                        false,
+                        Self::REQUIREMENT_QUEUE_PRIORITY,
+                    );
                     return;
                 }
             }
@@ -108,9 +115,11 @@ impl ProductionManager {
                     building.research(upgrade, false);
                     bot.subtract_upgrade_cost(upgrade);
                 } else {
-                    bot_info
-                        .build_queue
-                        .push(Command::new_unit(produced_on, 1), false, 99);
+                    bot_info.build_queue.push(
+                        Command::new_unit(produced_on, 1),
+                        false,
+                        Self::REQUIREMENT_QUEUE_PRIORITY,
+                    );
                 }
             }
         }
@@ -130,9 +139,11 @@ impl ProductionManager {
             unit.use_ability(upgrade_ability.unwrap(), false);
             bot.subtract_resources(unit_type, false);
         } else {
-            bot_info
-                .build_queue
-                .push(Command::new_unit(produced_on, 1), false, 99);
+            bot_info.build_queue.push(
+                Command::new_unit(produced_on, 1),
+                false,
+                Self::REQUIREMENT_QUEUE_PRIORITY,
+            );
         }
     }
 
@@ -272,15 +283,22 @@ impl MorphUpgrade for UnitTypeId {
 impl BuildingRequirement for UnitTypeId {
     fn building_requirement(&self) -> Option<UnitTypeId> {
         match *self {
-            UnitTypeId::Roach => Some(UnitTypeId::RoachWarren),
+            // Units
+            UnitTypeId::Queen => Some(UnitTypeId::SpawningPool),
+            UnitTypeId::Zergling => Some(UnitTypeId::SpawningPool),
             UnitTypeId::Baneling => Some(UnitTypeId::BanelingNest),
+            UnitTypeId::Roach => Some(UnitTypeId::RoachWarren),
             UnitTypeId::Hydralisk => Some(UnitTypeId::HydraliskDen),
             UnitTypeId::HydraliskDen => Some(UnitTypeId::Lair),
             UnitTypeId::Overseer => Some(UnitTypeId::Lair),
+            UnitTypeId::Ultralisk => Some(UnitTypeId::UltraliskCavern),
+            UnitTypeId::Corruptor => Some(UnitTypeId::Spire),
+
+            // Buildings
             UnitTypeId::Lair => Some(UnitTypeId::SpawningPool),
             UnitTypeId::Hive => Some(UnitTypeId::InfestationPit),
+            UnitTypeId::Spire => Some(UnitTypeId::Lair),
             UnitTypeId::UltraliskCavern => Some(UnitTypeId::Hive),
-            UnitTypeId::Ultralisk => Some(UnitTypeId::UltraliskCavern),
             _ => None,
         }
     }
