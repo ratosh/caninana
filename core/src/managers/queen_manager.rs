@@ -60,7 +60,7 @@ impl QueenManager {
                     (!bot.is_visible((p.x as usize, p.y as usize))
                         || !bot.has_creep((p.x as usize, p.y as usize)))
                         && (h.position().distance(p)
-                        >= bot.pathing_distance(h.position(), p.clone()))
+                            >= bot.pathing_distance(h.position(), p.clone()))
                 })
                 .closest(bot.start_location.between(h.position()))
             {
@@ -87,7 +87,7 @@ impl QueenManager {
             .first()
         {
             if let Some(position) =
-            bot.find_placement(UnitTypeId::CreepTumor, queen.position(), Default::default())
+                bot.find_placement(UnitTypeId::CreepTumor, queen.position(), Default::default())
             {
                 queen.command(
                     AbilityId::BuildCreepTumorQueen,
@@ -112,8 +112,8 @@ impl QueenManager {
             for base in bot.units.my.townhalls.iter().filter(|h| {
                 !h.has_buff(BuffId::QueenSpawnLarvaTimer)
                     && injecting_queens
-                    .filter(|q| q.target_tag().unwrap() == h.tag())
-                    .is_empty()
+                        .filter(|q| q.target_tag().unwrap() == h.tag())
+                        .is_empty()
             }) {
                 debug!("Need to inject in base {}", base.tag());
                 if let Some(queen) = queens.closest(base) {
@@ -147,12 +147,12 @@ impl CreepMap for Bot {
                 let point = Point2::new(x as f32, y as f32);
                 if self.is_placeable(point)
                     && self
-                    .expansions
-                    .iter()
-                    .map(|e| e.loc)
-                    .closest_distance(point)
-                    .unwrap_or(0f32)
-                    > SPREAD_MAP_DISTANCE as f32
+                        .expansions
+                        .iter()
+                        .map(|e| e.loc)
+                        .closest_distance(point)
+                        .unwrap_or(0f32)
+                        > SPREAD_MAP_DISTANCE as f32
                 {
                     result.push(point);
                 }
@@ -175,7 +175,7 @@ impl CreepPlacement for Bot {
                     let range = CREEP_SPREAD_DISTANCE as f32;
                     let near = unit.position().towards(spot, range);
                     for distance in
-                    (placement_step..(range as i32)).step_by(placement_step as usize)
+                        (placement_step..(range as i32)).step_by(placement_step as usize)
                     {
                         let positions = (-distance..=distance)
                             .step_by(placement_step as usize)
@@ -196,14 +196,13 @@ impl CreepPlacement for Bot {
                                     > range
                             })
                             .collect::<Vec<Point2>>();
-                        if let Ok(results) = self
-                            .query_placement(
-                                positions
-                                    .iter()
-                                    .map(|pos| (ability, *pos, Some(unit.tag())))
-                                    .collect(),
-                                false,
-                            ) {
+                        if let Ok(results) = self.query_placement(
+                            positions
+                                .iter()
+                                .map(|pos| (ability, *pos, Some(unit.tag())))
+                                .collect(),
+                            false,
+                        ) {
                             let valid_positions = positions
                                 .iter()
                                 .zip(results.iter())

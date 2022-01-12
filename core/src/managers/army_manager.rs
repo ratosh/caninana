@@ -317,12 +317,19 @@ impl ArmyManager {
         //     false,
         //     35,
         // );
+        if !bot
+            .units
+            .enemy
+            .all
+            .filter(|u| u.is_cloaked() || u.is_burrowed())
+            .is_empty()
+        {
+            bot_info
+                .build_queue
+                .push(Command::new_unit(UnitTypeId::Overseer, 1), false, 1);
+        }
 
-        bot_info
-            .build_queue
-            .push(Command::new_unit(UnitTypeId::Overseer, 1), false, 1);
-
-        if min_lings >= 20 {
+        if min_lings >= 20 && bot.units.my.townhalls.len() > 3 {
             bot_info.build_queue.push(
                 Command::new_unit(UnitTypeId::Ultralisk, min_lings),
                 false,
@@ -346,15 +353,16 @@ impl ArmyManager {
                 50,
             );
         }
-        if !bot.is_ordered_upgrade(UpgradeId::Zerglingmovementspeed)
-            && !bot.has_upgrade(UpgradeId::Zerglingmovementspeed)
-        {
-            return;
-        }
         if bot.counter().all().count(UnitTypeId::Overseer) > 0 {
             bot_info
                 .build_queue
                 .push(Command::new_upgrade(UpgradeId::Overlordspeed), false, 50);
+        }
+        if (!bot.is_ordered_upgrade(UpgradeId::Zerglingmovementspeed)
+            && !bot.has_upgrade(UpgradeId::Zerglingmovementspeed))
+            || bot.units.my.townhalls.len() < 3
+        {
+            return;
         }
         if bot.counter().all().count(UnitTypeId::Baneling) > 0 {
             bot_info

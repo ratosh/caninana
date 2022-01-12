@@ -123,7 +123,8 @@ impl WorkerManager {
     }
 
     fn queue_worker(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
-        let ideal_miners = bot.units
+        let ideal_miners = bot
+            .units
             .my
             .townhalls
             .iter()
