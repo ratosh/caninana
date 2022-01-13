@@ -22,9 +22,7 @@ for bot_id in bot_ids:
         for i in range(len(participation['results'])):
             match_id = participation['results'][i]['match']
             existing_file = glob.glob(f"{file_path}{match_id}*")
-            if existing_file:
-                participation_address = None
-            elif participation["results"][i]['result'] == 'loss':
+            if not existing_file and participation["results"][i]['result'] == 'loss':
                 response = requests.get(f'https://aiarena.net/api/results/?match={match_id}', headers=auth)
                 assert response.status_code == 200, 'Unexpected status_code returned from results'
                 match_details = json.loads(response.text)

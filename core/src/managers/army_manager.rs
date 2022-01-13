@@ -5,8 +5,8 @@ use rand::prelude::*;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
-use crate::command_queue::Command;
 use crate::{BotInfo, Manager};
+use crate::command_queue::Command;
 
 pub struct ArmyManager {
     last_loop: u32,
@@ -33,7 +33,7 @@ impl Default for ArmyManager {
 impl ArmyManager {
     fn scout(&self, bot: &mut Bot) {
         let overs = bot.units.my.units.of_type(UnitTypeId::Overlord).idle();
-        if bot.units.enemy.all.is_empty() {
+        if bot.units.enemy.structures.is_empty() {
             let mut rng = thread_rng();
             for overlord in overs {
                 let random_x = (rng.next_u64() % bot.game_info.map_size.x as u64) as f32;
@@ -119,7 +119,7 @@ impl ArmyManager {
                 bot.units
                     .enemy
                     .all
-                    .filter(|u| !u.is_flying() && u.can_attack() && u.can_be_attacked()),
+                    .filter(|u| !u.is_flying() && u.can_attack() && u.can_be_attacked() && u.type_id() != UnitTypeId::Larva),
             );
 
             secondary_targets.extend(
@@ -127,7 +127,7 @@ impl ArmyManager {
                     .enemy
                     .all
                     .ground()
-                    .filter(|u| !u.is_flying() && !u.can_attack() && u.can_be_attacked()),
+                    .filter(|u| !u.is_flying() && !u.can_attack() && u.can_be_attacked() && u.type_id() != UnitTypeId::Larva)
             );
 
             if !my_army.filter(|u| u.can_attack_air()).is_empty() {
