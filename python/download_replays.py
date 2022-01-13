@@ -5,8 +5,8 @@ import os
 import requests
 
 # Download
-bot_ids = [376]  # Ids on AI ARENA
-token = os.environ['ARENA_API_TOKEN']  # Environment variable from: https://aiarena.net/profile/token/
+bot_ids = [375, 376]  # Ids on AI ARENA
+token = os.environ['ARENA_API_TOKEN']  # Environment variable with token from: https://aiarena.net/profile/token/
 file_path = './replays/'
 auth = {'Authorization': f'Token {token}'}
 
@@ -24,8 +24,7 @@ for bot_id in bot_ids:
             existing_file = glob.glob(f"{file_path}{match_id}*")
             if existing_file:
                 participation_address = None
-                break
-            if participation["results"][i]['result'] == 'loss':
+            elif participation["results"][i]['result'] == 'loss':
                 response = requests.get(f'https://aiarena.net/api/results/?match={match_id}', headers=auth)
                 assert response.status_code == 200, 'Unexpected status_code returned from results'
                 match_details = json.loads(response.text)
