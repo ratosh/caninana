@@ -80,7 +80,15 @@ impl ProductionManager {
                 larva.train(unit_type, false);
                 bot.subtract_resources(unit_type, true);
             }
-        } else if let Some(train_at) = bot.units.my.structures.of_type(produced_on).idle().first() {
+        } else if let Some(train_at) = bot
+            .units
+            .my
+            .structures
+            .ready()
+            .of_type(produced_on)
+            .idle()
+            .first()
+        {
             debug!("training a {:?} at {:?}", unit_type, produced_on);
             train_at.train(unit_type, false);
             bot.subtract_resources(unit_type, true);
