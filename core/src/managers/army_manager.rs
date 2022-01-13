@@ -1,12 +1,28 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use log::debug;
 use rand::prelude::*;
 use rust_sc2::bot::Bot;
+use rust_sc2::Event::UnitDestroyed;
 use rust_sc2::prelude::*;
+use rust_sc2::units::Container;
 
-use crate::{BotInfo, Manager};
+use crate::{BotInfo, EventListener, Manager};
 use crate::command_queue::Command;
+
+pub struct UnitCache {
+    unit_type: UnitTypeId,
+    last_seen: f32,
+}
+
+impl UnitCache {
+    fn new(unit_type: UnitTypeId, time: f32) -> Self {
+        Self {
+            unit_type,
+            last_seen: time,
+        }
+    }
+}
 
 pub struct ArmyManager {
     last_loop: u32,
@@ -15,7 +31,10 @@ pub struct ArmyManager {
     retreat_wave_size: usize,
     defending: bool,
     retreating: HashSet<u64>,
+    enemy_units: HashMap<u64, UnitCache>, // TODO: Forget about enemy units not seen for for a long time (30 seconds+)
 }
+
+impl ArmyManager {}
 
 impl Default for ArmyManager {
     fn default() -> Self {
@@ -26,11 +45,54 @@ impl Default for ArmyManager {
             retreat_wave_size: 8,
             defending: false,
             retreating: HashSet::new(),
+            enemy_units: HashMap::new(),
         }
     }
 }
 
 impl ArmyManager {
+    const CACHE_TIME: f32 = 60f32;
+
+    pub fn destroy_unit(&mut self, tag: u64) {
+        self.enemy_units.remove(&tag);
+    }
+
+    fn check_unit_cache(&mut self, bot: &Bot) {
+        for unit in bot.units.enemy.all.iter() {
+            if !self.enemy_units.contains(&unit.tag()) {
+                debug!(
+                    "Found a new unit {:?} {:?} ({:?})",
+                    unit.type_id(),
+                    unit.tag(),
+                    unit.position()
+                );
+            }
+            self.enemy_units
+                .insert(unit.tag(), UnitCache::new(unit.type_id(), bot.time));
+        }
+        self.enemy_units
+            .retain(|_, value| value.last_seen + Self::CACHE_TIME > bot.time);
+    }
+
+    fn enemy_supply(&self, bot: &Bot) -> usize {
+        self.enemy_units
+            .values()
+            .filter(|p| !p.unit_type.is_worker())
+            .map(|u| bot.game_data.units[&u.unit_type].food_required)
+            .sum::<f32>() as usize
+    }
+
+    fn our_supply(&self, bot: &Bot) -> usize {
+        bot.units
+            .my
+            .units
+            .ready()
+            .filter(|u| !u.is_worker() && !self.retreating.contains(&u.tag()))
+            .iter()
+            .map(|u| u.supply_cost())
+            .sum::<f32>() as usize
+    }
+
     fn scout(&self, bot: &mut Bot) {
         let overs = bot.units.my.units.of_type(UnitTypeId::Overlord).idle();
         if bot.units.enemy.structures.is_empty() {
@@ -103,15 +165,19 @@ impl ArmyManager {
         // Attack when we build enough numbers again
         let has_speed_boost = bot.has_upgrade(UpgradeId::Zerglingmovementspeed)
             || bot.upgrade_progress(UpgradeId::Zerglingmovementspeed) >= 0.9f32;
-        let active_army_size = my_army
-            .filter(|u| !self.retreating.contains(&u.tag()))
-            .len();
+        let our_supply = self.our_supply(bot);
+        let enemy_supply = self.enemy_supply(bot);
+        println!(
+            "{:?}>{:?}|{:?}|{:?}",
+            self.attack_wave_size, self.retreat_wave_size, our_supply, enemy_supply
+        );
+        let should_keep_aggro = our_supply >= self.retreat_wave_size
+            && (our_supply > enemy_supply * 2 / 3);
+        let should_go_aggro = (our_supply >= self.attack_wave_size) || bot.supply_used > 190;
         self.going_aggro = has_speed_boost
-            && ((self.going_aggro && active_army_size >= self.retreat_wave_size)
-                || (!self.going_aggro
-                    && (active_army_size >= self.attack_wave_size || bot.supply_used > 190)));
+            && ((self.going_aggro && should_keep_aggro) || should_go_aggro);
 
-        self.attack_wave_size = self.attack_wave_size.max(active_army_size);
+        self.attack_wave_size = self.attack_wave_size.max(our_supply);
         self.retreat_wave_size = self.attack_wave_size / 2;
 
         if self.going_aggro {
@@ -122,13 +188,12 @@ impl ArmyManager {
                     .filter(|u| !u.is_flying() && u.can_attack() && u.can_be_attacked() && u.type_id() != UnitTypeId::Larva),
             );
 
-            secondary_targets.extend(
-                bot.units
-                    .enemy
-                    .all
-                    .ground()
-                    .filter(|u| !u.is_flying() && !u.can_attack() && u.can_be_attacked() && u.type_id() != UnitTypeId::Larva)
-            );
+            secondary_targets.extend(bot.units.enemy.all.ground().filter(|u| {
+                !u.is_flying()
+                    && !u.can_attack()
+                    && u.can_be_attacked()
+                    && u.type_id() != UnitTypeId::Larva
+            }));
 
             if !my_army.filter(|u| u.can_attack_air()).is_empty() {
                 priority_targets.extend(
@@ -178,7 +243,15 @@ impl ArmyManager {
                     self.retreating.insert(u.tag());
                 }
                 let is_retreating = self.retreating.contains(&u.tag());
-                if !u.is_melee() && (is_retreating || u.on_cooldown()) {
+                if is_retreating && !u.on_cooldown() && !u.is_melee() {
+                    if let Some(target) = priority_targets
+                        .iter()
+                        .filter(|t| u.in_range(t, 0.0))
+                        .min_by_key(|t| t.hits())
+                    {
+                        u.order_attack(Target::Tag(target.tag()), false);
+                    }
+                } else if !u.is_melee() && (is_retreating || u.on_cooldown()) {
                     if let Some(closest_attacker) = bot
                         .units
                         .enemy
@@ -223,7 +296,7 @@ impl ArmyManager {
                                     .filter(|t| u.can_attack_unit(t))
                                     .closest(u)
                                 {
-                                    u.order_attack(Target::Pos(closest.position()), false);
+                                    u.order_attack(Target::Tag(closest.tag()), false);
                                 } else if let Some(closest) = secondary_targets
                                     .iter()
                                     .filter(|t| u.can_attack_unit(t))
@@ -258,7 +331,7 @@ impl ArmyManager {
                 bot.start_location.towards(bot.enemy_start, 5f32)
             };
             for u in &my_army {
-                if u.distance(target) > u.ground_range() + u.speed() {
+                if u.distance(target) > u.ground_range() + u.speed() * 2f32 {
                     u.order_attack(Target::Pos(target), false);
                 }
             }
@@ -511,9 +584,18 @@ impl Manager for ArmyManager {
             return;
         }
         self.last_loop = game_loop;
+        self.check_unit_cache(bot);
         self.order_upgrades(bot, bot_info);
         self.order_units(bot, bot_info);
         self.scout(bot);
         self.micro(bot);
+    }
+}
+
+impl EventListener for ArmyManager {
+    fn on_event(&mut self, event: Event) {
+        if let UnitDestroyed(tag, _) = event {
+            self.destroy_unit(tag);
+        }
     }
 }
