@@ -198,9 +198,15 @@ impl Player for Caninana {
             .process(&mut self._bot, &mut self.bot_info);
         Ok(())
     }
+
     /// Called once on last step with a result for your bot.
     fn on_end(&self, _result: GameResult) -> SC2Result<()> {
         println!("Result {:?}", _result);
+        Ok(())
+    }
+
+    fn on_event(&mut self, event: Event) -> SC2Result<()> {
+        self.army_manager.on_event(event);
         Ok(())
     }
 }
