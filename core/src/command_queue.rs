@@ -119,7 +119,7 @@ impl IntoIterator for &CommandQueue {
     fn into_iter(self) -> Self::IntoIter {
         CommandQueueIter {
             index: 0,
-            queue: self.queue.iter().cloned().collect(),
+            queue: self.queue.to_vec(),
         }
     }
 }

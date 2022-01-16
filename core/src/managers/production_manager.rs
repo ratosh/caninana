@@ -160,17 +160,13 @@ impl ProductionManager {
             .units
             .my
             .workers
+            .iter()
             .filter(|u| !(u.is_constructing() || u.is_returning() || u.is_carrying_resource()))
             .closest(pos);
-        result.map(|worker| worker.clone())
+        result.cloned()
     }
 
-    fn build(
-        &self,
-        bot: &mut Bot,
-        unit_type: UnitTypeId,
-        wanted_amount: usize,
-    ) {
+    fn build(&self, bot: &mut Bot, unit_type: UnitTypeId, wanted_amount: usize) {
         debug!("Trying to build {:?} {:?}", unit_type, wanted_amount);
         if unit_type.is_structure() {
             if bot.race_values.gas == unit_type || bot.race_values.rich_gas == unit_type {

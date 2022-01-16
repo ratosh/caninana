@@ -1,3 +1,7 @@
+// Disable warning for the crate name, not a really good way to do this but..
+// (https://github.com/rust-lang/rust/issues/45127)
+#![allow(non_snake_case)]
+
 #[macro_use]
 extern crate clap;
 
@@ -181,7 +185,7 @@ impl Player for Caninana {
     }
 
     fn on_start(&mut self) -> SC2Result<()> {
-        self.opening.opening(&mut self._bot, &mut self.bot_info);
+        self.opening.opening(&self._bot, &mut self.bot_info);
         Ok(())
     }
 

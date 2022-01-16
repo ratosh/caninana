@@ -214,7 +214,7 @@ impl ArmyManager {
                 );
             }
         } else {
-            priority_targets.extend(enemy_attack_force.clone());
+            priority_targets.extend(enemy_attack_force);
         };
 
         let overseers = bot.units.my.units.of_type(UnitTypeId::Overseer);

@@ -35,13 +35,13 @@ impl ResourceManager {
             .my
             .structures
             .not_ready()
-            .of_type(bot.race_values.start_townhall.clone())
+            .of_type(bot.race_values.start_townhall)
             .is_empty()
         {
             return;
         }
         for unit_type in bot.race_values.townhalls.iter() {
-            bases.extend(bot.units.my.structures.of_type(unit_type.clone()));
+            bases.extend(bot.units.my.structures.of_type(*unit_type));
         }
         let ideal_harversters = bases.sum(|x| x.ideal_harvesters().unwrap());
         let current_harversters = bases.sum(|x| x.assigned_harvesters().unwrap())
