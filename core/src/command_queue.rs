@@ -1,4 +1,3 @@
-use log::debug;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
