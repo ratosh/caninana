@@ -59,7 +59,7 @@ impl ProductionManager {
         if upgrade_ability.is_some() {
             self.morph_upgrade(bot, bot_info, unit_type);
         } else if unit_type.is_structure() {
-            self.build(bot, bot_info, unit_type, wanted_amount);
+            self.build(bot, unit_type, wanted_amount);
         } else {
             let current_amount = bot.counter().all().count(unit_type);
             for _ in current_amount..wanted_amount {
@@ -160,19 +160,14 @@ impl ProductionManager {
             .units
             .my
             .workers
-            .iter()
             .filter(|u| !(u.is_constructing() || u.is_returning() || u.is_carrying_resource()))
             .closest(pos);
-        match result {
-            Some(worker) => Some(worker.clone()),
-            None => None,
-        }
+        result.map(|worker| worker.clone())
     }
 
     fn build(
         &self,
         bot: &mut Bot,
-        bot_info: &mut BotInfo,
         unit_type: UnitTypeId,
         wanted_amount: usize,
     ) {
