@@ -3,12 +3,12 @@ use std::collections::{HashMap, HashSet};
 use log::debug;
 use rand::prelude::*;
 use rust_sc2::bot::Bot;
-use rust_sc2::Event::UnitDestroyed;
 use rust_sc2::prelude::*;
 use rust_sc2::units::Container;
+use rust_sc2::Event::UnitDestroyed;
 
-use crate::{BotInfo, EventListener, Manager};
 use crate::command_queue::Command;
+use crate::{BotInfo, EventListener, Manager};
 
 pub struct UnitCache {
     unit_type: UnitTypeId,
@@ -94,10 +94,10 @@ impl ArmyManager {
     }
 
     fn scout(&self, bot: &mut Bot) {
-        let overs = bot.units.my.units.of_type(UnitTypeId::Overlord).idle();
+        let overs = bot.units.my.units.of_type(UnitTypeId::Overlord);
         if bot.units.enemy.structures.is_empty() {
             let mut rng = thread_rng();
-            for overlord in overs {
+            for overlord in overs.idle() {
                 let random_x = (rng.next_u64() % bot.game_info.map_size.x as u64) as f32;
                 let random_y = (rng.next_u64() % bot.game_info.map_size.y as u64) as f32;
                 overlord.order_move_to(
@@ -109,10 +109,11 @@ impl ArmyManager {
                 );
             }
         } else {
-            for overlord in overs {
-                if overlord.position().distance_squared(bot.start_location) > 15f32 {
-                    overlord.order_move_to(Target::Pos(bot.start_location), false);
-                }
+            for overlord in overs.filter(|u| {
+                (u.is_attacked() || u.is_idle())
+                    && u.position().distance_squared(bot.start_location) > 20f32
+            }) {
+                overlord.order_move_to(Target::Pos(bot.start_location), false);
             }
         }
     }
@@ -167,26 +168,26 @@ impl ArmyManager {
             || bot.upgrade_progress(UpgradeId::Zerglingmovementspeed) >= 0.9f32;
         let our_supply = self.our_supply(bot);
         let enemy_supply = self.enemy_supply(bot);
-        println!(
+        debug!(
             "{:?}>{:?}|{:?}|{:?}",
             self.attack_wave_size, self.retreat_wave_size, our_supply, enemy_supply
         );
-        let should_keep_aggro = our_supply >= self.retreat_wave_size
-            && (our_supply > enemy_supply * 2 / 3);
+        let should_keep_aggro =
+            our_supply >= self.retreat_wave_size && (our_supply > enemy_supply * 2 / 3);
         let should_go_aggro = (our_supply >= self.attack_wave_size) || bot.supply_used > 190;
-        self.going_aggro = has_speed_boost
-            && ((self.going_aggro && should_keep_aggro) || should_go_aggro);
+        self.going_aggro =
+            has_speed_boost && ((self.going_aggro && should_keep_aggro) || should_go_aggro);
 
         self.attack_wave_size = self.attack_wave_size.max(our_supply);
         self.retreat_wave_size = self.attack_wave_size / 2;
 
         if self.going_aggro {
-            priority_targets.extend(
-                bot.units
-                    .enemy
-                    .all
-                    .filter(|u| !u.is_flying() && u.can_attack() && u.can_be_attacked() && u.type_id() != UnitTypeId::Larva),
-            );
+            priority_targets.extend(bot.units.enemy.all.filter(|u| {
+                !u.is_flying()
+                    && u.can_attack()
+                    && u.can_be_attacked()
+                    && u.type_id() != UnitTypeId::Larva
+            }));
 
             secondary_targets.extend(bot.units.enemy.all.ground().filter(|u| {
                 !u.is_flying()
@@ -213,7 +214,7 @@ impl ArmyManager {
                 );
             }
         } else {
-            priority_targets.extend(enemy_attack_force.clone());
+            priority_targets.extend(enemy_attack_force);
         };
 
         let overseers = bot.units.my.units.of_type(UnitTypeId::Overseer);
@@ -277,33 +278,27 @@ impl ArmyManager {
                             }
                         };
                         u.order_move_to(Target::Pos(flee_position), false);
-                    } else if u.has_ability(AbilityId::BurrowDown) {
-                        u.use_ability(AbilityId::BurrowDown, false);
                     }
                 } else {
-                    if u.has_ability(AbilityId::BurrowUp) {
-                        u.use_ability(AbilityId::BurrowUp, false);
-                    } else {
-                        match priority_targets
-                            .iter()
-                            .filter(|t| u.in_range(t, 0.1))
-                            .min_by_key(|t| t.hits())
-                        {
-                            Some(target) => u.order_attack(Target::Tag(target.tag()), false),
-                            None => {
-                                if let Some(closest) = priority_targets
-                                    .iter()
-                                    .filter(|t| u.can_attack_unit(t))
-                                    .closest(u)
-                                {
-                                    u.order_attack(Target::Tag(closest.tag()), false);
-                                } else if let Some(closest) = secondary_targets
-                                    .iter()
-                                    .filter(|t| u.can_attack_unit(t))
-                                    .closest(u)
-                                {
-                                    u.order_attack(Target::Pos(closest.position()), false);
-                                }
+                    match priority_targets
+                        .iter()
+                        .filter(|t| u.in_range(t, 0.1))
+                        .min_by_key(|t| t.hits())
+                    {
+                        Some(target) => u.order_attack(Target::Tag(target.tag()), false),
+                        None => {
+                            if let Some(closest) = priority_targets
+                                .iter()
+                                .filter(|t| u.can_attack_unit(t))
+                                .closest(u)
+                            {
+                                u.order_attack(Target::Tag(closest.tag()), false);
+                            } else if let Some(closest) = secondary_targets
+                                .iter()
+                                .filter(|t| u.can_attack_unit(t))
+                                .closest(u)
+                            {
+                                u.order_attack(Target::Pos(closest.position()), false);
                             }
                         }
                     }

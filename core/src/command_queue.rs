@@ -1,4 +1,3 @@
-use log::debug;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
@@ -120,7 +119,7 @@ impl IntoIterator for &CommandQueue {
     fn into_iter(self) -> Self::IntoIter {
         CommandQueueIter {
             index: 0,
-            queue: self.queue.iter().cloned().collect(),
+            queue: self.queue.to_vec(),
         }
     }
 }

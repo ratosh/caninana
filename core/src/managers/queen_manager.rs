@@ -59,12 +59,11 @@ impl QueenManager {
                 .filter(|&p| {
                     (!bot.is_visible((p.x as usize, p.y as usize))
                         || !bot.has_creep((p.x as usize, p.y as usize)))
-                        && (h.position().distance(p)
-                            >= bot.pathing_distance(h.position(), p.clone()))
+                        && (h.position().distance(p) >= bot.pathing_distance(h.position(), *p))
                 })
                 .closest(bot.start_location.between(h.position()))
             {
-                if let Some(position) = bot.find_creep_placement(h, closest_spot.clone()) {
+                if let Some(position) = bot.find_creep_placement(h, *closest_spot) {
                     h.command(
                         AbilityId::BuildCreepTumorTumor,
                         Target::Pos(position),
@@ -170,54 +169,50 @@ impl CreepPlacement for Bot {
     fn find_creep_placement(&self, unit: &Unit, spot: Point2) -> Option<Point2> {
         if let Some(data) = self.game_data.units.get(&UnitTypeId::CreepTumor) {
             if let Some(ability) = data.ability {
-                if let Some(_) = self.game_data.abilities.get(&ability) {
-                    let placement_step = 1;
-                    let range = CREEP_SPREAD_DISTANCE as f32;
-                    let near = unit.position().towards(spot, range);
-                    for distance in
-                        (placement_step..(range as i32)).step_by(placement_step as usize)
-                    {
-                        let positions = (-distance..=distance)
-                            .step_by(placement_step as usize)
-                            .flat_map(|offset| {
-                                vec![
-                                    near.offset(offset as f32, (-distance) as f32),
-                                    near.offset(offset as f32, distance as f32),
-                                    near.offset((-distance) as f32, offset as f32),
-                                    near.offset(distance as f32, offset as f32),
-                                ]
-                            })
-                            .filter(|p| {
-                                self.expansions
-                                    .iter()
-                                    .map(|e| e.loc)
-                                    .closest_distance(p)
-                                    .unwrap()
-                                    > range
+                let placement_step = 1;
+                let range = CREEP_SPREAD_DISTANCE as f32;
+                let near = unit.position().towards(spot, range);
+                for distance in (placement_step..(range as i32)).step_by(placement_step as usize) {
+                    let positions = (-distance..=distance)
+                        .step_by(placement_step as usize)
+                        .flat_map(|offset| {
+                            vec![
+                                near.offset(offset as f32, (-distance) as f32),
+                                near.offset(offset as f32, distance as f32),
+                                near.offset((-distance) as f32, offset as f32),
+                                near.offset(distance as f32, offset as f32),
+                            ]
+                        })
+                        .filter(|p| {
+                            self.expansions
+                                .iter()
+                                .map(|e| e.loc)
+                                .closest_distance(p)
+                                .unwrap()
+                                > range
+                        })
+                        .collect::<Vec<Point2>>();
+                    if let Ok(results) = self.query_placement(
+                        positions
+                            .iter()
+                            .map(|pos| (ability, *pos, Some(unit.tag())))
+                            .collect(),
+                        false,
+                    ) {
+                        let valid_positions = positions
+                            .iter()
+                            .zip(results.iter())
+                            .filter_map(|(pos, res)| {
+                                if matches!(res, ActionResult::Success) {
+                                    Some(*pos)
+                                } else {
+                                    None
+                                }
                             })
                             .collect::<Vec<Point2>>();
-                        if let Ok(results) = self.query_placement(
-                            positions
-                                .iter()
-                                .map(|pos| (ability, *pos, Some(unit.tag())))
-                                .collect(),
-                            false,
-                        ) {
-                            let valid_positions = positions
-                                .iter()
-                                .zip(results.iter())
-                                .filter_map(|(pos, res)| {
-                                    if matches!(res, ActionResult::Success) {
-                                        Some(*pos)
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect::<Vec<Point2>>();
 
-                            if !valid_positions.is_empty() {
-                                return valid_positions.iter().closest(spot).cloned();
-                            }
+                        if !valid_positions.is_empty() {
+                            return valid_positions.iter().closest(spot).cloned();
                         }
                     }
                 }
@@ -244,7 +239,7 @@ trait PathingDistance {
 impl PathingDistance for Bot {
     fn pathing_distance(&self, p1: Point2, p2: Point2) -> f32 {
         self.query_pathing(vec![(Target::Pos(p1), p2)])
-            .unwrap_or(vec![])
+            .unwrap_or_default()
             .iter()
             .map(|d| d.unwrap_or(0f32))
             .sum()
