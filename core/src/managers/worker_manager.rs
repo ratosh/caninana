@@ -113,10 +113,11 @@ impl WorkerManager {
                 .iter()
                 .map(|m| m.tag())
             {
-                let mut missing = Self::MINERAL_WORKERS;
-                if let Some(workers) = self.resources.get(&mineral) {
-                    missing = missing - workers.len();
-                }
+                let missing = if let Some(workers) = self.resources.get(&mineral) {
+                    Self::MINERAL_WORKERS - workers.len()
+                } else {
+                    Self::MINERAL_WORKERS
+                };
                 for _ in 0..missing {
                     resources.push_back(mineral);
                 }
@@ -130,10 +131,11 @@ impl WorkerManager {
                 .iter()
                 .map(|g| g.tag())
             {
-                let mut missing = Self::GEYSERS_WORKERS;
-                if let Some(workers) = self.resources.get(&geyser) {
-                    missing = missing - workers.len();
-                }
+                let missing = if let Some(workers) = self.resources.get(&geyser) {
+                    Self::GEYSERS_WORKERS - workers.len()
+                } else {
+                    Self::GEYSERS_WORKERS
+                };
                 for _ in 0..missing {
                     resources.push_back(geyser);
                 }
@@ -150,17 +152,15 @@ impl WorkerManager {
                 // TODO: Consider distance
                 if let Some(resource) = resources.pop_front() {
                     self.assign_worker(worker, resource);
-                } else {
-                    if let Some(unit) = bot.units.my.workers.get(worker) {
-                        if let Some(long_mineral) = bot
-                            .units
-                            .mineral_fields
-                            .iter()
-                            .filter(|m| !self.resources.contains_key(&m.tag()))
-                            .closest(unit.position())
-                        {
-                            self.assign_worker(worker, long_mineral.tag());
-                        }
+                } else if let Some(unit) = bot.units.my.workers.get(worker) {
+                    if let Some(long_mineral) = bot
+                        .units
+                        .mineral_fields
+                        .iter()
+                        .filter(|m| !self.resources.contains_key(&m.tag()))
+                        .closest(unit.position())
+                    {
+                        self.assign_worker(worker, long_mineral.tag());
                     }
                 }
             }
@@ -258,18 +258,15 @@ impl Manager for WorkerManager {
 
 impl EventListener for WorkerManager {
     fn on_event(&mut self, event: &Event) {
-        match event {
-            Event::UnitDestroyed(tag, alliance) => {
-                match alliance {
-                    Some(Alliance::Own) => {
-                        self.unit_destroyed(*tag);
-                    }
-                    // mineral mined out
-                    Some(Alliance::Neutral) => self.unassign_resource(*tag),
-                    _ => {}
+        if let Event::UnitDestroyed(tag, alliance) = event {
+            match alliance {
+                Some(Alliance::Own) => {
+                    self.unit_destroyed(*tag);
                 }
+                // mineral mined out
+                Some(Alliance::Neutral) => self.unassign_resource(*tag),
+                _ => {}
             }
-            _ => {}
         }
     }
 }
