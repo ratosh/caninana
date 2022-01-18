@@ -14,7 +14,7 @@ pub trait Manager {
 }
 
 pub trait EventListener {
-    fn on_event(&mut self, event: Event);
+    fn on_event(&mut self, event: &Event);
 }
 
 #[derive(Debug, Default)]

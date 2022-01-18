@@ -24,7 +24,7 @@ Caninana is a StarCraft 2 AI. Our goal is to make a strong bot to play versus hu
     - [ ] Lurker
     - [ ] Infestors
     - [ ] Mutalisk
-    - [ ] Corruptor
+    - [x] Corruptor
     - [x] Ultralisk
     - [ ] Brood Lord
 - Queen manager (Zerg specific)

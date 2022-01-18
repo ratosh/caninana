@@ -210,7 +210,7 @@ impl Player for Caninana {
     }
 
     fn on_event(&mut self, event: Event) -> SC2Result<()> {
-        self.army_manager.on_event(event);
+        self.army_manager.on_event(&event);
         Ok(())
     }
 }
