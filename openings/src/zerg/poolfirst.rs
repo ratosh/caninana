@@ -1,5 +1,5 @@
 use caninana_core::command_queue::Command;
-use caninana_core::{BotInfo, GatherDistribution, Opening};
+use caninana_core::{BotInfo, Opening};
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
@@ -38,10 +38,6 @@ impl PoolFirst {
         bot_info
             .build_queue
             .push(Command::new_unit(UnitTypeId::Drone, 19), true, 920);
-        bot_info
-            .build_queue
-            .push(Command::new_unit(UnitTypeId::Overlord, 4), true, 910);
-        bot_info.gather_distribution = GatherDistribution::MineralPriority;
     }
 }
 
