@@ -1,7 +1,8 @@
-use crate::command_queue::Command;
-use crate::{BotInfo, Manager};
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
+
+use crate::command_queue::Command;
+use crate::{BotInfo, Manager};
 
 #[derive(Default)]
 pub struct ResourceManager {
@@ -15,48 +16,48 @@ impl ResourceManager {
         if bot.supply_cap >= 200 {
             return;
         }
-        let current_overlords = bot.counter().all().count(UnitTypeId::Overlord);
-        let ordered_overlords = bot.counter().ordered().count(UnitTypeId::Overlord);
-        let more_lords = 3.min(bot.supply_cap / ((bot.supply_left + 1) * 8)) as usize;
-        if more_lords > 0 && ordered_overlords < 5 {
-            bot_info.build_queue.push(
-                Command::new_unit(UnitTypeId::Overlord, current_overlords + more_lords),
-                false,
-                50,
-            );
-        }
+        const OVERLORD_MAX: usize = 24;
+        let wanted_lords = OVERLORD_MAX.min(
+            (bot.supply_cap - bot.supply_left) as usize * 6
+                / 5
+                / bot
+                    .game_data
+                    .units
+                    .get(&UnitTypeId::Overlord)
+                    .unwrap()
+                    .food_provided as usize,
+        );
+        bot_info.build_queue.push(
+            Command::new_unit(UnitTypeId::Overlord, wanted_lords),
+            true,
+            900,
+        );
     }
 
     fn order_expansion(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
         let mut bases = Units::new();
 
-        if !bot
-            .units
-            .my
-            .structures
-            .not_ready()
-            .of_type(bot.race_values.start_townhall)
-            .is_empty()
+        if bot
+            .counter()
+            .ordered()
+            .count(bot.race_values.start_townhall)
+            != 0
         {
             return;
         }
         for unit_type in bot.race_values.townhalls.iter() {
             bases.extend(bot.units.my.structures.of_type(*unit_type));
         }
-        let ideal_harversters = bases.sum(|x| x.ideal_harvesters().unwrap());
-        let current_harversters = bases.sum(|x| x.assigned_harvesters().unwrap())
+        let ideal_harvesters = bases.sum(|x| x.ideal_harvesters().unwrap());
+        let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap())
             + bot.units.my.workers.idle().len() as u32;
-        if current_harversters > 22
-            && bot.can_afford(bot.race_values.start_townhall, false)
-            && ideal_harversters < 64
-            && current_harversters >= ideal_harversters
-        {
+        if ideal_harvesters < 64 && current_harvesters >= ideal_harvesters {
             bot_info.build_queue.push(
                 Command::new_unit(
                     bot.race_values.start_townhall,
                     bot.counter().all().count(bot.race_values.start_townhall) + 1,
                 ),
-                current_harversters > ideal_harversters,
+                true,
                 80,
             );
         }
@@ -65,7 +66,7 @@ impl ResourceManager {
     fn order_geysers(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
         let extractor = bot.race_values.gas;
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        let wanted_extractors = if drones < 60 {
+        let wanted_extractors = if drones < 50 {
             1.max(bot.counter().all().count(UnitTypeId::Drone) / 16)
         } else {
             bot.owned_expansions().count() * 2
