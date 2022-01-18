@@ -124,6 +124,7 @@ impl ArmyManager {
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Baneling));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Roach));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Hydralisk));
+        my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Corruptor));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Ultralisk));
 
         // Attack when speed upgrade is > 80% ready
@@ -179,7 +180,7 @@ impl ArmyManager {
             has_speed_boost && ((self.going_aggro && should_keep_aggro) || should_go_aggro);
 
         self.attack_wave_size = self.attack_wave_size.max(our_supply);
-        self.retreat_wave_size = self.attack_wave_size / 2;
+        self.retreat_wave_size = self.attack_wave_size * 3 / 5;
 
         if self.going_aggro {
             priority_targets.extend(bot.units.enemy.all.filter(|u| {
@@ -292,7 +293,7 @@ impl ArmyManager {
                                 .filter(|t| u.can_attack_unit(t))
                                 .closest(u)
                             {
-                                u.order_attack(Target::Tag(closest.tag()), false);
+                                u.order_attack(Target::Pos(closest.position()), false);
                             } else if let Some(closest) = secondary_targets
                                 .iter()
                                 .filter(|t| u.can_attack_unit(t))
@@ -350,7 +351,7 @@ impl ArmyManager {
     }
 
     fn order_units(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
-        let min_queens = bot.units.my.townhalls.len() + 2;
+        let min_queens = 7.min(bot.units.my.townhalls.len() + 1);
         bot_info
             .build_queue
             .push(Command::new_unit(UnitTypeId::Queen, min_queens), false, 35);
@@ -372,19 +373,20 @@ impl ArmyManager {
 
         // TODO: Base a difference on enemy units
         // TODO: When facing air enemies make anti-air
-        // let roaches = bot.counter().all().count(UnitTypeId::Roach)
-        //     + (bot.vespene / 2 / bot.game_data.units[&UnitTypeId::Roach].vespene_cost) as usize;
-        // let hydras = bot.counter().all().count(UnitTypeId::Hydralisk)
-        //     + (bot.vespene / 2 / bot.game_data.units[&UnitTypeId::Hydralisk].vespene_cost) as usize;
-        // let new_amount = roaches.min(hydras);
-        // bot_info
-        //     .build_queue
-        //     .push(Command::new_unit(UnitTypeId::Roach, new_amount), false, 35);
-        // bot_info.build_queue.push(
-        //     Command::new_unit(UnitTypeId::Hydralisk, new_amount),
-        //     false,
-        //     35,
-        // );
+        // if drones > 32 {
+        //     let wanted_roaches = drones / 6;
+        //     bot_info
+        //         .build_queue
+        //         .push(Command::new_unit(UnitTypeId::Roach, wanted_roaches), false, 35);
+        // }
+        // if drones > 48 {
+        //     let wanted_hydras = drones / 6;
+        //     bot_info.build_queue.push(
+        //         Command::new_unit(UnitTypeId::Hydralisk, wanted_hydras),
+        //         false,
+        //         35,
+        //     );
+        // }
         if !bot
             .units
             .enemy
@@ -397,24 +399,37 @@ impl ArmyManager {
                 .push(Command::new_unit(UnitTypeId::Overseer, 1), false, 1);
         }
 
-        if min_lings >= 20 && bot.units.my.townhalls.len() > 3 {
-            bot_info.build_queue.push(
-                Command::new_unit(UnitTypeId::Ultralisk, min_lings),
-                false,
-                40,
-            );
+        if drones > 60 {
+            bot_info
+                .build_queue
+                .push(Command::new_unit(UnitTypeId::Ultralisk, 10), false, 40);
+            if bot.units.enemy.structures.ground().is_empty()
+                && !bot.units.enemy.structures.flying().is_empty()
+            {
+                bot_info
+                    .build_queue
+                    .push(Command::new_unit(UnitTypeId::Corruptor, 4), false, 50);
+            }
         }
     }
 
     fn order_upgrades(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
-        if bot.counter().all().count(UnitTypeId::Zergling) > 6 {
+        if bot.counter().all().count(UnitTypeId::Zergling) > 0
+            && bot.vespene
+                > bot
+                    .game_data
+                    .upgrades
+                    .get(&UpgradeId::Zerglingmovementspeed)
+                    .unwrap()
+                    .vespene_cost
+        {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingmovementspeed),
-                false,
-                50,
+                true,
+                80,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Zergling) > 30 {
+        if bot.counter().all().count(UnitTypeId::Zergling) > 20 {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingattackspeed),
                 false,
@@ -448,12 +463,12 @@ impl ArmyManager {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::EvolveGroovedSpines),
                 false,
-                50,
+                80,
             );
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::EvolveMuscularAugments),
                 false,
-                50,
+                80,
             );
         }
         if bot.counter().all().count(UnitTypeId::Zergling) > 5 && bot.vespene > 150 {
@@ -588,9 +603,9 @@ impl Manager for ArmyManager {
 }
 
 impl EventListener for ArmyManager {
-    fn on_event(&mut self, event: Event) {
+    fn on_event(&mut self, event: &Event) {
         if let UnitDestroyed(tag, _) = event {
-            self.destroy_unit(tag);
+            self.destroy_unit(*tag);
         }
     }
 }
