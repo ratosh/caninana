@@ -19,19 +19,5 @@ pub trait EventListener {
 
 #[derive(Debug, Default)]
 pub struct BotInfo {
-    pub gather_distribution: GatherDistribution,
     pub build_queue: CommandQueue,
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum GatherDistribution {
-    NoGas,
-    MineralPriority,
-    GasPriority,
-}
-
-impl Default for GatherDistribution {
-    fn default() -> Self {
-        Self::NoGas
-    }
 }
