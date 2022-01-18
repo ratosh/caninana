@@ -1,17 +1,24 @@
 # Performance from ai_arena
 
 ## v0.1.3 (bot_id 375)
+58.93% win rate after 168 games
 
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| zUnkP              | -20 | 0    | 5      | 0    |
+| Monomi             | -20 | 1    | 6      | 0    |
+| BenBotv3           | -12 | 2    | 5      | 0    |
+| MechaShark         | -12 | 0    | 3      | 0    |
+| whalemean          | -10 | 0    | 3      | 0    |
 
 ## v0.1.0 (bot_id 376)
+61.95% win rate after 226 games
 
-62.05% win rate after 224 games
-
-| Bot       | Elo lost | Wins | Losses | Ties |
-|-----------|----------|------|--------|------|
-| Monomi    | 46       | 1    | 11     | 0    |
-| Dovahkiin | 28       | 3    | 7      | 0    | 
-| zUnkP     | 24       | 0    | 6      | 0    |
-| BenBotv3  | 24       | 4    | 6      | 2    | 
-| Sharkling | 13       | 0    | 4      | 0    |
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| Monomi             | -42 | 1    | 11     | 0    |
+| zUnkP              | -24 | 0    | 6      | 0    |
+| Dovahkiin          | -16 | 3    | 7      | 0    |
+| Sharkling          | -13 | 0    | 4      | 0    |
+| smallBly           | -13 | 0    | 4      | 0    |
 

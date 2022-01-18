@@ -53,6 +53,8 @@ impl ProductionManager {
                     Self::REQUIREMENT_QUEUE_PRIORITY,
                 );
                 return;
+            } else if bot.counter().ordered().count(requirement) > 0 {
+                return;
             }
         }
         let upgrade_ability = unit_type.morph_ability();

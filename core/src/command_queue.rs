@@ -156,6 +156,7 @@ mod tests {
         let mut iter = queue.into_iter();
         let next = iter.next();
         let next2 = iter.next();
+        assert_eq!(next.is_some(), true);
         assert_eq!(next2.is_some(), false);
     }
 
@@ -200,6 +201,7 @@ mod tests {
         let mut iter = queue.into_iter();
         let next = iter.next();
         let next2 = iter.next();
+        assert_eq!(next.is_some(), true);
         assert_eq!(next2.is_some(), false);
     }
 
@@ -220,6 +222,7 @@ mod tests {
         let next2 = iter.next();
         let next3 = iter.next();
         let next4 = iter.next();
+        assert_eq!(next.is_some(), true);
         assert_eq!(next2.is_some(), false);
         assert_eq!(next3.is_some(), false);
         assert_eq!(next4.is_some(), false);
