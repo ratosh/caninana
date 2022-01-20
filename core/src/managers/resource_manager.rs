@@ -51,13 +51,13 @@ impl ResourceManager {
         let ideal_harvesters = bases.sum(|x| x.ideal_harvesters().unwrap());
         let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap())
             + bot.units.my.workers.idle().len() as u32;
-        if ideal_harvesters < 64 && current_harvesters >= ideal_harvesters {
+        if ideal_harvesters < 64 && current_harvesters >= ideal_harvesters * 15 / 16 {
             bot_info.build_queue.push(
                 Command::new_unit(
                     bot.race_values.start_townhall,
                     bot.counter().all().count(bot.race_values.start_townhall) + 1,
                 ),
-                true,
+                false,
                 80,
             );
         }
