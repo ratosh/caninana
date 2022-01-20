@@ -1,11 +1,11 @@
-use log::debug;
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use log::debug;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
-use crate::command_queue::Command;
 use crate::*;
+use crate::command_queue::Command;
 
 #[derive(PartialEq, Debug)]
 enum WorkerDecision {
@@ -82,7 +82,14 @@ impl WorkerManager {
             let clear_assignement = self
                 .worker_decision
                 .iter()
-                .filter(|(_, decision)| **decision != WorkerDecision::Gather)
+                .filter(|(worker_tag, decision)|
+                    {
+                        if let Some(unit) = bot.units.all.get(**worker_tag) {
+                            return unit.is_idle() || **decision != WorkerDecision::Gather
+                        }
+                        **decision != WorkerDecision::Gather
+                    }
+                )
                 .map(|(worker, _)| *worker)
                 .collect::<Vec<u64>>();
 
