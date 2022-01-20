@@ -26,18 +26,6 @@ impl PoolFirst {
         bot_info
             .build_queue
             .push(Command::new_unit(UnitTypeId::Hatchery, 2), true, 950);
-        bot_info
-            .build_queue
-            .push(Command::new_unit(UnitTypeId::Drone, 18), true, 940);
-        bot_info
-            .build_queue
-            .push(Command::new_unit(UnitTypeId::Overlord, 3), true, 940);
-        bot_info
-            .build_queue
-            .push(Command::new_unit(UnitTypeId::Queen, 1), true, 930);
-        bot_info
-            .build_queue
-            .push(Command::new_unit(UnitTypeId::Drone, 19), true, 920);
     }
 }
 
