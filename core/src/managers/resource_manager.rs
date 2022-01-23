@@ -28,7 +28,7 @@ impl ResourceManager {
                     .food_provided as usize,
         );
         bot_info.build_queue.push(
-            Command::new_unit(UnitTypeId::Overlord, wanted_lords),
+            Command::new_unit(UnitTypeId::Overlord, wanted_lords, false),
             true,
             900,
         );
@@ -56,6 +56,7 @@ impl ResourceManager {
                 Command::new_unit(
                     bot.race_values.start_townhall,
                     bot.counter().all().count(bot.race_values.start_townhall) + 1,
+                    true,
                 ),
                 false,
                 80,
@@ -71,9 +72,11 @@ impl ResourceManager {
         } else {
             bot.owned_expansions().count() * 2
         };
-        bot_info
-            .build_queue
-            .push(Command::new_unit(extractor, wanted_extractors), false, 5);
+        bot_info.build_queue.push(
+            Command::new_unit(extractor, wanted_extractors, false),
+            false,
+            5,
+        );
     }
 }
 
