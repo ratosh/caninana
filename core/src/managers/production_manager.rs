@@ -38,11 +38,15 @@ impl ProductionManager {
                 UnitCommand {
                     unit_type,
                     wanted_amount,
+                    save_resources,
                 } => {
-                    self.produce(bot, bot_info, unit_type, wanted_amount);
+                    self.produce(bot, bot_info, unit_type, wanted_amount, save_resources);
                 }
-                UpgradeCommand { upgrade } => {
-                    self.upgrade(bot, bot_info, upgrade);
+                UpgradeCommand {
+                    upgrade,
+                    save_resources,
+                } => {
+                    self.upgrade(bot, bot_info, upgrade, save_resources);
                 }
             }
         }
@@ -56,15 +60,20 @@ impl ProductionManager {
         bot_info: &mut BotInfo,
         unit_type: UnitTypeId,
         wanted_amount: usize,
+        save_resources: bool,
     ) {
-        if !bot.can_afford(unit_type, true) || bot.counter().all().count(unit_type) >= wanted_amount
-        {
+        if !bot.can_afford(unit_type, true) {
+            if save_resources {
+                bot.subtract_resources(unit_type, true);
+            }
+            return;
+        } else if bot.counter().all().count(unit_type) >= wanted_amount {
             return;
         }
         if let Some(requirement) = unit_type.building_requirement() {
             if bot.counter().all().count(requirement) == 0 {
                 bot_info.build_queue.push(
-                    Command::new_unit(requirement, 1),
+                    Command::new_unit(requirement, 1, save_resources),
                     false,
                     Self::REQUIREMENT_QUEUE_PRIORITY,
                 );
@@ -75,7 +84,7 @@ impl ProductionManager {
         }
         let upgrade_ability = unit_type.morph_ability();
         if upgrade_ability.is_some() {
-            self.morph_upgrade(bot, bot_info, unit_type);
+            self.morph_upgrade(bot, bot_info, unit_type, save_resources);
         } else if unit_type.is_structure() {
             self.build(bot, unit_type, wanted_amount);
         } else {
@@ -84,13 +93,19 @@ impl ProductionManager {
                 if !bot.can_afford(unit_type, true) {
                     break;
                 }
-                self.produce_unit(bot, bot_info, unit_type);
+                self.produce_unit(bot, bot_info, unit_type, save_resources);
             }
         }
     }
 
     // TODO: Queens can be produced on multiple structures (Different types of hatcheries)
-    fn produce_unit(&self, bot: &mut Bot, bot_info: &mut BotInfo, unit_type: UnitTypeId) {
+    fn produce_unit(
+        &self,
+        bot: &mut Bot,
+        bot_info: &mut BotInfo,
+        unit_type: UnitTypeId,
+        save_resources: bool,
+    ) {
         let produced_on = unit_type.produced_on();
         if produced_on == UnitTypeId::Larva {
             if let Some(larva) = bot.units.my.larvas.pop() {
@@ -115,20 +130,26 @@ impl ProductionManager {
         {
             debug!("No building to create, pushing one to the queue");
             bot_info.build_queue.push(
-                Command::new_unit(produced_on, 1),
+                Command::new_unit(produced_on, 1, save_resources),
                 false,
                 Self::REQUIREMENT_QUEUE_PRIORITY,
             );
         }
     }
 
-    fn upgrade(&self, bot: &mut Bot, bot_info: &mut BotInfo, upgrade: UpgradeId) {
+    fn upgrade(
+        &self,
+        bot: &mut Bot,
+        bot_info: &mut BotInfo,
+        upgrade: UpgradeId,
+        save_resources: bool,
+    ) {
         let produced_on = upgrade.produced_on();
         if bot.can_afford_upgrade(upgrade) {
             if let Some(requirement) = upgrade.building_requirement() {
                 if bot.counter().count(requirement) == 0 {
                     bot_info.build_queue.push(
-                        Command::new_unit(requirement, 1),
+                        Command::new_unit(requirement, 1, save_resources),
                         false,
                         Self::REQUIREMENT_QUEUE_PRIORITY,
                     );
@@ -142,7 +163,7 @@ impl ProductionManager {
                     bot.subtract_upgrade_cost(upgrade);
                 } else {
                     bot_info.build_queue.push(
-                        Command::new_unit(produced_on, 1),
+                        Command::new_unit(produced_on, 1, save_resources),
                         false,
                         Self::REQUIREMENT_QUEUE_PRIORITY,
                     );
@@ -151,7 +172,13 @@ impl ProductionManager {
         }
     }
 
-    fn morph_upgrade(&self, bot: &mut Bot, bot_info: &mut BotInfo, unit_type: UnitTypeId) {
+    fn morph_upgrade(
+        &self,
+        bot: &mut Bot,
+        bot_info: &mut BotInfo,
+        unit_type: UnitTypeId,
+        save_resources: bool,
+    ) {
         let upgrade_ability = unit_type.morph_ability();
         if upgrade_ability.is_none() {
             return;
@@ -166,7 +193,7 @@ impl ProductionManager {
             bot.subtract_resources(unit_type, false);
         } else {
             bot_info.build_queue.push(
-                Command::new_unit(produced_on, 1),
+                Command::new_unit(produced_on, 1, save_resources),
                 false,
                 Self::REQUIREMENT_QUEUE_PRIORITY,
             );

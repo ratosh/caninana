@@ -245,7 +245,7 @@ impl WorkerManager {
         let wanted_workers = 80.min(ideal_miners + ideal_geysers);
 
         bot_info.build_queue.push(
-            Command::new_unit(UnitTypeId::Drone, wanted_workers as usize),
+            Command::new_unit(UnitTypeId::Drone, wanted_workers as usize, false),
             false,
             25,
         );

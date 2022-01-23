@@ -23,22 +23,28 @@ pub enum Command {
     UnitCommand {
         unit_type: UnitTypeId,
         wanted_amount: usize,
+        save_resources: bool,
     },
     UpgradeCommand {
         upgrade: UpgradeId,
+        save_resources: bool,
     },
 }
 
 impl Command {
-    pub fn new_unit(unit_type: UnitTypeId, wanted_amount: usize) -> Self {
+    pub fn new_unit(unit_type: UnitTypeId, wanted_amount: usize, save_resources: bool) -> Self {
         Command::UnitCommand {
             unit_type,
             wanted_amount,
+            save_resources,
         }
     }
 
-    pub fn new_upgrade(upgrade: UpgradeId) -> Self {
-        Command::UpgradeCommand { upgrade }
+    pub fn new_upgrade(upgrade: UpgradeId, save_resources: bool) -> Self {
+        Command::UpgradeCommand {
+            upgrade,
+            save_resources,
+        }
     }
 }
 
@@ -65,10 +71,12 @@ impl CommandQueue {
             Command::UnitCommand {
                 unit_type,
                 wanted_amount,
+                save_resources: _,
             } => bot.counter().all().count(unit_type) < wanted_amount,
-            Command::UpgradeCommand { upgrade } => {
-                !bot.has_upgrade(upgrade) && !bot.is_ordered_upgrade(upgrade)
-            }
+            Command::UpgradeCommand {
+                upgrade,
+                save_resources: _,
+            } => !bot.has_upgrade(upgrade) && !bot.is_ordered_upgrade(upgrade),
         });
     }
 
@@ -77,10 +85,12 @@ impl CommandQueue {
             Command::UnitCommand {
                 unit_type,
                 wanted_amount,
+                save_resources: _,
             } => match command {
                 Command::UnitCommand {
                     unit_type: new_type,
                     wanted_amount: new_amount,
+                    save_resources: _,
                 } => {
                     *unit_type == new_type
                         && ((*wanted_amount <= new_amount && i.priority <= priority)
@@ -88,9 +98,13 @@ impl CommandQueue {
                 }
                 _ => false,
             },
-            Command::UpgradeCommand { upgrade } => match command {
+            Command::UpgradeCommand {
+                upgrade,
+                save_resources: _,
+            } => match command {
                 Command::UpgradeCommand {
                     upgrade: new_upgrade,
+                    save_resources: _,
                 } => *upgrade == new_upgrade,
                 _ => false,
             },
@@ -142,15 +156,15 @@ impl Iterator for CommandQueueIter {
 
 #[cfg(test)]
 mod tests {
-    use crate::command_queue::Command;
     use rust_sc2::prelude::*;
 
+    use crate::command_queue::Command;
     use crate::CommandQueue;
 
     #[test]
     fn iterator_same_command_ignored() {
         let mut queue = CommandQueue::default();
-        let command1 = Command::new_unit(UnitTypeId::Zergling, 10);
+        let command1 = Command::new_unit(UnitTypeId::Zergling, 10, false);
         queue.push(command1.clone(), false, 0);
         queue.push(command1.clone(), false, 0);
         let mut iter = queue.into_iter();
@@ -163,8 +177,8 @@ mod tests {
     #[test]
     fn iterator_more_units_replaced() {
         let mut queue = CommandQueue::default();
-        let command1 = Command::new_unit(UnitTypeId::Zergling, 10);
-        let command2 = Command::new_unit(UnitTypeId::Zergling, 20);
+        let command1 = Command::new_unit(UnitTypeId::Zergling, 10, false);
+        let command2 = Command::new_unit(UnitTypeId::Zergling, 20, false);
         queue.push(command1, false, 0);
         queue.push(command2.clone(), false, 5);
         let mut iter = queue.into_iter();
@@ -181,8 +195,8 @@ mod tests {
     #[test]
     fn iterator_high_priority_check() {
         let mut queue = CommandQueue::default();
-        let command1 = Command::new_unit(UnitTypeId::Zergling, 10);
-        let command2 = Command::new_unit(UnitTypeId::Zergling, 20);
+        let command1 = Command::new_unit(UnitTypeId::Zergling, 10, false);
+        let command2 = Command::new_unit(UnitTypeId::Zergling, 20, false);
         queue.push(command1, false, 0);
         queue.push(command2.clone(), false, 1);
         let next = queue.into_iter().next();
@@ -194,8 +208,8 @@ mod tests {
     #[test]
     fn iterator_blocking_check() {
         let mut queue = CommandQueue::default();
-        let command1 = Command::new_unit(UnitTypeId::Zergling, 10);
-        let command2 = Command::new_unit(UnitTypeId::Zergling, 20);
+        let command1 = Command::new_unit(UnitTypeId::Zergling, 10, false);
+        let command2 = Command::new_unit(UnitTypeId::Zergling, 20, false);
         queue.push(command1, true, 1);
         queue.push(command2, false, 0);
         let mut iter = queue.into_iter();
@@ -209,10 +223,10 @@ mod tests {
     fn iterator_real_case1() {
         let mut queue = CommandQueue::default();
 
-        let command1 = Command::new_unit(UnitTypeId::Zergling, 32);
-        let command2 = Command::new_unit(UnitTypeId::Queen, 4);
-        let command3 = Command::new_unit(UnitTypeId::Zergling, 52);
-        let command4 = Command::new_unit(UnitTypeId::Hatchery, 3);
+        let command1 = Command::new_unit(UnitTypeId::Zergling, 32, false);
+        let command2 = Command::new_unit(UnitTypeId::Queen, 4, false);
+        let command3 = Command::new_unit(UnitTypeId::Zergling, 52, false);
+        let command4 = Command::new_unit(UnitTypeId::Hatchery, 3, false);
         queue.push(command1, true, 20);
         queue.push(command2, false, 2);
         queue.push(command3, false, 0);

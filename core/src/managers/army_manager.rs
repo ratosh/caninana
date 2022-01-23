@@ -405,15 +405,16 @@ impl ArmyManager {
 
     fn queue_units(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
         let min_queens = 7.min(bot.units.my.townhalls.len() + 1);
-        bot_info
-            .build_queue
-            .push(Command::new_unit(UnitTypeId::Queen, min_queens), false, 35);
+        bot_info.build_queue.push(
+            Command::new_unit(UnitTypeId::Queen, min_queens, false),
+            false,
+            35,
+        );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        // Try to have some lings
-        let min_lings = drones;
+        let lings = drones;
         bot_info.build_queue.push(
-            Command::new_unit(UnitTypeId::Zergling, min_lings),
+            Command::new_unit(UnitTypeId::Zergling, lings, false),
             false,
             30,
         );
@@ -428,40 +429,41 @@ impl ArmyManager {
         // TODO: When facing air enemies make anti-air
         // if drones > 32 {
         //     let wanted_roaches = drones / 6;
-        //     bot_info
-        //         .build_queue
-        //         .push(Command::new_unit(UnitTypeId::Roach, wanted_roaches), false, 35);
-        // }
-        // if drones > 48 {
-        //     let wanted_hydras = drones / 6;
         //     bot_info.build_queue.push(
-        //         Command::new_unit(UnitTypeId::Hydralisk, wanted_hydras),
+        //         Command::new_unit(UnitTypeId::Roach, wanted_roaches, false),
         //         false,
         //         35,
         //     );
         // }
-        if !bot
-            .units
-            .enemy
-            .all
-            .filter(|u| u.is_cloaked() || u.is_burrowed())
-            .is_empty()
-        {
+        // if drones > 48 {
+        //     let wanted_hydras = drones / 6;
+        //     bot_info.build_queue.push(
+        //         Command::new_unit(UnitTypeId::Hydralisk, wanted_hydras, false),
+        //         false,
+        //         35,
+        //     );
+        // }
+        if drones > 34 {
             bot_info
                 .build_queue
-                .push(Command::new_unit(UnitTypeId::Overseer, 1), false, 1);
+                .push(Command::new_unit(UnitTypeId::Overseer, 2, false), false, 1);
         }
 
         if drones > 60 {
-            bot_info
-                .build_queue
-                .push(Command::new_unit(UnitTypeId::Ultralisk, 10), false, 40);
             if bot.units.enemy.structures.ground().is_empty()
                 && !bot.units.enemy.structures.flying().is_empty()
             {
-                bot_info
-                    .build_queue
-                    .push(Command::new_unit(UnitTypeId::Corruptor, 4), false, 50);
+                bot_info.build_queue.push(
+                    Command::new_unit(UnitTypeId::Corruptor, 4, false),
+                    false,
+                    50,
+                );
+            } else {
+                bot_info.build_queue.push(
+                    Command::new_unit(UnitTypeId::Ultralisk, 10, false),
+                    false,
+                    40,
+                );
             }
         }
     }
@@ -477,22 +479,24 @@ impl ArmyManager {
                     .vespene_cost
         {
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::Zerglingmovementspeed),
+                Command::new_upgrade(UpgradeId::Zerglingmovementspeed, true),
                 true,
                 80,
             );
         }
         if bot.counter().all().count(UnitTypeId::Zergling) > 20 {
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::Zerglingattackspeed),
+                Command::new_upgrade(UpgradeId::Zerglingattackspeed, false),
                 false,
                 50,
             );
         }
         if bot.counter().all().count(UnitTypeId::Overseer) > 0 {
-            bot_info
-                .build_queue
-                .push(Command::new_upgrade(UpgradeId::Overlordspeed), false, 50);
+            bot_info.build_queue.push(
+                Command::new_upgrade(UpgradeId::Overlordspeed, true),
+                false,
+                50,
+            );
         }
         if (!bot.is_ordered_upgrade(UpgradeId::Zerglingmovementspeed)
             && !bot.has_upgrade(UpgradeId::Zerglingmovementspeed))
@@ -501,100 +505,104 @@ impl ArmyManager {
             return;
         }
         if bot.counter().all().count(UnitTypeId::Baneling) > 0 {
-            bot_info
-                .build_queue
-                .push(Command::new_upgrade(UpgradeId::CentrificalHooks), false, 50);
-        }
-        if bot.counter().all().count(UnitTypeId::Roach) > 0 && bot.vespene > 100 {
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::GlialReconstitution),
+                Command::new_upgrade(UpgradeId::CentrificalHooks, true),
                 false,
                 50,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Hydralisk) > 0 && bot.vespene > 100 {
+        if bot.counter().all().count(UnitTypeId::Roach) > 0 {
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::EvolveGroovedSpines),
+                Command::new_upgrade(UpgradeId::GlialReconstitution, true),
+                false,
+                50,
+            );
+        }
+        if bot.counter().all().count(UnitTypeId::Hydralisk) > 0 {
+            bot_info.build_queue.push(
+                Command::new_upgrade(UpgradeId::EvolveGroovedSpines, true),
                 false,
                 80,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::EvolveMuscularAugments),
+                Command::new_upgrade(UpgradeId::EvolveMuscularAugments, true),
                 false,
                 80,
             );
         }
         if bot.counter().all().count(UnitTypeId::Zergling) > 5 && bot.vespene > 150 {
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1),
+                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1, true),
                 false,
                 70,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, true),
                 false,
                 70,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Zergling) > 10 && bot.vespene > 150 {
+        if bot.counter().all().count(UnitTypeId::Zergling) > 10 && bot.vespene > 250 {
             bot_info.build_queue.push(
-                Command::new_unit(UnitTypeId::EvolutionChamber, 2),
+                Command::new_unit(UnitTypeId::EvolutionChamber, 2, false),
                 false,
                 50,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel2),
+                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel2, true),
                 false,
                 60,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, true),
                 false,
                 60,
             );
         }
         if bot.counter().all().count(UnitTypeId::Roach) > 0 {
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1),
+                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, true),
                 false,
                 70,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Roach) > 5 && bot.vespene > 250 {
+        if bot.counter().all().count(UnitTypeId::Roach) > 5 && bot.vespene > 350 {
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2),
+                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2, true),
                 false,
                 60,
             );
-            bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel3),
-                false,
-                50,
-            );
         }
-        if bot.vespene > 350 {
+        if bot.vespene > 450 {
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel3),
+                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel3, true),
                 false,
                 50,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel3),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel3, true),
                 false,
                 50,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::Zerglingattackspeed),
+                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel3, true),
+                false,
+                50,
+            );
+            bot_info.build_queue.push(
+                Command::new_upgrade(UpgradeId::Zerglingattackspeed, true),
                 false,
                 50,
             );
         }
         if bot.counter().all().count(UnitTypeId::Ultralisk) > 0 {
-            bot_info
-                .build_queue
-                .push(Command::new_upgrade(UpgradeId::ChitinousPlating), false, 50);
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::AnabolicSynthesis),
+                Command::new_upgrade(UpgradeId::ChitinousPlating, true),
+                false,
+                50,
+            );
+            bot_info.build_queue.push(
+                Command::new_upgrade(UpgradeId::AnabolicSynthesis, true),
                 false,
                 55,
             );
