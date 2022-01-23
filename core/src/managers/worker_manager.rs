@@ -84,9 +84,10 @@ impl WorkerManager {
                 .iter()
                 .filter(|(worker_tag, decision)| {
                     if let Some(unit) = bot.units.all.get(**worker_tag) {
-                        return unit.is_idle() || **decision != WorkerDecision::Gather;
+                        unit.is_idle() || **decision != WorkerDecision::Gather
+                    } else {
+                        **decision != WorkerDecision::Gather
                     }
-                    **decision != WorkerDecision::Gather
                 })
                 .map(|(worker, _)| *worker)
                 .collect::<Vec<u64>>();
@@ -225,7 +226,13 @@ impl WorkerManager {
             .my
             .townhalls
             .iter()
-            .map(|e| e.ideal_harvesters().unwrap_or(12))
+            .map(|e| {
+                if e.is_ready() {
+                    e.ideal_harvesters().unwrap_or_default()
+                } else {
+                    12
+                }
+            })
             .sum::<u32>();
         let ideal_geysers = bot
             .units
