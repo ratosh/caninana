@@ -34,8 +34,6 @@ pub struct ArmyManager {
     enemy_units: HashMap<u64, UnitCache>, // TODO: Forget about enemy units not seen for for a long time (30 seconds+)
 }
 
-impl ArmyManager {}
-
 impl Default for ArmyManager {
     fn default() -> Self {
         Self {
@@ -94,26 +92,56 @@ impl ArmyManager {
     }
 
     fn scout(&self, bot: &mut Bot) {
-        let overs = bot.units.my.units.of_type(UnitTypeId::Overlord);
-        if bot.units.enemy.structures.is_empty() {
-            let mut rng = thread_rng();
-            for overlord in overs.idle() {
-                let random_x = (rng.next_u64() % bot.game_info.map_size.x as u64) as f32;
-                let random_y = (rng.next_u64() % bot.game_info.map_size.y as u64) as f32;
-                overlord.order_move_to(
-                    Target::Pos(Point2 {
-                        x: random_x,
-                        y: random_y,
-                    }),
-                    false,
-                );
+        let overlords = bot.units.my.units.of_type(UnitTypeId::Overlord)
+            .sorted(|u| u.tag());
+        let ramps = bot
+            .ramps
+            .enemy
+            .points
+            .iter()
+            .map(|p| Point2::new(p.0 as f32, p.1 as f32).towards(bot.start_center, 7f32))
+            .collect::<Vec<Point2>>();
+        let mut actual_ramps = vec![];
+        for ramp in ramps {
+            if let Some(distance) = actual_ramps.iter().closest_distance(ramp) {
+                if distance > 8f32 {
+                    actual_ramps.push(ramp.clone());
+                }
+            } else {
+                actual_ramps.push(ramp.clone());
             }
-        } else {
-            for overlord in overs.filter(|u| {
-                (u.is_attacked() || u.is_idle())
-                    && u.position().distance_squared(bot.start_location) > 20f32
-            }) {
-                overlord.order_move_to(Target::Pos(bot.start_location), false);
+        }
+
+        for overlord in overlords.iter() {
+            let closest_ramp = actual_ramps.iter().closest(overlord).cloned();
+            if let Some(ramp) = closest_ramp {
+                actual_ramps.retain(|p| *p != ramp);
+            }
+            if let Some(closest_anti_air) = bot
+                .units
+                .enemy
+                .all
+                .filter(|f| {
+                    f.can_attack_air() && f.in_range(overlord, f.speed() + overlord.speed())
+                })
+                .iter()
+                .closest(overlord)
+            {
+                let position = overlord.position().towards(
+                    closest_anti_air.position(),
+                    -closest_anti_air.range_vs(overlord),
+                );
+                overlord.order_move_to(Target::Pos(position), 0.5f32, false);
+            } else if overlord.health_percentage().unwrap_or_default() > 0.9f32 && overlord.is_idle() {
+                if let Some(ramp) = closest_ramp {
+                    overlord.order_move_to(Target::Pos(ramp), 0.5f32, false);
+                } else {
+                    let mut rng = thread_rng();
+                    let random_x = (rng.next_u64() % bot.game_info.map_size.x as u64) as f32;
+                    let random_y = (rng.next_u64() % bot.game_info.map_size.y as u64) as f32;
+                    let position = Point2::new(random_x, random_y);
+                    overlord.order_move_to(Target::Pos(position), 0.5f32, false);
+                }
             }
         }
     }
@@ -219,21 +247,42 @@ impl ArmyManager {
         };
 
         let overseers = bot.units.my.units.of_type(UnitTypeId::Overseer);
-        if !overseers.is_empty() {
-            let mut invisible_enemies = bot
+        for overseer in overseers.iter() {
+            let position = if let Some(closest_anti_air) = bot
                 .units
                 .enemy
                 .all
-                .filter(|u| u.is_cloaked() || u.is_burrowed());
-            for overseer in overseers.iter() {
-                if let Some(closest_invisible) = invisible_enemies.iter().closest(overseer) {
-                    let tag = closest_invisible.tag();
-                    overseer.order_move_to(Target::Tag(tag), false);
-                    invisible_enemies.remove(tag);
-                } else if let Some(army_center) = my_army.center() {
-                    overseer.order_move_to(Target::Pos(army_center), false);
-                }
-            }
+                .filter(|f| {
+                    f.can_attack_air() && f.in_range(overseer, f.speed() + overseer.speed())
+                })
+                .iter()
+                .closest(overseer)
+            {
+                overseer
+                    .position()
+                    .towards(closest_anti_air.position(), -overseer.speed())
+            } else if let Some(closest_invisible) = bot
+                .units
+                .enemy
+                .all
+                .filter(|f| f.is_cloaked())
+                .closest(overseer)
+            {
+                closest_invisible.position()
+            } else if let Some(closest_enemy) = bot
+                .units
+                .enemy
+                .all
+                .filter(|f| !f.is_worker() && !f.is_structure())
+                .closest(overseer)
+            {
+                closest_enemy.position()
+            } else if let Some(army_center) = my_army.center() {
+                army_center
+            } else {
+                bot.start_location
+            };
+            overseer.order_move_to(Target::Pos(position), 1.0f32, false);
         }
 
         if !priority_targets.is_empty() {
@@ -258,9 +307,7 @@ impl ArmyManager {
                         .units
                         .enemy
                         .all
-                        .filter(|t| {
-                            t.in_range(u, t.speed() + if is_retreating { 2.0 } else { 0.5 })
-                        })
+                        .filter(|t| t.in_range(u, t.speed() + u.speed()))
                         .closest(u)
                     {
                         let flee_position = {
@@ -278,7 +325,7 @@ impl ArmyManager {
                                     .unwrap_or(&bot.start_location)
                             }
                         };
-                        u.order_move_to(Target::Pos(flee_position), false);
+                        u.order_move_to(Target::Pos(flee_position), 0.1f32, false);
                     }
                 } else {
                     match priority_targets
@@ -307,12 +354,12 @@ impl ArmyManager {
             }
         } else if !secondary_targets.is_empty() {
             for u in my_army.iter() {
-                if let Some(closest) = secondary_targets
+                if let Some(target) = secondary_targets
                     .iter()
                     .filter(|t| u.can_attack_unit(t))
-                    .closest(u)
+                    .furthest(bot.enemy_start)
                 {
-                    u.order_attack(Target::Pos(closest.position()), false);
+                    u.order_attack(Target::Pos(target.position()), false);
                 }
             }
         } else {
@@ -344,13 +391,13 @@ impl ArmyManager {
                 .filter(|u| u.is_attacking())
             {
                 if let Some(closest_hall) = bot.units.my.townhalls.closest(queen) {
-                    queen.order_move_to(Target::Pos(closest_hall.position()), false);
+                    queen.order_move_to(Target::Pos(closest_hall.position()), 0.5f32, false);
                 }
             }
         }
     }
 
-    fn order_units(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
+    fn queue_units(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
         let min_queens = 7.min(bot.units.my.townhalls.len() + 1);
         bot_info
             .build_queue
@@ -413,7 +460,7 @@ impl ArmyManager {
         }
     }
 
-    fn order_upgrades(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
+    fn queue_upgrades(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
             && bot.vespene
                 > bot
@@ -550,32 +597,33 @@ impl ArmyManager {
 }
 
 trait UnitOrderCheck {
-    fn order_move_to(&self, target: Target, queue: bool);
+    fn order_move_to(&self, target: Target, range: f32, queue: bool);
     fn order_attack(&self, target: Target, queue: bool);
 }
 
 impl UnitOrderCheck for Unit {
-    fn order_move_to(&self, target: Target, queue: bool) {
-        if should_send_order(self, target, queue) {
+    fn order_move_to(&self, target: Target, range: f32, queue: bool) {
+        if should_send_order(self, target, range, queue) {
             self.move_to(target, queue);
         }
     }
 
     fn order_attack(&self, target: Target, queue: bool) {
-        if should_send_order(self, target, queue) {
+        if should_send_order(self, target, 0.3f32, queue) {
             self.attack(target, queue);
         }
     }
 }
 
-fn should_send_order(unit: &Unit, target: Target, queue: bool) -> bool {
+fn should_send_order(unit: &Unit, target: Target, range: f32, queue: bool) -> bool {
     if queue {
         true
     } else {
         match (unit.target(), target) {
             (Target::Pos(current_pos), Target::Pos(wanted_pos)) => {
-                current_pos.distance(wanted_pos) > 0.3f32
+                current_pos.distance(wanted_pos) > range
             }
+            (_, Target::Pos(wanted_pos)) => unit.position().distance(wanted_pos) > range,
             (Target::Tag(current_tag), Target::Tag(wanted_tag)) => current_tag != wanted_tag,
             (_, _) => true,
         }
@@ -594,9 +642,10 @@ impl Manager for ArmyManager {
             return;
         }
         self.last_loop = game_loop;
+        self.decision(bot);
         self.check_unit_cache(bot);
-        self.order_upgrades(bot, bot_info);
-        self.order_units(bot, bot_info);
+        self.queue_upgrades(bot, bot_info);
+        self.queue_units(bot, bot_info);
         self.scout(bot);
         self.micro(bot);
     }
