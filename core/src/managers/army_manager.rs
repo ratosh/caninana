@@ -92,7 +92,11 @@ impl ArmyManager {
     }
 
     fn scout(&self, bot: &mut Bot) {
-        let overlords = bot.units.my.units.of_type(UnitTypeId::Overlord)
+        let overlords = bot
+            .units
+            .my
+            .units
+            .of_type(UnitTypeId::Overlord)
             .sorted(|u| u.tag());
         let ramps = bot
             .ramps
@@ -105,10 +109,10 @@ impl ArmyManager {
         for ramp in ramps {
             if let Some(distance) = actual_ramps.iter().closest_distance(ramp) {
                 if distance > 8f32 {
-                    actual_ramps.push(ramp.clone());
+                    actual_ramps.push(ramp);
                 }
             } else {
-                actual_ramps.push(ramp.clone());
+                actual_ramps.push(ramp);
             }
         }
 
@@ -132,7 +136,9 @@ impl ArmyManager {
                     -closest_anti_air.range_vs(overlord),
                 );
                 overlord.order_move_to(Target::Pos(position), 0.5f32, false);
-            } else if overlord.health_percentage().unwrap_or_default() > 0.9f32 && overlord.is_idle() {
+            } else if overlord.health_percentage().unwrap_or_default() > 0.9f32
+                && overlord.is_idle()
+            {
                 if let Some(ramp) = closest_ramp {
                     overlord.order_move_to(Target::Pos(ramp), 0.5f32, false);
                 } else {
@@ -642,7 +648,6 @@ impl Manager for ArmyManager {
             return;
         }
         self.last_loop = game_loop;
-        self.decision(bot);
         self.check_unit_cache(bot);
         self.queue_upgrades(bot, bot_info);
         self.queue_units(bot, bot_info);
