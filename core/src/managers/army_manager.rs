@@ -412,19 +412,12 @@ impl ArmyManager {
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        if self.allowed_units.contains(&UnitTypeId::Zergling) {
-            let lings = drones * 2 / 3;
-            bot_info.build_queue.push(
-                Command::new_unit(UnitTypeId::Zergling, lings, false),
-                false,
-                30,
-            );
-            bot_info.build_queue.push(
-                Command::new_unit(UnitTypeId::Zergling, lings, false),
-                false,
-                10,
-            );
-        }
+        let lings = drones;
+        bot_info.build_queue.push(
+            Command::new_unit(UnitTypeId::Zergling, lings, false),
+            false,
+            30,
+        );
 
         if !bot.is_ordered_upgrade(UpgradeId::Zerglingmovementspeed)
             && !bot.has_upgrade(UpgradeId::Zerglingmovementspeed)
@@ -434,23 +427,23 @@ impl ArmyManager {
 
         // TODO: Base a difference on enemy units
         // TODO: When facing air enemies make anti-air
-        if drones > 32 && self.allowed_units.contains(&UnitTypeId::Roach) {
-            let wanted_roaches = drones / 6;
-            bot_info.build_queue.push(
-                Command::new_unit(UnitTypeId::Roach, wanted_roaches, false),
-                false,
-                35,
-            );
-        }
-        if drones > 48 && self.allowed_units.contains(&UnitTypeId::Hydralisk) {
-            let wanted_hydras = drones / 6;
-            bot_info.build_queue.push(
-                Command::new_unit(UnitTypeId::Hydralisk, wanted_hydras, false),
-                false,
-                35,
-            );
-        }
-        if drones > 36 {
+        // if drones > 32 {
+        //     let wanted_roaches = drones / 6;
+        //     bot_info.build_queue.push(
+        //         Command::new_unit(UnitTypeId::Roach, wanted_roaches, false),
+        //         false,
+        //         35,
+        //     );
+        // }
+        // if drones > 48 {
+        //     let wanted_hydras = drones / 6;
+        //     bot_info.build_queue.push(
+        //         Command::new_unit(UnitTypeId::Hydralisk, wanted_hydras, false),
+        //         false,
+        //         35,
+        //     );
+        // }
+        if drones > 34 {
             bot_info
                 .build_queue
                 .push(Command::new_unit(UnitTypeId::Overseer, 2, false), false, 1);
