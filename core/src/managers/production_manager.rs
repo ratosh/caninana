@@ -15,6 +15,22 @@ impl ProductionManager {
     const REQUIREMENT_QUEUE_PRIORITY: usize = 100_000;
     const PROCESS_DELAY: u32 = 20;
 
+    fn cancel_buildings(&self, bot: &mut Bot) {
+        for structure in bot
+            .units
+            .my
+            .structures
+            .filter(|u| {
+                u.is_attacked()
+                    && !u.is_ready()
+                    && u.health_percentage().unwrap_or_default() < 0.1f32
+            })
+            .iter()
+        {
+            structure.cancel_building(false);
+        }
+    }
+
     fn produce_units(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
         bot_info.build_queue.check_completion(bot);
         for command in bot_info.build_queue.into_iter() {
@@ -361,5 +377,6 @@ impl Manager for ProductionManager {
         }
         self.last_loop = game_loop;
         self.produce_units(bot, bot_info);
+        self.cancel_buildings(bot);
     }
 }
