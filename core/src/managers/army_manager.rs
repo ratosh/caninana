@@ -39,8 +39,8 @@ impl Default for ArmyManager {
         Self {
             last_loop: 0,
             going_aggro: false,
-            attack_wave_size: 16,
-            retreat_wave_size: 8,
+            attack_wave_size: 4,
+            retreat_wave_size: 2,
             defending: false,
             retreating: HashSet::new(),
             enemy_units: HashMap::new(),
@@ -199,8 +199,6 @@ impl ArmyManager {
 
         // Retreat when aggression is small
         // Attack when we build enough numbers again
-        let has_speed_boost = bot.has_upgrade(UpgradeId::Zerglingmovementspeed)
-            || bot.upgrade_progress(UpgradeId::Zerglingmovementspeed) >= 0.9f32;
         let our_supply = self.our_supply(bot);
         let enemy_supply = self.enemy_supply(bot);
         debug!(
@@ -210,8 +208,7 @@ impl ArmyManager {
         let should_keep_aggro =
             our_supply >= self.retreat_wave_size && (our_supply > enemy_supply * 2 / 3);
         let should_go_aggro = (our_supply >= self.attack_wave_size) || bot.supply_used > 190;
-        self.going_aggro =
-            has_speed_boost && ((self.going_aggro && should_keep_aggro) || should_go_aggro);
+        self.going_aggro = (self.going_aggro && should_keep_aggro) || should_go_aggro;
 
         self.attack_wave_size = self.attack_wave_size.max(our_supply);
         self.retreat_wave_size = self.attack_wave_size * 3 / 5;
