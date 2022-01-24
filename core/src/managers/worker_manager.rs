@@ -111,7 +111,13 @@ impl WorkerManager {
             }
         }
         let mut resources = VecDeque::new();
-        for townhall in bot.units.my.townhalls.sorted(|t| t.distance(bot.start_location)).iter() {
+        for townhall in bot
+            .units
+            .my
+            .townhalls
+            .sorted(|t| t.distance(bot.start_location))
+            .iter()
+        {
             let mut minerals = VecDeque::new();
             for mineral in bot
                 .units
