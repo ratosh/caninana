@@ -208,7 +208,7 @@ impl ArmyManager {
         let should_keep_aggro =
             our_supply >= self.retreat_wave_size && (our_supply > enemy_supply * 2 / 3);
         let should_go_aggro = (our_supply >= self.attack_wave_size) || bot.supply_used > 190;
-        self.going_aggro = ((self.going_aggro && should_keep_aggro) || should_go_aggro);
+        self.going_aggro = (self.going_aggro && should_keep_aggro) || should_go_aggro;
 
         self.attack_wave_size = self.attack_wave_size.max(our_supply);
         self.retreat_wave_size = self.attack_wave_size * 3 / 5;
