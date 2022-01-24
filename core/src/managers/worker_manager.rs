@@ -112,6 +112,7 @@ impl WorkerManager {
         }
         let mut resources = VecDeque::new();
         for townhall in bot.units.my.townhalls.sorted(|t| t.distance(bot.start_location)).iter() {
+            let mut minerals = VecDeque::new();
             for mineral in bot
                 .units
                 .mineral_fields
@@ -119,14 +120,20 @@ impl WorkerManager {
                 .iter()
                 .map(|m| m.tag())
             {
-                let missing = if let Some(workers) = self.resources.get(&mineral) {
-                    Self::MINERAL_WORKERS - workers.len()
-                } else {
-                    Self::MINERAL_WORKERS
-                };
-                for _ in 0..missing {
-                    resources.push_back(mineral);
+                match self.resources.get(&mineral) {
+                    None => {
+                        minerals.push_front(mineral);
+                        minerals.push_back(mineral);
+                    }
+                    Some(assigned) => {
+                        if assigned.len() < Self::MINERAL_WORKERS {
+                            minerals.push_back(mineral);
+                        }
+                    }
                 }
+            }
+            for mineral in minerals {
+                resources.push_back(mineral);
             }
             for geyser in bot
                 .units
