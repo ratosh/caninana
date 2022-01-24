@@ -1,5 +1,16 @@
 # Performance from ai_arena
 
+## v0.1.8 (bot_id 380)
+47.55% win rate after 326 games
+
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| zUnkP              | -36 | 1    | 10     | 0    |
+| smallBly           | -34 | 1    | 11     | 0    |
+| Sharkling          | -32 | 1    | 9      | 0    |
+| BenBotBC           | -31 | 1    | 12     | 0    |
+| DominionDog        | -31 | 1    | 12     | 0    |
+
 ## v0.1.3 (bot_id 375)
 58.93% win rate after 168 games
 

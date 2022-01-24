@@ -31,13 +31,16 @@ impl PoolFirst {
             .push(Command::new_unit(UnitTypeId::Hatchery, 2, false), true, 950);
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Drone, 18, false), true, 940);
+            .push(Command::new_unit(UnitTypeId::Extractor, 1, false), true, 940);
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Queen, 1, false), true, 930);
+            .push(Command::new_unit(UnitTypeId::Drone, 18, false), true, 930);
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Zergling, 3, false), true, 920);
+            .push(Command::new_unit(UnitTypeId::Queen, 1, false), true, 920);
+        bot_info
+            .build_queue
+            .push(Command::new_unit(UnitTypeId::Zergling, 3, false), true, 910);
     }
 }
 
