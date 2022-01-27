@@ -59,7 +59,8 @@ impl QueenManager {
                 .filter(|&p| {
                     (!bot.is_visible((p.x as usize, p.y as usize))
                         || !bot.has_creep((p.x as usize, p.y as usize)))
-                        && (h.position().distance(p) >= bot.pathing_distance(h.position(), *p).unwrap_or(200f32))
+                        && (h.position().distance(p)
+                            >= bot.pathing_distance(h.position(), *p).unwrap_or(200f32))
                 })
                 .closest(bot.start_location.between(h.position()))
             {
@@ -86,7 +87,7 @@ impl QueenManager {
             .first()
         {
             if let Some(position) =
-            bot.find_placement(UnitTypeId::CreepTumor, queen.position(), Default::default())
+                bot.find_placement(UnitTypeId::CreepTumor, queen.position(), Default::default())
             {
                 queen.command(
                     AbilityId::BuildCreepTumorQueen,
@@ -111,8 +112,8 @@ impl QueenManager {
             for base in bot.units.my.townhalls.iter().filter(|h| {
                 !h.has_buff(BuffId::QueenSpawnLarvaTimer)
                     && injecting_queens
-                    .filter(|q| q.target_tag().unwrap() == h.tag())
-                    .is_empty()
+                        .filter(|q| q.target_tag().unwrap() == h.tag())
+                        .is_empty()
             }) {
                 debug!("Need to inject in base {}", base.tag());
                 if let Some(queen) = queens.closest(base) {
@@ -146,12 +147,12 @@ impl CreepMap for Bot {
                 let point = Point2::new(x as f32, y as f32);
                 if self.is_placeable(point)
                     && self
-                    .expansions
-                    .iter()
-                    .map(|e| e.loc)
-                    .closest_distance(point)
-                    .unwrap_or(0f32)
-                    > SPREAD_MAP_DISTANCE as f32
+                        .expansions
+                        .iter()
+                        .map(|e| e.loc)
+                        .closest_distance(point)
+                        .unwrap_or(0f32)
+                        > SPREAD_MAP_DISTANCE as f32
                 {
                     result.push(point);
                 }
