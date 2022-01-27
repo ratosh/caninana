@@ -92,8 +92,8 @@ impl CommandQueue {
                     wanted_amount: new_amount,
                     save_resources: _,
                 } => {
-                    !i.blocking &&
-                    *unit_type == new_type
+                    !i.blocking
+                        && *unit_type == new_type
                         && ((*previous_amount <= new_amount && i.priority <= priority)
                             || (*previous_amount >= new_amount && i.priority >= priority))
                 }
