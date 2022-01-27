@@ -4,6 +4,7 @@ use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
 use crate::command_queue::Command::*;
+use crate::managers::queen_manager::PathingDistance;
 use crate::{BotInfo, Manager};
 
 #[derive(Default)]
@@ -246,13 +247,18 @@ impl ProductionManager {
     }
 
     fn build_expansion(&self, bot: &mut Bot, unit_type: UnitTypeId) {
-        if let Some(expansion_location) = bot.free_expansions().map(|e| e.loc).closest(
-            bot.units
-                .my
-                .townhalls
-                .center()
-                .unwrap_or(bot.start_location),
-        ) {
+        if let Some(expansion_location) = bot
+            .free_expansions()
+            .filter(|e| bot.pathing_distance(bot.start_location, e.loc).is_some())
+            .map(|e| e.loc)
+            .closest(
+                bot.units
+                    .my
+                    .townhalls
+                    .center()
+                    .unwrap_or(bot.start_location),
+            )
+        {
             if let Some(builder) = self.get_builder(bot, expansion_location) {
                 let options = PlacementOptions {
                     max_distance: 2,

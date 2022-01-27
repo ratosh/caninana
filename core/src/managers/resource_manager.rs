@@ -18,8 +18,8 @@ impl ResourceManager {
         }
         const OVERLORD_MAX: usize = 24;
         let wanted_lords = OVERLORD_MAX.min(
-            (bot.supply_cap - bot.supply_left) as usize * 6
-                / 5
+            (bot.supply_cap - bot.supply_left) as usize * 9
+                / 8
                 / bot
                     .game_data
                     .units

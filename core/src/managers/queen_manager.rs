@@ -59,7 +59,8 @@ impl QueenManager {
                 .filter(|&p| {
                     (!bot.is_visible((p.x as usize, p.y as usize))
                         || !bot.has_creep((p.x as usize, p.y as usize)))
-                        && (h.position().distance(p) >= bot.pathing_distance(h.position(), *p))
+                        && (h.position().distance(p)
+                            >= bot.pathing_distance(h.position(), *p).unwrap_or(200f32))
                 })
                 .closest(bot.start_location.between(h.position()))
             {
@@ -232,17 +233,21 @@ impl Between for Point2 {
     }
 }
 
-trait PathingDistance {
-    fn pathing_distance(&self, p1: Point2, p2: Point2) -> f32;
+pub trait PathingDistance {
+    fn pathing_distance(&self, p1: Point2, p2: Point2) -> Option<f32>;
 }
 
 impl PathingDistance for Bot {
-    fn pathing_distance(&self, p1: Point2, p2: Point2) -> f32 {
-        self.query_pathing(vec![(Target::Pos(p1), p2)])
-            .unwrap_or_default()
-            .iter()
-            .map(|d| d.unwrap_or(0f32))
-            .sum()
+    fn pathing_distance(&self, p1: Point2, p2: Point2) -> Option<f32> {
+        if let Result::Ok(result) = self.query_pathing(vec![(Target::Pos(p1), p2)]) {
+            if result.is_empty() {
+                None
+            } else {
+                Some(result.iter().map(|d| d.unwrap_or(100f32)).sum())
+            }
+        } else {
+            None
+        }
     }
 }
 
