@@ -2,9 +2,10 @@ use log::debug;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
+use crate::{BotInfo, Manager};
 use crate::command_queue::Command;
 use crate::command_queue::Command::*;
-use crate::{BotInfo, Manager};
+use crate::managers::queen_manager::PathingDistance;
 
 #[derive(Default)]
 pub struct ProductionManager {
@@ -246,7 +247,9 @@ impl ProductionManager {
     }
 
     fn build_expansion(&self, bot: &mut Bot, unit_type: UnitTypeId) {
-        if let Some(expansion_location) = bot.free_expansions().map(|e| e.loc).closest(
+        if let Some(expansion_location) = bot.free_expansions()
+            .filter(|e| bot.pathing_distance(bot.start_location, e.loc).is_some())
+            .map(|e| e.loc).closest(
             bot.units
                 .my
                 .townhalls
