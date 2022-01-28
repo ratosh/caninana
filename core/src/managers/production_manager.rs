@@ -312,6 +312,7 @@ impl ProducedOn for UnitTypeId {
             UnitTypeId::Queen | UnitTypeId::Lair => UnitTypeId::Hatchery,
             UnitTypeId::Hive => UnitTypeId::Lair,
             UnitTypeId::Baneling => UnitTypeId::Zergling,
+            UnitTypeId::Ravager => UnitTypeId::Roach,
             UnitTypeId::Overseer => UnitTypeId::Overlord,
             _ => UnitTypeId::Larva,
         }
@@ -324,6 +325,7 @@ impl MorphUpgrade for UnitTypeId {
             UnitTypeId::Lair => Some(AbilityId::UpgradeToLairLair),
             UnitTypeId::Hive => Some(AbilityId::UpgradeToHiveHive),
             UnitTypeId::Baneling => Some(AbilityId::MorphZerglingToBanelingBaneling),
+            UnitTypeId::Ravager => Some(AbilityId::MorphToRavagerRavager),
             UnitTypeId::Overseer => Some(AbilityId::MorphOverseer),
             _ => None,
         }
@@ -338,6 +340,7 @@ impl BuildingRequirement for UnitTypeId {
             UnitTypeId::Zergling => Some(UnitTypeId::SpawningPool),
             UnitTypeId::Baneling => Some(UnitTypeId::BanelingNest),
             UnitTypeId::Roach => Some(UnitTypeId::RoachWarren),
+            UnitTypeId::Ravager => Some(UnitTypeId::RoachWarren),
             UnitTypeId::Hydralisk => Some(UnitTypeId::HydraliskDen),
             UnitTypeId::HydraliskDen => Some(UnitTypeId::Lair),
             UnitTypeId::Overseer => Some(UnitTypeId::Lair),

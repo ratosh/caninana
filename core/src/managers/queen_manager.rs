@@ -62,7 +62,7 @@ impl QueenManager {
                         && (h.position().distance(p)
                             >= bot.pathing_distance(h.position(), *p).unwrap_or(200f32))
                 })
-                .closest(bot.start_location.between(h.position()))
+                .closest(h.position())
             {
                 if let Some(position) = bot.find_creep_placement(h, *closest_spot) {
                     h.command(
