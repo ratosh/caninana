@@ -11,14 +11,14 @@ use crate::command_queue::Command;
 use crate::{BotInfo, EventListener, Manager};
 
 pub struct UnitCache {
-    unit_type: UnitTypeId,
+    unit: Unit,
     last_seen: f32,
 }
 
 impl UnitCache {
-    fn new(unit_type: UnitTypeId, time: f32) -> Self {
+    fn new(unit: Unit, time: f32) -> Self {
         Self {
-            unit_type,
+            unit,
             last_seen: time,
         }
     }
@@ -31,7 +31,31 @@ pub struct ArmyManager {
     retreat_wave_size: usize,
     defending: bool,
     retreating: HashSet<u64>,
-    enemy_units: HashMap<u64, UnitCache>, // TODO: Forget about enemy units not seen for for a long time (30 seconds+)
+    allowed_tech: HashSet<UnitTypeId>,
+    enemy_units: HashMap<u64, UnitCache>,
+}
+
+impl ArmyManager {
+    fn tech_decision(&mut self, bot: &Bot) {
+        let drones = bot.counter().all().count(UnitTypeId::Drone);
+        if !bot.units.enemy.all.is_empty() || drones >= 19 {
+            self.allowed_tech.insert(UnitTypeId::Zergling);
+        }
+        if drones >= 25 {
+            self.allowed_tech.insert(UnitTypeId::Roach);
+        }
+        if drones >= 38 {
+            self.allowed_tech.insert(UnitTypeId::Ravager);
+        }
+        if drones >= 50 || !bot.units.enemy.all.flying().is_empty() {
+            self.allowed_tech.insert(UnitTypeId::Hydralisk);
+        }
+        if drones >= 66 {
+            self.allowed_tech.insert(UnitTypeId::Mutalisk);
+            self.allowed_tech.insert(UnitTypeId::Corruptor);
+            self.allowed_tech.insert(UnitTypeId::Ultralisk);
+        }
+    }
 }
 
 impl Default for ArmyManager {
@@ -43,13 +67,14 @@ impl Default for ArmyManager {
             retreat_wave_size: 2,
             defending: false,
             retreating: HashSet::new(),
+            allowed_tech: HashSet::new(),
             enemy_units: HashMap::new(),
         }
     }
 }
 
 impl ArmyManager {
-    const CACHE_TIME: f32 = 60f32;
+    const CACHE_TIME: f32 = 20f32;
 
     pub fn destroy_unit(&mut self, tag: u64) {
         self.enemy_units.remove(&tag);
@@ -57,26 +82,18 @@ impl ArmyManager {
 
     fn check_unit_cache(&mut self, bot: &Bot) {
         for unit in bot.units.enemy.all.iter() {
-            if !self.enemy_units.contains(&unit.tag()) {
-                debug!(
-                    "Found a new unit {:?} {:?} ({:?})",
-                    unit.type_id(),
-                    unit.tag(),
-                    unit.position()
-                );
-            }
             self.enemy_units
-                .insert(unit.tag(), UnitCache::new(unit.type_id(), bot.time));
+                .insert(unit.tag(), UnitCache::new(unit.clone(), bot.time));
         }
         self.enemy_units
             .retain(|_, value| value.last_seen + Self::CACHE_TIME > bot.time);
     }
 
-    fn enemy_supply(&self, bot: &Bot) -> usize {
+    fn enemy_supply(&self, _: &Bot) -> usize {
         self.enemy_units
             .values()
-            .filter(|p| !p.unit_type.is_worker())
-            .map(|u| bot.game_data.units[&u.unit_type].food_required)
+            .filter(|p| !p.unit.is_worker())
+            .map(|u| u.unit.supply_cost())
             .sum::<f32>() as usize
     }
 
@@ -126,14 +143,14 @@ impl ArmyManager {
                 .enemy
                 .all
                 .filter(|f| {
-                    f.can_attack_air() && f.in_range(overlord, f.speed() + overlord.speed())
+                    f.can_attack_air() && f.in_real_range(overlord, f.speed() + overlord.speed())
                 })
                 .iter()
                 .closest(overlord)
             {
                 let position = overlord.position().towards(
                     closest_anti_air.position(),
-                    -closest_anti_air.range_vs(overlord),
+                    -closest_anti_air.real_range_vs(overlord),
                 );
                 overlord.order_move_to(Target::Pos(position), 0.5f32, false);
             } else if overlord.health_percentage().unwrap_or_default() > 0.9f32
@@ -157,8 +174,10 @@ impl ArmyManager {
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Zergling));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Baneling));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Roach));
+        my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Ravager));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Hydralisk));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Corruptor));
+        my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Mutalisk));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Ultralisk));
 
         // Attack when speed upgrade is > 80% ready
@@ -249,44 +268,7 @@ impl ArmyManager {
             priority_targets.extend(enemy_attack_force);
         };
 
-        let overseers = bot.units.my.units.of_type(UnitTypeId::Overseer);
-        for overseer in overseers.iter() {
-            let position = if let Some(closest_anti_air) = bot
-                .units
-                .enemy
-                .all
-                .filter(|f| {
-                    f.can_attack_air() && f.in_range(overseer, f.speed() + overseer.speed())
-                })
-                .iter()
-                .closest(overseer)
-            {
-                overseer
-                    .position()
-                    .towards(closest_anti_air.position(), -overseer.speed())
-            } else if let Some(closest_invisible) = bot
-                .units
-                .enemy
-                .all
-                .filter(|f| f.is_cloaked())
-                .closest(overseer)
-            {
-                closest_invisible.position()
-            } else if let Some(closest_enemy) = bot
-                .units
-                .enemy
-                .all
-                .filter(|f| !f.is_worker() && !f.is_structure())
-                .closest(overseer)
-            {
-                closest_enemy.position()
-            } else if let Some(army_center) = my_army.center() {
-                army_center
-            } else {
-                bot.start_location
-            };
-            overseer.order_move_to(Target::Pos(position), 1.0f32, false);
-        }
+        Self::overseer_micro(bot);
 
         if !priority_targets.is_empty() {
             debug!("Attacking targets");
@@ -400,8 +382,52 @@ impl ArmyManager {
         }
     }
 
+    fn overseer_micro(bot: &Bot) {
+        let overseers = bot.units.my.units.of_type(UnitTypeId::Overseer);
+        for overseer in overseers.iter() {
+            let position = if let Some(closest_anti_air) = bot
+                .units
+                .enemy
+                .all
+                .filter(|f| {
+                    f.can_attack_air() && f.in_real_range(overseer, f.speed() + overseer.speed())
+                })
+                .iter()
+                .closest(overseer)
+            {
+                overseer
+                    .position()
+                    .towards(closest_anti_air.position(), -overseer.speed())
+            } else if let Some(closest_invisible) = bot
+                .units
+                .enemy
+                .all
+                .filter(|f| f.is_cloaked())
+                .closest(overseer)
+            {
+                closest_invisible.position()
+            } else if let Some(closest_enemy) = bot
+                .units
+                .enemy
+                .all
+                .filter(|f| {
+                    !f.is_worker()
+                        && !f.is_structure()
+                        && f.type_id() != UnitTypeId::Overseer
+                        && f.type_id() != UnitTypeId::Overlord
+                })
+                .closest(overseer)
+            {
+                closest_enemy.position()
+            } else {
+                bot.enemy_start
+            };
+            overseer.order_move_to(Target::Pos(position), 1.0f32, false);
+        }
+    }
+
     fn queue_units(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
-        let min_queens = 7.min(bot.units.my.townhalls.len() + 1);
+        let min_queens = 7.min(bot.units.my.townhalls.len() + 2);
         bot_info.build_queue.push(
             Command::new_unit(UnitTypeId::Queen, min_queens, false),
             false,
@@ -409,60 +435,84 @@ impl ArmyManager {
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        let lings = drones;
-        bot_info.build_queue.push(
-            Command::new_unit(UnitTypeId::Zergling, lings, false),
-            false,
-            30,
-        );
+        let mut wanted_army_supply = if drones < 76 {
+            (drones * 3 / 4) as isize
+        } else {
+            (bot.supply_army + bot.supply_left) as isize
+        };
 
-        if !bot.is_ordered_upgrade(UpgradeId::Zerglingmovementspeed)
-            && !bot.has_upgrade(UpgradeId::Zerglingmovementspeed)
-        {
-            return;
-        }
+        wanted_army_supply -= (min_queens * 2) as isize;
 
         // TODO: Base a difference on enemy units
         // TODO: When facing air enemies make anti-air
-        // if drones > 32 {
-        //     let wanted_roaches = drones / 6;
-        //     bot_info.build_queue.push(
-        //         Command::new_unit(UnitTypeId::Roach, wanted_roaches, false),
-        //         false,
-        //         35,
-        //     );
-        // }
-        // if drones > 48 {
-        //     let wanted_hydras = drones / 6;
-        //     bot_info.build_queue.push(
-        //         Command::new_unit(UnitTypeId::Hydralisk, wanted_hydras, false),
-        //         false,
-        //         35,
-        //     );
-        // }
+        let unit_distribution = self.army_distribution(bot);
+        let total_weight = unit_distribution
+            .values()
+            .filter(|u| **u > 0)
+            .sum::<isize>();
+        if total_weight > 0 {
+            let mut used_supply = 0f32;
+            for (unit_type, weight) in unit_distribution {
+                if weight <= 0 {
+                    continue;
+                }
+                let supply_cost = bot.game_data.units[&unit_type].food_required;
+                let existing_supply =
+                    (bot.units.my.units.of_type(unit_type).len() as f32 * supply_cost) as isize;
+                let dedicated_supply = (wanted_army_supply * weight / total_weight) as f32;
+                let amount = (dedicated_supply / supply_cost).round() as usize;
+
+                bot_info
+                    .build_queue
+                    .push(Command::new_unit(unit_type, amount, true), false, 35);
+                used_supply += dedicated_supply;
+                println!(
+                    "Unit {:?}>{:?}|{:?}[{:?}]",
+                    unit_type, existing_supply, dedicated_supply, amount
+                );
+            }
+            println!(
+                "Final army supply {:?}>{:?}",
+                wanted_army_supply, used_supply
+            );
+        }
+
         if drones > 34 {
             bot_info
                 .build_queue
                 .push(Command::new_unit(UnitTypeId::Overseer, 2, false), false, 1);
         }
+    }
 
-        if drones > 60 {
-            if bot.units.enemy.structures.ground().is_empty()
-                && !bot.units.enemy.structures.flying().is_empty()
-            {
-                bot_info.build_queue.push(
-                    Command::new_unit(UnitTypeId::Corruptor, 4, false),
-                    false,
-                    50,
-                );
-            } else {
-                bot_info.build_queue.push(
-                    Command::new_unit(UnitTypeId::Ultralisk, 10, false),
-                    false,
-                    40,
-                );
+    fn army_distribution(&self, bot: &Bot) -> HashMap<UnitTypeId, isize> {
+        let mut unit_distribution = HashMap::new();
+
+        for unit_type in self.allowed_tech.iter() {
+            unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
+        }
+        unit_distribution
+    }
+
+    fn unit_value(bot: &Bot, unit_type: UnitTypeId) -> isize {
+        let mut value = match unit_type {
+            UnitTypeId::Zergling => 10f32,
+            UnitTypeId::Roach => 30f32,
+            UnitTypeId::Ravager => 30f32,
+            UnitTypeId::Hydralisk => 50f32,
+            UnitTypeId::Corruptor => 5f32,
+            UnitTypeId::Mutalisk => 5f32,
+            UnitTypeId::Ultralisk => 5f32,
+            _ => 50f32,
+        };
+        for unit in bot.units.enemy.all.iter() {
+            if unit.type_id().countered_by().contains(&unit_type) {
+                value += unit.supply_cost();
+            }
+            if unit_type.countered_by().contains(&unit.type_id()) {
+                value -= unit.supply_cost();
             }
         }
+        value as isize
     }
 
     fn queue_upgrades(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
@@ -519,7 +569,7 @@ impl ArmyManager {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::EvolveGroovedSpines, true),
                 false,
-                80,
+                70,
             );
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::EvolveMuscularAugments, true),
@@ -527,7 +577,7 @@ impl ArmyManager {
                 80,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Zergling) > 5 && bot.vespene > 150 {
+        if bot.counter().all().count(UnitTypeId::Zergling) > 0 && bot.vespene > 150 {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1, true),
                 false,
@@ -539,12 +589,14 @@ impl ArmyManager {
                 70,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Zergling) > 10 && bot.vespene > 250 {
+        if bot.counter().all().count(bot.race_values.worker) > 45 {
             bot_info.build_queue.push(
                 Command::new_unit(UnitTypeId::EvolutionChamber, 2, false),
                 false,
                 50,
             );
+        }
+        if bot.counter().all().count(UnitTypeId::Zergling) > 0 && bot.vespene > 250 {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel2, true),
                 false,
@@ -563,9 +615,14 @@ impl ArmyManager {
                 70,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Roach) > 5 && bot.vespene > 350 {
+        if bot.counter().all().count(UnitTypeId::Roach) > 0 && bot.vespene > 350 {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2, true),
+                false,
+                60,
+            );
+            bot_info.build_queue.push(
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, true),
                 false,
                 60,
             );
@@ -641,6 +698,179 @@ fn should_send_order(unit: &Unit, target: Target, range: f32, queue: bool) -> bo
     }
 }
 
+trait CounteredBy {
+    fn countered_by(&self) -> Vec<UnitTypeId>;
+}
+
+impl CounteredBy for UnitTypeId {
+    fn countered_by(&self) -> Vec<UnitTypeId> {
+        match self {
+            // Race::Protoss
+            UnitTypeId::Zealot => vec![
+                UnitTypeId::Roach,
+                UnitTypeId::Mutalisk,
+                UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Sentry => vec![UnitTypeId::BroodLord, UnitTypeId::Ultralisk],
+            UnitTypeId::Stalker => vec![UnitTypeId::Roach, UnitTypeId::Hydralisk],
+            UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
+            UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
+            UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk],
+            UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
+            UnitTypeId::DarkTemplar => vec![UnitTypeId::Mutalisk, UnitTypeId::BroodLord],
+            UnitTypeId::Carrier => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Oracle => vec![UnitTypeId::Mutalisk],
+            UnitTypeId::Tempest => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Adept => vec![UnitTypeId::Roach],
+            UnitTypeId::Disruptor => vec![UnitTypeId::Ultralisk],
+            // Race::Terran
+            UnitTypeId::Marine => vec![
+                UnitTypeId::Baneling,
+                UnitTypeId::Roach,
+                UnitTypeId::Ultralisk,
+                UnitTypeId::BroodLord,
+                UnitTypeId::LurkerMP,
+            ],
+            UnitTypeId::Marauder => vec![
+                UnitTypeId::Hydralisk,
+                UnitTypeId::Mutalisk,
+                UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Medivac => vec![
+                UnitTypeId::Hydralisk,
+                UnitTypeId::Mutalisk,
+                UnitTypeId::Corruptor,
+            ],
+            UnitTypeId::Reaper => vec![UnitTypeId::Roach],
+            UnitTypeId::Ghost => vec![UnitTypeId::Roach, UnitTypeId::Ultralisk],
+            UnitTypeId::Hellion => vec![UnitTypeId::Roach, UnitTypeId::Mutalisk],
+            UnitTypeId::SiegeTank => vec![
+                UnitTypeId::Mutalisk,
+                UnitTypeId::BroodLord,
+                UnitTypeId::Ravager,
+            ],
+            UnitTypeId::SiegeTankSieged => vec![
+                UnitTypeId::Mutalisk,
+                UnitTypeId::BroodLord,
+                UnitTypeId::Ravager,
+            ],
+            UnitTypeId::Thor => vec![
+                UnitTypeId::Zergling,
+                UnitTypeId::Hydralisk,
+                UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Banshee => vec![UnitTypeId::Mutalisk, UnitTypeId::Corruptor],
+            UnitTypeId::Viking => vec![UnitTypeId::Hydralisk],
+            UnitTypeId::Raven => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
+            UnitTypeId::HellionTank => vec![UnitTypeId::Baneling],
+            UnitTypeId::Liberator => vec![UnitTypeId::Corruptor],
+            // Race::Zerg
+            UnitTypeId::Zergling => vec![
+                UnitTypeId::Zealot,
+                UnitTypeId::Sentry,
+                UnitTypeId::Colossus,
+                UnitTypeId::Hellion,
+                UnitTypeId::HellionTank,
+                UnitTypeId::Baneling,
+                UnitTypeId::Roach,
+                UnitTypeId::Ultralisk,
+            ],
+            UnitTypeId::Baneling => vec![
+                UnitTypeId::Colossus,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Mutalisk,
+                UnitTypeId::Roach,
+                UnitTypeId::Ultralisk,
+            ],
+            UnitTypeId::Roach => vec![
+                UnitTypeId::Immortal,
+                UnitTypeId::VoidRay,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Marauder,
+                UnitTypeId::Mutalisk,
+                UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Hydralisk => vec![
+                UnitTypeId::Sentry,
+                UnitTypeId::Colossus,
+                UnitTypeId::Hellion,
+                UnitTypeId::HellionTank,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Roach,
+                UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Mutalisk => vec![
+                UnitTypeId::Sentry,
+                UnitTypeId::Phoenix,
+                UnitTypeId::Marine,
+                UnitTypeId::Thor,
+                UnitTypeId::Hydralisk,
+                UnitTypeId::Corruptor,
+            ],
+            UnitTypeId::Corruptor => vec![
+                UnitTypeId::Stalker,
+                UnitTypeId::Sentry,
+                UnitTypeId::Marine,
+                UnitTypeId::Thor,
+                UnitTypeId::Hydralisk,
+            ],
+            UnitTypeId::Infestor => vec![
+                UnitTypeId::Immortal,
+                UnitTypeId::Colossus,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Ghost,
+                UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Ultralisk => vec![
+                UnitTypeId::Immortal,
+                UnitTypeId::VoidRay,
+                UnitTypeId::Banshee,
+                UnitTypeId::Hydralisk,
+                UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::BroodLord => vec![
+                UnitTypeId::Stalker,
+                UnitTypeId::VoidRay,
+                UnitTypeId::Phoenix,
+                UnitTypeId::Viking,
+                UnitTypeId::Corruptor,
+            ],
+            UnitTypeId::Viper => vec![
+                UnitTypeId::Phoenix,
+                UnitTypeId::Viking,
+                UnitTypeId::Mutalisk,
+                UnitTypeId::Corruptor,
+            ],
+            UnitTypeId::Ravager => vec![
+                UnitTypeId::Immortal,
+                UnitTypeId::Marauder,
+                UnitTypeId::Ultralisk,
+            ],
+            UnitTypeId::LurkerMP => vec![
+                UnitTypeId::Disruptor,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Ultralisk,
+            ],
+            UnitTypeId::LurkerMPBurrowed => vec![
+                UnitTypeId::Disruptor,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Ultralisk,
+            ],
+            _ => vec![],
+        }
+    }
+}
+
 impl ArmyManager {
     const PROCESS_DELAY: u32 = 10;
 }
@@ -654,6 +884,7 @@ impl Manager for ArmyManager {
         }
         self.last_loop = game_loop;
         self.check_unit_cache(bot);
+        self.tech_decision(bot);
         self.queue_upgrades(bot, bot_info);
         self.queue_units(bot, bot_info);
         self.scout(bot);

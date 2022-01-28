@@ -15,15 +15,15 @@ Caninana is a StarCraft 2 AI. Our goal is to make a strong bot to play versus hu
   - [x] Order tech buildings
   - [x] Order tech upgrades
   - [x] Order upgrades
-  - Supported troops
+  - Basic troop support
     - [x] Zergling
     - [x] Baneling
     - [x] Roach
-    - [ ] Ravager
+    - [x] Ravager
     - [x] Hydralisk
     - [ ] Lurker
     - [ ] Infestors
-    - [ ] Mutalisk
+    - [x] Mutalisk
     - [x] Corruptor
     - [x] Ultralisk
     - [ ] Brood Lord
