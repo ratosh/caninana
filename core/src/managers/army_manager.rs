@@ -3,12 +3,12 @@ use std::collections::{HashMap, HashSet};
 use log::debug;
 use rand::prelude::*;
 use rust_sc2::bot::Bot;
-use rust_sc2::Event::UnitDestroyed;
 use rust_sc2::prelude::*;
 use rust_sc2::units::Container;
+use rust_sc2::Event::UnitDestroyed;
 
-use crate::{BotInfo, EventListener, Manager};
 use crate::command_queue::Command;
+use crate::{BotInfo, EventListener, Manager};
 
 pub struct UnitCache {
     unit: Unit,
@@ -410,7 +410,12 @@ impl ArmyManager {
                 .units
                 .enemy
                 .all
-                .filter(|f| !f.is_worker() && !f.is_structure() && f.type_id() != UnitTypeId::Overseer && f.type_id() != UnitTypeId::Overlord)
+                .filter(|f| {
+                    !f.is_worker()
+                        && !f.is_structure()
+                        && f.type_id() != UnitTypeId::Overseer
+                        && f.type_id() != UnitTypeId::Overlord
+                })
                 .closest(overseer)
             {
                 closest_enemy.position()
@@ -436,7 +441,7 @@ impl ArmyManager {
             (bot.supply_army + bot.supply_left) as isize
         };
 
-        wanted_army_supply = wanted_army_supply - (min_queens * 2) as isize;
+        wanted_army_supply -= (min_queens * 2) as isize;
 
         // TODO: Base a difference on enemy units
         // TODO: When facing air enemies make anti-air
@@ -483,10 +488,7 @@ impl ArmyManager {
         let mut unit_distribution = HashMap::new();
 
         for unit_type in self.allowed_tech.iter() {
-            unit_distribution.insert(
-                *unit_type,
-                Self::unit_value(bot, *unit_type)
-            );
+            unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
         }
         unit_distribution
     }
@@ -516,12 +518,12 @@ impl ArmyManager {
     fn queue_upgrades(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
             && bot.vespene
-            > bot
-            .game_data
-            .upgrades
-            .get(&UpgradeId::Zerglingmovementspeed)
-            .unwrap()
-            .vespene_cost
+                > bot
+                    .game_data
+                    .upgrades
+                    .get(&UpgradeId::Zerglingmovementspeed)
+                    .unwrap()
+                    .vespene_cost
         {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingmovementspeed, true),
