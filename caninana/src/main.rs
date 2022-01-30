@@ -12,6 +12,7 @@ use rust_sc2::prelude::*;
 use caninana_core::managers::army_manager::ArmyManager;
 use caninana_core::managers::production_manager::ProductionManager;
 use caninana_core::managers::queen_manager::QueenManager;
+use caninana_core::managers::ravager_manager::RavagerManager;
 use caninana_core::managers::resource_manager::ResourceManager;
 use caninana_core::managers::worker_manager::WorkerManager;
 
@@ -104,11 +105,11 @@ fn main() -> SC2Result<()> {
 
     const LADDER_MAPS: &[&str] = &[
         "2000AtmospheresAIE",
+        "BerlingradAIE",
         "BlackburnAIE",
         "CuriousMindsAIE",
         "GlitteringAshesAIE",
-        "LightshadeAIE",
-        "OxideAIE",
+        "HardwireAIE",
     ];
     let mut rng = thread_rng();
 
@@ -172,6 +173,7 @@ fn main() -> SC2Result<()> {
 struct Caninana {
     army_manager: ArmyManager,
     production_manager: ProductionManager,
+    ravager_manager: RavagerManager,
     queen_manager: QueenManager,
     resource_manager: ResourceManager,
     worker_manager: WorkerManager,
@@ -193,6 +195,8 @@ impl Player for Caninana {
         self.army_manager
             .process(&mut self._bot, &mut self.bot_info);
         self.production_manager
+            .process(&mut self._bot, &mut self.bot_info);
+        self.ravager_manager
             .process(&mut self._bot, &mut self.bot_info);
         self.queen_manager
             .process(&mut self._bot, &mut self.bot_info);
