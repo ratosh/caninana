@@ -103,7 +103,7 @@ impl WorkerManager {
                     if let Some(unit) = bot.units.all.get(**resource) {
                         unit.mineral_contents().unwrap_or_default()
                             + unit.vespene_contents().unwrap_or_default()
-                            <= 0
+                            == 0
                     } else {
                         bot.units.resources.get(**resource).is_none()
                             && bot.units.my.gas_buildings.get(**resource).is_none()
