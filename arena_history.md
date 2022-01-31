@@ -1,5 +1,16 @@
 # Performance from ai_arena
 
+## v0.2.5 (bot_id 382)
+40.93% win rate after 408 games
+
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| zUnkP              | -54 | 0    | 13     | 0    |
+| sharkbot           | -45 | 1    | 15     | 0    |
+| SharpenedEdge      | -39 | 0    | 15     | 0    |
+| smallBly           | -31 | 1    | 9      | 0    |
+| MechaShark         | -30 | 3    | 10     | 1    |
+
 ## v0.1.8 (bot_id 380)
 47.55% win rate after 326 games
 

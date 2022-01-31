@@ -121,7 +121,7 @@ fn main() -> SC2Result<()> {
                     race.parse().expect("Can't parse computer race")
                 }),
                 sub.value_of("difficulty")
-                    .map_or(Difficulty::VeryHard, |difficulty| {
+                    .map_or(Difficulty::CheatMoney, |difficulty| {
                         difficulty.parse().expect("Can't parse computer difficulty")
                     }),
                 sub.value_of("ai_build")
