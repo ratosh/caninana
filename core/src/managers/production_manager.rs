@@ -63,7 +63,7 @@ impl ProductionManager {
         wanted_amount: usize,
         save_resources: bool,
     ) {
-        if !bot.can_afford_v2(unit_type, true) {
+        if !bot.can_afford(unit_type, true) {
             if save_resources {
                 bot.subtract_resources(unit_type, true);
             }
@@ -91,7 +91,7 @@ impl ProductionManager {
         } else {
             let current_amount = bot.counter().all().count(unit_type);
             for _ in current_amount..wanted_amount {
-                if !bot.can_afford_v2(unit_type, true) {
+                if !bot.can_afford(unit_type, true) {
                     break;
                 }
                 self.produce_unit(bot, bot_info, unit_type, save_resources);
@@ -170,6 +170,8 @@ impl ProductionManager {
                     );
                 }
             }
+        } else if save_resources {
+            bot.subtract_upgrade_cost(upgrade);
         }
     }
 
@@ -189,7 +191,7 @@ impl ProductionManager {
             "Morphing a {:?} from {:?} using {:?}",
             unit_type, produced_on, upgrade_ability
         );
-        if let Some(unit) = bot.units.my.all.of_type(produced_on).idle().first() {
+        if let Some(unit) = bot.units.my.all.of_type(produced_on).closest(bot.start_location) {
             unit.use_ability(upgrade_ability.unwrap(), false);
             bot.subtract_resources(unit_type, false);
         } else {
@@ -402,29 +404,6 @@ impl BuildingRequirement for UpgradeId {
             | UpgradeId::ZergMeleeWeaponsLevel3 => Some(UnitTypeId::Hive),
             _ => None,
         }
-    }
-}
-
-trait AffordableV2 {
-    fn can_afford_v2(&self, unit: UnitTypeId, check_supply: bool) -> bool;
-}
-
-impl AffordableV2 for Bot {
-    fn can_afford_v2(&self, unit: UnitTypeId, check_supply: bool) -> bool {
-        let cost = self.get_unit_cost(unit);
-        if (cost.minerals > 0 && self.minerals < cost.minerals)
-            || (cost.vespene > 0 && self.vespene < cost.vespene)
-        {
-            debug!(
-                "U[{:?}] M[{:?}|{:?}] V[{:?}|{:?}]",
-                unit, self.minerals, cost.minerals, self.vespene, cost.vespene
-            );
-            return false;
-        }
-        if check_supply && (cost.supply > 0f32 && (self.supply_left as f32) < cost.supply) {
-            return false;
-        }
-        true
     }
 }
 
