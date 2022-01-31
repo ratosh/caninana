@@ -191,7 +191,13 @@ impl ProductionManager {
             "Morphing a {:?} from {:?} using {:?}",
             unit_type, produced_on, upgrade_ability
         );
-        if let Some(unit) = bot.units.my.all.of_type(produced_on).closest(bot.start_location) {
+        if let Some(unit) = bot
+            .units
+            .my
+            .all
+            .of_type(produced_on)
+            .closest(bot.start_location)
+        {
             unit.use_ability(upgrade_ability.unwrap(), false);
             bot.subtract_resources(unit_type, false);
         } else {
