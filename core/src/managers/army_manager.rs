@@ -66,9 +66,9 @@ impl ArmyManager {
             self.allowed_tech.insert(UnitTypeId::Hydralisk);
         }
         if drones >= 66 {
-        //     self.allowed_tech.insert(UnitTypeId::Mutalisk);
+            //     self.allowed_tech.insert(UnitTypeId::Mutalisk);
             self.allowed_tech.insert(UnitTypeId::Corruptor);
-        //     self.allowed_tech.insert(UnitTypeId::Ultralisk);
+            //     self.allowed_tech.insert(UnitTypeId::Ultralisk);
         }
     }
 }
@@ -538,8 +538,12 @@ impl ArmyManager {
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        let their_supply = self.enemy_units.values().filter(|f| !f.unit.is_worker())
-            .map(|f| f.unit.supply_cost()).sum::<f32>() as usize;
+        let their_supply = self
+            .enemy_units
+            .values()
+            .filter(|f| !f.unit.is_worker())
+            .map(|f| f.unit.supply_cost())
+            .sum::<f32>() as usize;
         let wanted_army_supply = if drones < 76 {
             (drones / 3).max(their_supply + 2) as isize
         } else {
@@ -705,7 +709,8 @@ impl ArmyManager {
             );
         }
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergMeleeWeaponsLevel1) {
+            && bot.can_afford_upgrade(UpgradeId::ZergMeleeWeaponsLevel1)
+        {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1, false),
                 false,
@@ -725,7 +730,8 @@ impl ArmyManager {
             );
         }
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergMeleeWeaponsLevel2) {
+            && bot.can_afford_upgrade(UpgradeId::ZergMeleeWeaponsLevel2)
+        {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel2, false),
                 false,
@@ -738,7 +744,8 @@ impl ArmyManager {
             );
         }
         if bot.counter().all().count(UnitTypeId::Roach) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergMissileWeaponsLevel1) {
+            && bot.can_afford_upgrade(UpgradeId::ZergMissileWeaponsLevel1)
+        {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, false),
                 false,
@@ -746,7 +753,8 @@ impl ArmyManager {
             );
         }
         if bot.counter().all().count(UnitTypeId::Roach) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergMissileWeaponsLevel2) {
+            && bot.can_afford_upgrade(UpgradeId::ZergMissileWeaponsLevel2)
+        {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2, false),
                 false,
