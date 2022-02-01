@@ -3,13 +3,13 @@ use std::collections::{HashMap, HashSet};
 use log::debug;
 use rand::prelude::*;
 use rust_sc2::bot::Bot;
-use rust_sc2::Event::UnitDestroyed;
 use rust_sc2::prelude::*;
 use rust_sc2::units::Container;
+use rust_sc2::Event::UnitDestroyed;
 
-use crate::{BotInfo, EventListener, Manager};
 use crate::command_queue::Command;
 use crate::managers::production_manager::BuildingRequirement;
+use crate::{BotInfo, EventListener, Manager};
 
 pub struct UnitCache {
     unit: Unit,
@@ -68,10 +68,10 @@ impl ArmyManager {
     const VISIBLE_AREA_CACHE_TIME: f32 = 10f32;
 
     pub fn destroy_unit(&mut self, tag: u64) {
-        if self.allied_decision.contains_key(&tag) {
-            debug!("Unit [{tag:?}] destroyed")
-        }
-        self.allied_decision.remove(&tag);
+        // if self.allied_decision.contains_key(&tag) {
+        //     debug!("Unit [{tag:?}] destroyed")
+        // }
+        // self.allied_decision.remove(&tag);
         self.enemy_units.remove(&tag);
     }
 
@@ -80,13 +80,13 @@ impl ArmyManager {
             self.enemy_units
                 .insert(unit.tag(), UnitCache::new(unit.clone(), bot.time));
         }
-        self.enemy_units
-            .retain(|_, value|
-                if bot.is_visible(value.unit.position()) {
-                    value.last_seen + Self::VISIBLE_AREA_CACHE_TIME > bot.time
-                } else {
-                    value.last_seen + Self::FOG_AREA_CACHE_TIME > bot.time
-                });
+        self.enemy_units.retain(|_, value| {
+            if bot.is_visible(value.unit.position()) {
+                value.last_seen + Self::VISIBLE_AREA_CACHE_TIME > bot.time
+            } else {
+                value.last_seen + Self::FOG_AREA_CACHE_TIME > bot.time
+            }
+        });
     }
 
     fn scout(&self, bot: &mut Bot) {
@@ -134,7 +134,8 @@ impl ArmyManager {
                     -closest_anti_air.real_range_vs(overlord),
                 );
                 overlord.order_move_to(Target::Pos(position), 0.5f32, false);
-            } else if overlord.hits_percentage().unwrap_or_default() > 0.9f32 && overlord.is_idle() {
+            } else if overlord.hits_percentage().unwrap_or_default() > 0.9f32 && overlord.is_idle()
+            {
                 if let Some(ramp) = closest_ramp {
                     overlord.order_move_to(Target::Pos(ramp), 0.5f32, false);
                 } else {
@@ -504,7 +505,14 @@ impl ArmyManager {
                 if !bot.units.my.all.ready().of_type(requirement).is_empty() {
                     unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
                 } else if let Some(another_requirement) = requirement.building_requirement() {
-                    if !bot.units.my.all.ready().of_type(another_requirement).is_empty() {
+                    if !bot
+                        .units
+                        .my
+                        .all
+                        .ready()
+                        .of_type(another_requirement)
+                        .is_empty()
+                    {
                         bot_info.build_queue.push(
                             Command::new_unit(requirement, 1, true),
                             false,
@@ -512,11 +520,9 @@ impl ArmyManager {
                         );
                     }
                 } else {
-                    bot_info.build_queue.push(
-                        Command::new_unit(requirement, 1, true),
-                        false,
-                        100,
-                    );
+                    bot_info
+                        .build_queue
+                        .push(Command::new_unit(requirement, 1, true), false, 100);
                 }
             } else {
                 unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
@@ -802,9 +808,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Medivac => vec![
-                UnitTypeId::Hydralisk
-            ],
+            UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Reaper => vec![UnitTypeId::Roach],
             UnitTypeId::Ghost => vec![UnitTypeId::Roach, UnitTypeId::Ultralisk],
             UnitTypeId::Hellion => vec![UnitTypeId::Roach, UnitTypeId::Mutalisk],
