@@ -64,9 +64,14 @@ impl ArmyManager {
 }
 
 impl ArmyManager {
-    const CACHE_TIME: f32 = 20f32;
+    const FOG_AREA_CACHE_TIME: f32 = 120f32;
+    const VISIBLE_AREA_CACHE_TIME: f32 = 10f32;
 
     pub fn destroy_unit(&mut self, tag: u64) {
+        // if self.allied_decision.contains_key(&tag) {
+        //     debug!("Unit [{tag:?}] destroyed")
+        // }
+        // self.allied_decision.remove(&tag);
         self.enemy_units.remove(&tag);
     }
 
@@ -75,8 +80,13 @@ impl ArmyManager {
             self.enemy_units
                 .insert(unit.tag(), UnitCache::new(unit.clone(), bot.time));
         }
-        self.enemy_units
-            .retain(|_, value| value.last_seen + Self::CACHE_TIME > bot.time);
+        self.enemy_units.retain(|_, value| {
+            if bot.is_visible(value.unit.position()) {
+                value.last_seen + Self::VISIBLE_AREA_CACHE_TIME > bot.time
+            } else {
+                value.last_seen + Self::FOG_AREA_CACHE_TIME > bot.time
+            }
+        });
     }
 
     fn scout(&self, bot: &mut Bot) {
@@ -492,10 +502,17 @@ impl ArmyManager {
 
         for unit_type in self.allowed_tech.iter() {
             if let Some(requirement) = unit_type.building_requirement() {
-                if bot.counter().count(requirement) > 0 {
+                if !bot.units.my.all.ready().of_type(requirement).is_empty() {
                     unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
                 } else if let Some(another_requirement) = requirement.building_requirement() {
-                    if bot.counter().count(another_requirement) > 0 {
+                    if !bot
+                        .units
+                        .my
+                        .all
+                        .ready()
+                        .of_type(another_requirement)
+                        .is_empty()
+                    {
                         bot_info.build_queue.push(
                             Command::new_unit(requirement, 1, true),
                             false,
@@ -503,7 +520,9 @@ impl ArmyManager {
                         );
                     }
                 } else {
-                    unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
+                    bot_info
+                        .build_queue
+                        .push(Command::new_unit(requirement, 1, true), false, 100);
                 }
             } else {
                 unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
@@ -557,7 +576,7 @@ impl ArmyManager {
                 50,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Overseer) > 0 {
+        if bot.counter().all().count(UnitTypeId::Drone) > 30 {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::Overlordspeed, true),
                 false,
@@ -762,7 +781,7 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::Stalker => vec![UnitTypeId::Zergling],
             UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
-            UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
+            // UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
             UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
             UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk],
             UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
@@ -770,10 +789,10 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord
             ],
-            UnitTypeId::Carrier => vec![UnitTypeId::Corruptor],
-            UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Carrier => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
+            // UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
             UnitTypeId::Oracle => vec![UnitTypeId::Hydralisk, UnitTypeId::Mutalisk],
-            UnitTypeId::Tempest => vec![UnitTypeId::Corruptor],
+            // UnitTypeId::Tempest => vec![UnitTypeId::Corruptor],
             UnitTypeId::Adept => vec![UnitTypeId::Roach],
             UnitTypeId::Disruptor => vec![UnitTypeId::Ultralisk],
             // Race::Terran
@@ -789,11 +808,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Medivac => vec![
-                UnitTypeId::Hydralisk,
-                UnitTypeId::Mutalisk,
-                UnitTypeId::Corruptor,
-            ],
+            UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Reaper => vec![UnitTypeId::Roach],
             UnitTypeId::Ghost => vec![UnitTypeId::Roach, UnitTypeId::Ultralisk],
             UnitTypeId::Hellion => vec![UnitTypeId::Roach, UnitTypeId::Mutalisk],
@@ -812,12 +827,12 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Banshee => vec![UnitTypeId::Mutalisk, UnitTypeId::Corruptor],
+            // UnitTypeId::Banshee => vec![UnitTypeId::Mutalisk, UnitTypeId::Corruptor],
             UnitTypeId::Viking => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Raven => vec![UnitTypeId::Corruptor],
-            UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
+            // UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
             UnitTypeId::HellionTank => vec![UnitTypeId::Roach],
-            UnitTypeId::Liberator => vec![UnitTypeId::Corruptor],
+            // UnitTypeId::Liberator => vec![UnitTypeId::Corruptor],
             // Race::Zerg
             UnitTypeId::Zergling => vec![
                 UnitTypeId::Zealot,
@@ -864,7 +879,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Marine,
                 UnitTypeId::Thor,
                 UnitTypeId::Hydralisk,
-                UnitTypeId::Corruptor,
+                // UnitTypeId::Corruptor,
             ],
             UnitTypeId::Corruptor => vec![
                 UnitTypeId::Stalker,
@@ -893,13 +908,13 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::VoidRay,
                 UnitTypeId::Phoenix,
                 UnitTypeId::Viking,
-                UnitTypeId::Corruptor,
+                // UnitTypeId::Corruptor,
             ],
             UnitTypeId::Viper => vec![
                 UnitTypeId::Phoenix,
                 UnitTypeId::Viking,
                 UnitTypeId::Mutalisk,
-                UnitTypeId::Corruptor,
+                // UnitTypeId::Corruptor,
             ],
             UnitTypeId::Ravager => vec![
                 UnitTypeId::Immortal,
