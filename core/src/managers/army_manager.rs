@@ -11,6 +11,15 @@ use crate::command_queue::Command;
 use crate::managers::production_manager::BuildingRequirement;
 use crate::{BotInfo, EventListener, Manager};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum UnitDecision {
+    Advance,
+    Retreat,
+    Tank,
+    Finish,
+    Group,
+}
+
 pub struct UnitCache {
     unit: Unit,
     last_seen: f32,
@@ -31,6 +40,7 @@ pub struct ArmyManager {
     defending: bool,
     allowed_tech: HashSet<UnitTypeId>,
     enemy_units: HashMap<u64, UnitCache>,
+    allied_decision: HashMap<u64, UnitDecision>,
 }
 
 impl ArmyManager {
@@ -68,10 +78,10 @@ impl ArmyManager {
     const VISIBLE_AREA_CACHE_TIME: f32 = 10f32;
 
     pub fn destroy_unit(&mut self, tag: u64) {
-        // if self.allied_decision.contains_key(&tag) {
-        //     debug!("Unit [{tag:?}] destroyed")
-        // }
-        // self.allied_decision.remove(&tag);
+        if self.allied_decision.contains_key(&tag) {
+            debug!("Unit [{tag:?}] destroyed")
+        }
+        self.allied_decision.remove(&tag);
         self.enemy_units.remove(&tag);
     }
 
@@ -239,128 +249,165 @@ impl ArmyManager {
         Self::overseer_micro(bot);
         let mut close_allied_strength = HashMap::new();
         let mut close_allied_count = HashMap::new();
-        let mut close_enemy_strength = HashMap::new();
-        let mut close_enemy_count = HashMap::new();
         let mut enemy_strength_per_enemy_unit = HashMap::new();
+        let mut enemy_count_per_enemy_unit = HashMap::new();
+        let mut enemy_units_being_targeted_count = HashMap::new();
+        for unit in my_army.iter() {
+            if let Some(tag) = unit.target_tag() {
+                let count = enemy_units_being_targeted_count.entry(tag).or_insert(0);
+                *count += 1;
+            }
+        }
+
         for unit in priority_targets.iter() {
             let their_strength = priority_targets
-                .filter(|e| e.position().distance(unit) < 9f32)
-                .strength(bot);
-            let allied_strength = bot
-                .units
-                .my
-                .all
-                .filter(|e| e.position().distance(unit) < 9f32)
-                .strength(bot);
-            enemy_strength_per_enemy_unit.insert(unit.tag(), their_strength - allied_strength);
-        }
-        for unit in my_army.iter() {
-            let our_strength = bot
-                .units
-                .my
-                .all
-                .filter(|e| e.position().distance(unit) < 7f32)
-                .strength(bot);
-            let our_count = bot
-                .units
-                .my
-                .all
-                .filter(|e| e.position().distance(unit) < 7f32)
-                .len();
-
-            let their_strength = priority_targets
-                .filter(|e| e.can_attack_unit(unit) && e.position().distance(unit) < 19f32)
+                .filter(|e| e.position().distance(unit) < 11f32)
                 .strength(bot);
             let their_count = priority_targets
-                .filter(|e| e.can_attack_unit(unit) && e.position().distance(unit) < 19f32)
+                .filter(|e| e.position().distance(unit) < 11f32 && !e.is_worker())
                 .len();
+            enemy_strength_per_enemy_unit.insert(unit.tag(), their_strength);
+            enemy_count_per_enemy_unit.insert(unit.tag(), their_count);
+        }
+        debug!("Unit analysis");
+        for unit in my_army.iter() {
+            let friendly_units = bot
+                .units
+                .my
+                .all
+                .filter(|e| e.position().distance(unit) < 7f32);
+            let our_strength = friendly_units.strength(bot);
+            let our_count = friendly_units.len();
+            let friendly_ranged = !friendly_units.filter(|f| f.can_attack() && !f.is_melee() && f.is_attacked()).is_empty();
+
+            let their_strength = priority_targets
+                .filter(|e| e.can_attack_unit(unit) && e.position().distance(unit) < e.range_vs(unit) + e.real_speed() + unit.real_speed())
+                .max_value(|f| *enemy_strength_per_enemy_unit.get(&f.tag()).unwrap()).unwrap_or_default();
+
+            let their_count = priority_targets
+                .filter(|e| e.can_attack_unit(unit) && e.position().distance(unit) < e.range_vs(unit) + e.real_speed() + unit.real_speed())
+                .max_value(|f| *enemy_count_per_enemy_unit.get(&f.tag()).unwrap()).unwrap_or_default();
 
             close_allied_strength.insert(unit.tag(), our_strength);
             close_allied_count.insert(unit.tag(), our_count);
-            close_enemy_strength.insert(unit.tag(), their_strength);
-            close_enemy_count.insert(unit.tag(), their_count);
+            let surrounding = if let Some(tag) = unit.target_tag() {
+                *enemy_units_being_targeted_count.get(&tag).unwrap() > 3
+            } else {
+                false
+            };
+
+            debug!("Unit[{:?}|{:?}] {:?}[{:?}]vs{:?}[{:?}]", unit.tag(), unit.type_id(), our_strength, our_count, their_strength, their_count);
+            let decision = if our_strength > their_strength * 1.5f32 {
+                UnitDecision::Advance
+            } else if surrounding && unit.is_melee() {
+                UnitDecision::Finish
+            } else if our_strength < their_strength * 0.8 && unit.type_id() == UnitTypeId::Zergling && friendly_ranged {
+                UnitDecision::Tank
+            } else if our_strength < their_strength * 0.8 {
+                UnitDecision::Retreat
+            } else {
+                UnitDecision::Group
+            };
+
+            self.allied_decision.insert(unit.tag(), decision);
+        }
+
+        debug!("Decision report");
+        for unit in my_army.iter() {
+            debug!("Unit[{:?}|{:?}] {:?}", unit.tag(), unit.type_id(), self.allied_decision.get(&unit.tag()));
         }
 
         for unit in my_army.iter() {
             let local_allied_strength = *close_allied_strength.get(&unit.tag()).unwrap();
-            let local_allied_count = *close_allied_count.get(&unit.tag()).unwrap();
-            let local_enemy_strength = *close_enemy_strength.get(&unit.tag()).unwrap();
-            let local_enemy_count = *close_enemy_count.get(&unit.tag()).unwrap();
-            let is_retreating = local_allied_strength <= local_enemy_strength * 0.8;
-            let is_advancing = (local_allied_strength > local_enemy_strength * 2f32
-                && local_allied_count > local_enemy_count)
-                || local_allied_count >= local_enemy_count * 5;
+            let decision = *self.allied_decision.get(&unit.tag()).unwrap();
 
             let target_in_range = priority_targets
                 .iter()
-                .filter(|t| unit.can_attack_unit(t) && unit.in_real_range(t, 0.1))
+                .filter(|t| unit.can_attack_unit(t) && unit.in_real_range(t, 0.1f32))
                 .min_by_key(|t| t.hits());
+
+            let closest_threat = priority_targets
+                .iter()
+                .filter(|t| {
+                    t.can_attack_unit(unit) && t.in_real_range(unit, t.speed() + unit.speed())
+                }).closest(unit);
+
             let closest_weak = priority_targets
                 .iter()
                 .filter(|t| {
                     unit.can_attack_unit(t)
                         && unit.distance(t.position()) <= 15f32
                         && *enemy_strength_per_enemy_unit.get(&t.tag()).unwrap() * 2f32
-                            < local_allied_strength
+                        < local_allied_strength
                 })
                 .closest(unit);
+
             let globally_weak = priority_targets
                 .iter()
                 .filter(|t| {
                     unit.can_attack_unit(t)
                         && *enemy_strength_per_enemy_unit.get(&t.tag()).unwrap() * 2f32
-                            < local_allied_strength
+                        < local_allied_strength
                 })
-                .closest(unit);
+                .furthest(bot.enemy_start);
+
             let secondary_target = secondary_targets
                 .iter()
                 .filter(|f| unit.can_attack_unit(f))
                 .furthest(bot.enemy_start);
-            match target_in_range {
-                Some(target) => {
-                    if is_retreating && (unit.on_cooldown() || unit.is_melee()) {
-                        Self::move_towards(bot, unit, -2f32);
-                    } else if is_advancing
-                        && !unit.is_melee()
-                        && unit.weapon_cooldown().unwrap_or_default() > 5f32
-                    {
-                        Self::move_towards(bot, unit, 1.0f32);
-                    } else {
-                        unit.order_attack(Target::Tag(target.tag()), false);
-                    }
+
+            if let Some(target) = target_in_range {
+                if decision == UnitDecision::Retreat && (unit.on_cooldown() || unit.is_melee()) {
+                    Self::move_towards(bot, unit, -unit.speed());
+                } else if unit.range_vs(target) > target.range_vs(unit) && unit.weapon_cooldown().unwrap_or_default() > 5f32 {
+                    Self::move_towards(bot, unit, -0.5f32);
+                } else if decision == UnitDecision::Advance && unit.range_vs(target) < target.range_vs(unit) && unit.weapon_cooldown().unwrap_or_default() > 5f32 {
+                    Self::move_towards(bot, unit, 0.5f32);
+                } else {
+                    unit.order_attack(Target::Tag(target.tag()), false);
                 }
-                None => {
-                    if is_retreating {
-                        // TODO: Group with a non-retreating unit?
-                        unit.order_move_to(Target::Pos(bot.start_location), 7f32, false);
-                    } else if is_advancing {
-                        if let Some(target) = closest_weak {
-                            unit.order_attack(Target::Pos(target.position()), false);
-                        } else if let Some(target) = globally_weak {
-                            unit.order_attack(Target::Pos(target.position()), false);
-                        } else if let Some(target) = secondary_target {
-                            // TODO: Find a weak spot to attack
-                            unit.order_attack(Target::Pos(target.position()), false);
-                        } else {
-                            unit.order_attack(Target::Pos(bot.enemy_start), false);
-                        }
-                    }
+            } else if decision == UnitDecision::Advance || decision == UnitDecision::Tank {
+                if let Some(target) = closest_threat {
+                    unit.order_attack(Target::Tag(target.tag()), false);
+                } else if let Some(target) = closest_weak {
+                    unit.order_attack(Target::Pos(target.position()), false);
+                } else if let Some(target) = globally_weak {
+                    unit.order_attack(Target::Pos(target.position()), false);
+                } else if let Some(target) = secondary_target {
+                    unit.order_attack(Target::Pos(target.position()), false);
                 }
+            } else if decision == UnitDecision::Retreat {
+                if let Some(allied) = my_army.iter().filter(|u| *self.allied_decision.get(&u.tag()).unwrap() == UnitDecision::Group).closest(unit) {
+                    unit.order_move_to(Target::Pos(allied.position()), 2f32, false);
+                } else {
+                    unit.order_move_to(Target::Pos(bot.start_location), 7f32, false);
+                }
+            } else if decision == UnitDecision::Group {
+                if let Some(target) = closest_threat {
+                    Self::move_towards(bot, target, -2f32);
+                } else if let Some(allied) = my_army.iter().filter(|u| *self.allied_decision.get(&u.tag()).unwrap() == UnitDecision::Advance).closest(unit) {
+                    unit.order_move_to(Target::Pos(allied.position()), 2f32, false);
+                } else {
+                    unit.order_move_to(Target::Pos(bot.start_location), 7f32, false);
+                }
+            } else {
+                unit.order_move_to(Target::Pos(bot.start_location), 7f32, false);
             }
-        }
-        // Bring back my queens
-        if !self.defending {
-            for queen in bot
-                .units
-                .my
-                .units
-                .iter()
-                .ready()
-                .of_type(UnitTypeId::Queen)
-                .filter(|u| u.is_attacking())
-            {
-                if let Some(closest_hall) = bot.units.my.townhalls.closest(queen) {
-                    queen.order_move_to(Target::Pos(closest_hall.position()), 0.5f32, false);
+
+            // Bring back my queens
+            if !self.defending {
+                for queen in bot
+                    .units
+                    .my
+                    .units
+                    .iter()
+                    .ready()
+                    .of_type(UnitTypeId::Queen)
+                    .filter(|u| u.is_attacking())
+                {
+                    if let Some(closest_hall) = bot.units.my.townhalls.closest(queen) {
+                        queen.order_move_to(Target::Pos(closest_hall.position()), 0.5f32, false);
+                    }
                 }
             }
         }
