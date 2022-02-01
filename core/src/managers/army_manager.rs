@@ -49,26 +49,26 @@ impl ArmyManager {
         if !bot.units.enemy.all.is_empty() || drones >= 19 {
             self.allowed_tech.insert(UnitTypeId::Zergling);
         }
-        for unit in bot.units.enemy.all.iter() {
-            for counter in unit.type_id().countered_by() {
-                if counter.from_race(bot) == bot.race {
-                    self.allowed_tech.insert(counter);
-                }
-            }
-        }
+        // for unit in bot.units.enemy.all.iter() {
+        //     for counter in unit.type_id().countered_by() {
+        //         if counter.from_race(bot) == bot.race {
+        //             self.allowed_tech.insert(counter);
+        //         }
+        //     }
+        // }
         if drones >= 25 {
             self.allowed_tech.insert(UnitTypeId::Roach);
         }
-        if drones >= 38 {
-            self.allowed_tech.insert(UnitTypeId::Ravager);
-        }
+        // if drones >= 38 {
+        //     self.allowed_tech.insert(UnitTypeId::Ravager);
+        // }
         if drones >= 50 || !bot.units.enemy.all.flying().is_empty() {
             self.allowed_tech.insert(UnitTypeId::Hydralisk);
         }
         if drones >= 66 {
-            self.allowed_tech.insert(UnitTypeId::Mutalisk);
+        //     self.allowed_tech.insert(UnitTypeId::Mutalisk);
             self.allowed_tech.insert(UnitTypeId::Corruptor);
-            self.allowed_tech.insert(UnitTypeId::Ultralisk);
+        //     self.allowed_tech.insert(UnitTypeId::Ultralisk);
         }
     }
 }
@@ -538,13 +538,17 @@ impl ArmyManager {
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        let mut wanted_army_supply = if drones < 76 {
-            (drones * 4 / 5) as isize
+        let their_supply = self.enemy_units.values().filter(|f| !f.unit.is_worker())
+            .map(|f| f.unit.supply_cost()).sum::<f32>() as usize;
+        let wanted_army_supply = if drones < 76 {
+            (drones / 3).max(their_supply + 2) as isize
         } else {
-            (bot.supply_army + bot.supply_left) as isize
+            (bot.supply_army + bot.supply_left) as isize - (min_queens as isize * 2)
         };
 
-        wanted_army_supply -= (min_queens * 2) as isize;
+        if wanted_army_supply <= 0 {
+            return;
+        }
 
         // TODO: Base a difference on enemy units
         // TODO: When facing air enemies make anti-air
@@ -700,16 +704,17 @@ impl ArmyManager {
                 80,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Zergling) > 0 && bot.vespene > 300 {
+        if bot.counter().all().count(UnitTypeId::Zergling) > 0
+            && bot.can_afford_upgrade(UpgradeId::ZergMeleeWeaponsLevel1) {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1, false),
                 false,
                 70,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, false),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, true),
                 false,
-                70,
+                80,
             );
         }
         if bot.counter().all().count(bot.race_values.worker) > 45 {
@@ -719,52 +724,55 @@ impl ArmyManager {
                 50,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Zergling) > 0 && bot.vespene > 450 {
+        if bot.counter().all().count(UnitTypeId::Zergling) > 0
+            && bot.can_afford_upgrade(UpgradeId::ZergMeleeWeaponsLevel2) {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel2, false),
                 false,
                 60,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, false),
-                false,
-                60,
-            );
-        }
-        if bot.counter().all().count(UnitTypeId::Roach) > 0 && bot.vespene > 300 {
-            bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, false),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, true),
                 false,
                 70,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Roach) > 0 && bot.vespene > 600 {
+        if bot.counter().all().count(UnitTypeId::Roach) > 0
+            && bot.can_afford_upgrade(UpgradeId::ZergMissileWeaponsLevel1) {
+            bot_info.build_queue.push(
+                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, false),
+                false,
+                90,
+            );
+        }
+        if bot.counter().all().count(UnitTypeId::Roach) > 0
+            && bot.can_afford_upgrade(UpgradeId::ZergMissileWeaponsLevel2) {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2, false),
                 false,
-                60,
+                80,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, false),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, true),
+                false,
+                70,
+            );
+        }
+        if bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel3) {
+            bot_info.build_queue.push(
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel3, true),
                 false,
                 60,
             );
-        }
-        if bot.vespene > 750 {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel3, false),
                 false,
                 50,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel3, false),
-                false,
-                50,
-            );
-            bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel3, false),
                 false,
-                50,
+                70,
             );
         }
         if bot.counter().all().count(UnitTypeId::Ultralisk) > 0 {
