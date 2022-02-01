@@ -487,6 +487,7 @@ impl ArmyManager {
 
     fn overseer_micro(bot: &Bot) {
         let overseers = bot.units.my.units.of_type(UnitTypeId::Overseer);
+        let mut enemy_units = bot.units.enemy.units.clone();
         for overseer in overseers.iter() {
             let position = if let Some(closest_anti_air) = bot
                 .units
@@ -501,27 +502,16 @@ impl ArmyManager {
                 overseer
                     .position()
                     .towards(closest_anti_air.position(), -overseer.speed())
-            } else if let Some(closest_invisible) = bot
-                .units
-                .enemy
-                .all
+            } else if let Some(unit) = enemy_units
+                .clone()
                 .filter(|f| f.is_cloaked())
-                .closest(bot.start_location)
+                .furthest(bot.enemy_start)
             {
-                closest_invisible.position()
-            } else if let Some(closest_enemy) = bot
-                .units
-                .enemy
-                .all
-                .filter(|f| {
-                    !f.is_worker()
-                        && !f.is_structure()
-                        && f.type_id() != UnitTypeId::Overseer
-                        && f.type_id() != UnitTypeId::Overlord
-                })
-                .closest(overseer)
-            {
-                closest_enemy.position()
+                enemy_units.remove(unit.tag());
+                unit.position()
+            } else if let Some(unit) = enemy_units.clone().closest(overseer) {
+                enemy_units.remove(unit.tag());
+                unit.position()
             } else {
                 bot.enemy_start
             };
