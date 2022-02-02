@@ -120,8 +120,7 @@ impl WorkerManager {
                 .enemy
                 .units
                 .filter(|f| {
-                    f.can_attack_ground()
-                        && f.in_range(worker, 2f32 + f.speed() + worker.speed())
+                    f.can_attack_ground() && f.in_range(worker, 2f32 + f.speed() + worker.speed())
                 })
                 .is_empty();
             let decision = if worker.health_percentage().unwrap_or_default() < back_threshold
