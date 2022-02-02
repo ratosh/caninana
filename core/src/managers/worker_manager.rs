@@ -61,15 +61,46 @@ impl WorkerManager {
     const GEYSERS_WORKERS: usize = 3;
 
     fn decision(&mut self, bot: &mut Bot) {
-        let units_attacking = bot.units.enemy.units.filter(|f| f.can_attack_ground() && f.is_closer(15f32, bot.start_location)).len();
-        let workers_attacking = bot.units.enemy.workers.filter(|f| f.is_closer(15f32, bot.start_location)).len();
-        let spines_close = bot.units.enemy.all.filter(|f| f.is_closer(15f32, bot.start_location) && f.type_id() == UnitTypeId::SpineCrawler && !f.is_ready()).len();
-        let current_fighters = self.worker_decision.values().filter(|f| **f == WorkerDecision::Fight).count();
+        let units_attacking = bot
+            .units
+            .enemy
+            .units
+            .filter(|f| f.can_attack_ground() && f.is_closer(15f32, bot.start_location))
+            .len();
+        let workers_attacking = bot
+            .units
+            .enemy
+            .workers
+            .filter(|f| f.is_closer(15f32, bot.start_location))
+            .len();
+        let spines_close = bot
+            .units
+            .enemy
+            .all
+            .filter(|f| {
+                f.is_closer(15f32, bot.start_location)
+                    && f.type_id() == UnitTypeId::SpineCrawler
+                    && !f.is_ready()
+            })
+            .len();
+        let current_fighters = self
+            .worker_decision
+            .values()
+            .filter(|f| **f == WorkerDecision::Fight)
+            .count();
 
-        let army_supply = bot.units.my.units.filter(|f| f.is_ready() && !f.is_worker()).sum(|f| f.supply_cost()) as usize;
-        println!("U[{:?}] W[{:?}] S[{:?}] F[{:?}]", units_attacking, workers_attacking, spines_close, current_fighters);
+        let army_supply = bot
+            .units
+            .my
+            .units
+            .filter(|f| f.is_ready() && !f.is_worker())
+            .sum(|f| f.supply_cost()) as usize;
+        println!(
+            "U[{:?}] W[{:?}] S[{:?}] F[{:?}]",
+            units_attacking, workers_attacking, spines_close, current_fighters
+        );
 
-        let mut needed_fighters =  0;
+        let mut needed_fighters = 0;
         if spines_close > 0 {
             needed_fighters += (spines_close * 5).max(current_fighters)
         }
@@ -84,8 +115,18 @@ impl WorkerManager {
         };
 
         for worker in bot.units.my.workers.sorted(|f| f.tag()).iter() {
+            let attackers_in_range = !bot
+                .units
+                .enemy
+                .units
+                .filter(|f| {
+                    f.can_attack_ground()
+                        && f.in_range(worker, 2f32 + f.speed() + worker.speed())
+                })
+                .is_empty();
             let decision = if worker.health_percentage().unwrap_or_default() < back_threshold
-                && !bot.units.enemy.units.filter(|f| f.can_attack_ground() && f.in_range(worker, 2f32 + f.speed() + worker.speed())).is_empty() {
+                && attackers_in_range
+            {
                 WorkerDecision::Run
             } else if needed_fighters > 0 {
                 needed_fighters -= 1;
