@@ -150,7 +150,7 @@ fn main() -> SC2Result<()> {
                 .unwrap_or_else(|| LADDER_MAPS.choose(&mut rng).unwrap()),
             LaunchOptions {
                 sc2_version: sub.value_of("sc2_version"),
-                realtime: false,
+                realtime: true,
                 save_replay_as: sub.value_of("save_replay"),
             },
         ),

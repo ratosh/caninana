@@ -7,7 +7,7 @@ use rust_sc2::prelude::*;
 use crate::command_queue::Command;
 use crate::*;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 enum WorkerDecision {
     Run,
     Fight,
@@ -61,10 +61,35 @@ impl WorkerManager {
     const GEYSERS_WORKERS: usize = 3;
 
     fn decision(&mut self, bot: &mut Bot) {
-        // TODO: Decide to use group of workers to defend
-        for worker in bot.units.my.workers.iter() {
-            let decision = if worker.health_percentage().unwrap_or_default() < 0.5f32 {
+        let units_attacking = bot.units.enemy.units.filter(|f| f.can_attack_ground() && f.is_closer(15f32, bot.start_location)).len();
+        let workers_attacking = bot.units.enemy.workers.filter(|f| f.is_closer(15f32, bot.start_location)).len();
+        let spines_close = bot.units.enemy.all.filter(|f| f.is_closer(15f32, bot.start_location) && f.type_id() == UnitTypeId::SpineCrawler && !f.is_ready()).len();
+        let current_fighters = self.worker_decision.values().filter(|f| **f == WorkerDecision::Fight).count();
+
+        let army_supply = bot.units.my.units.filter(|f| f.is_ready() && !f.is_worker()).sum(|f| f.supply_cost()) as usize;
+        println!("U[{:?}] W[{:?}] S[{:?}] F[{:?}]", units_attacking, workers_attacking, spines_close, current_fighters);
+
+        let mut needed_fighters =  0;
+        if spines_close > 0 {
+            needed_fighters += (spines_close * 5).max(current_fighters)
+        }
+        if workers_attacking > 0 {
+            needed_fighters += (workers_attacking * 12 / 10).max(current_fighters)
+        }
+        needed_fighters = needed_fighters.saturating_sub(army_supply);
+        let back_threshold = if units_attacking > workers_attacking {
+            0.5f32
+        } else {
+            0.25f32
+        };
+
+        for worker in bot.units.my.workers.sorted(|f| f.tag()).iter() {
+            let decision = if worker.health_percentage().unwrap_or_default() < back_threshold
+                && !bot.units.enemy.units.filter(|f| f.can_attack_ground() && f.in_range(worker, 2f32 + f.speed() + worker.speed())).is_empty() {
                 WorkerDecision::Run
+            } else if needed_fighters > 0 {
+                needed_fighters -= 1;
+                WorkerDecision::Fight
             } else if worker.is_attacked() {
                 WorkerDecision::Fight
             } else if worker.is_constructing() {
@@ -212,7 +237,7 @@ impl WorkerManager {
                     }
                 }
                 WorkerDecision::Fight => {
-                    if let Some(target) = bot.units.enemy.units.closest(worker) {
+                    if let Some(target) = bot.units.enemy.all.closest(worker) {
                         worker.attack(Target::Pos(target.position()), false);
                     }
                 }
