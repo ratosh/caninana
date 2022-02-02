@@ -15,9 +15,7 @@ use crate::{BotInfo, EventListener, Manager};
 enum UnitDecision {
     Advance,
     Retreat,
-    Tank,
-    Finish,
-    Group,
+    Undefined,
 }
 
 pub struct UnitCache {
@@ -173,11 +171,11 @@ impl ArmyManager {
         // Attack when speed upgrade is > 80% ready
         // Defend our locations
         let base_count = bot.owned_expansions().count();
-        let extra_range = 2f32 * base_count as f32;
+        let extra_range = base_count as f32;
         let defense_range = if self.defending {
-            20f32 + extra_range
+            15f32 + extra_range
         } else {
-            10f32 + extra_range
+            7f32 + extra_range
         };
         if self.defending {
             my_army.extend(
@@ -270,17 +268,16 @@ impl ArmyManager {
             enemy_count_per_enemy_unit.insert(unit.tag(), their_count);
         }
         debug!("Unit analysis");
+
+        let has_lingspeed = bot.has_upgrade(UpgradeId::Zerglingmovementspeed);
         for unit in my_army.iter() {
             let friendly_units = bot
                 .units
                 .my
                 .all
-                .filter(|e| e.position().distance(unit) < 7f32);
+                .filter(|e| e.position().distance(unit) < 9f32);
             let our_strength = friendly_units.strength(bot);
             let our_count = friendly_units.len();
-            let friendly_ranged = !friendly_units
-                .filter(|f| f.can_attack() && !f.is_melee() && f.is_attacked())
-                .is_empty();
 
             let their_strength = priority_targets
                 .filter(|e| {
@@ -302,11 +299,6 @@ impl ArmyManager {
 
             close_allied_strength.insert(unit.tag(), our_strength);
             close_allied_count.insert(unit.tag(), our_count);
-            let surrounding = if let Some(tag) = unit.target_tag() {
-                *enemy_units_being_targeted_count.get(&tag).unwrap() > 3
-            } else {
-                false
-            };
 
             debug!(
                 "Unit[{:?}|{:?}] {:?}[{:?}]vs{:?}[{:?}]",
@@ -317,33 +309,49 @@ impl ArmyManager {
                 their_strength,
                 their_count
             );
-            let decision = if our_strength > their_strength * 1.5f32 {
-                UnitDecision::Advance
-            } else if surrounding && unit.is_melee() {
-                UnitDecision::Finish
-            } else if our_strength < their_strength * 0.8
-                && unit.type_id() == UnitTypeId::Zergling
-                && friendly_ranged
+            let previous_decision = self.allied_decision.get(&unit.tag());
+            let decision = if (our_strength > their_strength * 1.6f32 && has_lingspeed)
+                || our_strength > their_strength * 2.4f32
             {
-                UnitDecision::Tank
+                UnitDecision::Advance
             } else if our_strength < their_strength * 0.8 {
                 UnitDecision::Retreat
+            } else if let Some(existing_decision) = previous_decision {
+                // Keep previous decision
+                *existing_decision
             } else {
-                UnitDecision::Group
+                UnitDecision::Undefined
             };
 
             self.allied_decision.insert(unit.tag(), decision);
         }
 
-        debug!("Decision report");
-        for unit in my_army.iter() {
-            debug!(
-                "Unit[{:?}|{:?}] {:?}",
-                unit.tag(),
-                unit.type_id(),
-                self.allied_decision.get(&unit.tag())
-            );
-        }
+        // debug!("Decision report");
+        // for unit in my_army.iter() {
+        //     debug!(
+        //         "Unit[{:?}|{:?}] {:?}",
+        //         unit.tag(),
+        //         unit.type_id(),
+        //         self.allied_decision.get(&unit.tag())
+        //     );
+        //     match self.allied_decision.get(&unit.tag()) {
+        //         None => {}
+        //         Some(decision) => {
+        //             let color = match decision {
+        //                 UnitDecision::Advance => {
+        //                     (0, 0, 255)
+        //                 }
+        //                 UnitDecision::Retreat => {
+        //                     (255, 0, 0)
+        //                 }
+        //                 UnitDecision::Undefined => {
+        //                     (255, 255, 255)
+        //                 }
+        //             };
+        //             bot.debug.draw_sphere(unit.position3d(), 0.3f32, Some(color));
+        //         }
+        //     }
+        // }
 
         for unit in my_army.iter() {
             let local_allied_strength = *close_allied_strength.get(&unit.tag()).unwrap();
@@ -400,7 +408,7 @@ impl ArmyManager {
                 } else {
                     unit.order_attack(Target::Tag(target.tag()), false);
                 }
-            } else if decision == UnitDecision::Advance || decision == UnitDecision::Tank {
+            } else if decision == UnitDecision::Advance {
                 if let Some(target) = closest_threat {
                     unit.order_attack(Target::Tag(target.tag()), false);
                 } else if let Some(target) = closest_weak {
@@ -413,14 +421,16 @@ impl ArmyManager {
             } else if decision == UnitDecision::Retreat {
                 if let Some(allied) = my_army
                     .iter()
-                    .filter(|u| *self.allied_decision.get(&u.tag()).unwrap() == UnitDecision::Group)
+                    .filter(|u| {
+                        *self.allied_decision.get(&u.tag()).unwrap() == UnitDecision::Undefined
+                    })
                     .closest(unit)
                 {
                     unit.order_move_to(Target::Pos(allied.position()), 2f32, false);
                 } else {
                     unit.order_move_to(Target::Pos(bot.start_location), 7f32, false);
                 }
-            } else if decision == UnitDecision::Group {
+            } else if decision == UnitDecision::Undefined {
                 if let Some(target) = closest_threat {
                     Self::move_towards(bot, target, -2f32);
                 } else if let Some(allied) = my_army
@@ -486,7 +496,12 @@ impl ArmyManager {
     }
 
     fn overseer_micro(bot: &Bot) {
-        let overseers = bot.units.my.units.of_type(UnitTypeId::Overseer);
+        let overseers = bot
+            .units
+            .my
+            .units
+            .of_type(UnitTypeId::Overseer)
+            .sorted(|f| f.tag());
         let mut enemy_units = bot.units.enemy.units.clone();
         for overseer in overseers.iter() {
             let position = if let Some(closest_anti_air) = bot
@@ -507,9 +522,9 @@ impl ArmyManager {
                 .filter(|f| f.is_cloaked())
                 .furthest(bot.enemy_start)
             {
-                enemy_units.remove(unit.tag());
+                enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
                 unit.position()
-            } else if let Some(unit) = enemy_units.clone().closest(overseer) {
+            } else if let Some(unit) = enemy_units.clone().furthest(bot.enemy_start) {
                 enemy_units.remove(unit.tag());
                 unit.position()
             } else {
@@ -528,6 +543,19 @@ impl ArmyManager {
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
+        let advanced_enemy = self
+            .enemy_units
+            .values()
+            .filter(|u| {
+                !u.unit.is_worker()
+                    && u.unit.type_id() != UnitTypeId::Overlord
+                    && u.unit.type_id() != UnitTypeId::Overseer
+                    && u.unit.position().distance(bot.enemy_start) * 2f32
+                        > u.unit.position().distance(bot.start_location)
+            })
+            .peekable()
+            .peek()
+            .is_some();
         let their_supply = self
             .enemy_units
             .values()
@@ -535,10 +563,17 @@ impl ArmyManager {
             .map(|f| f.unit.supply_cost())
             .sum::<f32>() as usize;
         let wanted_army_supply = if drones < 76 {
-            (drones / 3).max(their_supply + 2) as isize
+            let min_army = drones / 4;
+            if advanced_enemy {
+                debug!("They have advanced troops! Build army!");
+                min_army.max(their_supply + 2) as isize
+            } else {
+                min_army as isize
+            }
         } else {
             (bot.supply_army + bot.supply_left) as isize - (min_queens as isize * 2)
         };
+        debug!("Wanted army supply {:?}", wanted_army_supply);
 
         if wanted_army_supply <= 0 {
             return;
@@ -688,7 +723,7 @@ impl ArmyManager {
         }
         if bot.counter().all().count(UnitTypeId::Hydralisk) > 0 {
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::EvolveGroovedSpines, true),
+                Command::new_upgrade(UpgradeId::EvolveGroovedSpines, false),
                 false,
                 70,
             );
@@ -707,7 +742,7 @@ impl ArmyManager {
                 70,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, true),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, false),
                 false,
                 80,
             );
@@ -728,7 +763,7 @@ impl ArmyManager {
                 60,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, true),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, false),
                 false,
                 70,
             );
@@ -751,14 +786,14 @@ impl ArmyManager {
                 80,
             );
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, true),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, false),
                 false,
                 70,
             );
         }
         if bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel3) {
             bot_info.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel3, true),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel3, false),
                 false,
                 60,
             );
