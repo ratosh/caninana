@@ -59,7 +59,7 @@ impl ResourceManager {
                     true,
                 ),
                 false,
-                80,
+                200,
             );
         }
     }

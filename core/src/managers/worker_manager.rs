@@ -61,27 +61,35 @@ impl WorkerManager {
     const GEYSERS_WORKERS: usize = 3;
 
     fn decision(&mut self, bot: &mut Bot) {
+        let defense_range = 14f32;
+
         let units_attacking = bot
             .units
             .enemy
             .units
-            .filter(|f| f.can_attack_ground() && f.is_closer(15f32, bot.start_location))
+            .filter(|f| {
+                f.can_attack_ground()
+                    && bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range)
+            })
             .len();
         let workers_attacking = bot
             .units
             .enemy
             .workers
-            .filter(|f| f.is_closer(15f32, bot.start_location))
-            .len();
-        let spines_close = bot
-            .units
-            .enemy
-            .all
             .filter(|f| {
-                f.is_closer(15f32, bot.start_location)
-                    && f.type_id() == UnitTypeId::SpineCrawler
-                    && !f.is_ready()
+                bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range)
             })
+            .len();
+        let enemy_buildings_close = bot.units.enemy.all.filter(|f| {
+            bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range)
+                && !f.is_ready()
+        });
+        let spines_close = enemy_buildings_close
+            .of_type(UnitTypeId::SpineCrawler)
+            .len();
+        let pylons_close = enemy_buildings_close.of_type(UnitTypeId::Pylon).len();
+        let cannons_close = enemy_buildings_close
+            .of_type(UnitTypeId::PhotonCannon)
             .len();
         let current_fighters = self
             .worker_decision
@@ -95,14 +103,23 @@ impl WorkerManager {
             .units
             .filter(|f| f.is_ready() && !f.is_worker())
             .sum(|f| f.supply_cost()) as usize;
-        println!(
+        debug!(
             "U[{:?}] W[{:?}] S[{:?}] F[{:?}]",
-            units_attacking, workers_attacking, spines_close, current_fighters
+            units_attacking,
+            workers_attacking,
+            enemy_buildings_close.len(),
+            current_fighters
         );
 
         let mut needed_fighters = 0;
         if spines_close > 0 {
             needed_fighters += (spines_close * 5).max(current_fighters)
+        }
+        if pylons_close > 0 {
+            needed_fighters += (pylons_close * 5).max(current_fighters)
+        }
+        if cannons_close > 0 {
+            needed_fighters += (pylons_close * 4).max(current_fighters)
         }
         if workers_attacking > 0 {
             needed_fighters += (workers_attacking * 12 / 10).max(current_fighters)
@@ -111,7 +128,7 @@ impl WorkerManager {
         let back_threshold = if units_attacking > workers_attacking {
             0.5f32
         } else {
-            0.25f32
+            0.10f32
         };
 
         for worker in bot.units.my.workers.sorted(|f| f.tag()).iter() {
