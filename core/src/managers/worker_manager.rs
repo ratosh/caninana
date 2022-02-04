@@ -66,25 +66,31 @@ impl WorkerManager {
         let units_attacking = bot
             .units
             .enemy
-            .units.filter(|f| f.can_attack_ground()
-            && bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range))
+            .units
+            .filter(|f| {
+                f.can_attack_ground()
+                    && bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range)
+            })
             .len();
         let workers_attacking = bot
             .units
             .enemy
             .workers
-            .filter(|f| bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range))
-            .len();
-        let enemy_buildings_close = bot
-            .units
-            .enemy
-            .all
             .filter(|f| {
-                bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range) && !f.is_ready()
-            });
-        let spines_close = enemy_buildings_close.of_type(UnitTypeId::SpineCrawler).len();
+                bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range)
+            })
+            .len();
+        let enemy_buildings_close = bot.units.enemy.all.filter(|f| {
+            bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range)
+                && !f.is_ready()
+        });
+        let spines_close = enemy_buildings_close
+            .of_type(UnitTypeId::SpineCrawler)
+            .len();
         let pylons_close = enemy_buildings_close.of_type(UnitTypeId::Pylon).len();
-        let cannons_close = enemy_buildings_close.of_type(UnitTypeId::PhotonCannon).len();
+        let cannons_close = enemy_buildings_close
+            .of_type(UnitTypeId::PhotonCannon)
+            .len();
         let current_fighters = self
             .worker_decision
             .values()
@@ -99,7 +105,10 @@ impl WorkerManager {
             .sum(|f| f.supply_cost()) as usize;
         debug!(
             "U[{:?}] W[{:?}] S[{:?}] F[{:?}]",
-            units_attacking, workers_attacking, enemy_buildings_close.len(), current_fighters
+            units_attacking,
+            workers_attacking,
+            enemy_buildings_close.len(),
+            current_fighters
         );
 
         let mut needed_fighters = 0;
