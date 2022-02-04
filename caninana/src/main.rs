@@ -189,7 +189,7 @@ impl Player for Caninana {
     fn on_start(&mut self) -> SC2Result<()> {
         self.opening.opening(&self._bot, &mut self.bot_info);
         self._bot
-            .chat(format!("tag:v{}", crate_version!()).as_str());
+            .chat_ally(format!("Tag:{}v{}", crate_name!(), crate_version!()).as_str());
         Ok(())
     }
 
