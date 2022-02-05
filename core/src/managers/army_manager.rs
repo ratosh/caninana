@@ -502,7 +502,6 @@ impl ArmyManager {
                 unit.position()
             } else if let Some(unit) = enemy_units
                 .clone()
-                .filter(|f| f.can_attack() && !f.is_worker())
                 .furthest(bot.enemy_start)
             {
                 enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
