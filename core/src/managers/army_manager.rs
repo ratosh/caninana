@@ -205,9 +205,9 @@ impl ArmyManager {
                 .values()
                 .filter(|u| {
                     !u.unit.is_flying()
-                        && u.unit.can_attack()
-                        && u.unit.can_be_attacked()
-                        && u.unit.type_id() != UnitTypeId::Larva
+                        && (u.unit.can_attack() && u.unit.can_be_attacked()
+                            || (u.unit.type_id() == UnitTypeId::WidowMine
+                                || u.unit.type_id() == UnitTypeId::Infestor))
                 })
                 .map(|u| u.unit.clone())
                 .collect::<Vec<Unit>>(),
@@ -288,7 +288,8 @@ impl ArmyManager {
                 if (!has_lingspeed && !self.defending) || our_strength < their_strength * 0.8f32 {
                     UnitDecision::Retreat
                 } else if (our_strength > their_strength * 1.2f32 && self.defending)
-                    || our_strength > their_strength * 2.0f32 || bot.minerals > 2_000
+                    || our_strength > their_strength * 2.0f32
+                    || bot.minerals > 2_000
                 {
                     UnitDecision::Advance
                 } else if let Some(existing_decision) = previous_decision {
