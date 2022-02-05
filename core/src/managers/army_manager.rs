@@ -500,10 +500,7 @@ impl ArmyManager {
             {
                 enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
                 unit.position()
-            } else if let Some(unit) = enemy_units
-                .clone()
-                .furthest(bot.enemy_start)
-            {
+            } else if let Some(unit) = enemy_units.clone().furthest(bot.enemy_start) {
                 enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
                 unit.position()
             } else {
