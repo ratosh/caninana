@@ -45,62 +45,78 @@ impl QueenManager {
         if self.spread_map.is_empty() {
             self.spread_map = bot.create_creep_spread_map();
         }
-        let tumors = bot
-            .units
-            .my
-            .all
-            .of_type(UnitTypeId::CreepTumorBurrowed)
-            .filter(|u| u.has_ability(AbilityId::BuildCreepTumorTumor));
+        let tumors = bot.units.my.all.of_type(UnitTypeId::CreepTumorBurrowed);
 
-        tumors.iter().for_each(|h| {
-            if let Some(closest_spot) = self
-                .spread_map
-                .iter()
-                .filter(|&p| {
-                    (!bot.is_visible((p.x as usize, p.y as usize))
-                        || !bot.has_creep((p.x as usize, p.y as usize)))
-                        && (h.position().distance(p)
-                            >= bot.pathing_distance(h.position(), *p).unwrap_or(200f32))
-                })
-                .closest(h.position())
-            {
-                if let Some(position) = bot.find_creep_placement(h, *closest_spot) {
-                    h.command(
-                        AbilityId::BuildCreepTumorTumor,
-                        Target::Pos(position),
-                        false,
-                    );
+        tumors
+            .filter(|u| u.has_ability(AbilityId::BuildCreepTumorTumor))
+            .iter()
+            .for_each(|h| {
+                if let Some(closest_spot) = self
+                    .spread_map
+                    .iter()
+                    .filter(|&p| {
+                        (!bot.is_visible((p.x as usize, p.y as usize))
+                            || !bot.has_creep((p.x as usize, p.y as usize)))
+                            && (h.position().distance(p)
+                                >= bot.pathing_distance(h.position(), *p).unwrap_or(200f32))
+                    })
+                    .closest(h.position())
+                {
+                    if let Some(position) = bot.find_creep_placement(h, *closest_spot) {
+                        h.command(
+                            AbilityId::BuildCreepTumorTumor,
+                            Target::Pos(position),
+                            false,
+                        );
+                    }
                 }
-            }
-        });
+            });
 
-        if let Some(queen) = bot
-            .units
-            .my
-            .units
-            .filter(|u| {
-                u.type_id() == UnitTypeId::Queen
-                    && u.is_idle()
-                    && u.has_ability(AbilityId::BuildCreepTumorQueen)
-                    && u.energy().unwrap() > 75
-            })
-            .first()
-        {
-            if let Some(position) =
-                bot.find_placement(UnitTypeId::CreepTumor, queen.position(), Default::default())
+        if tumors.len() < 10 {
+            if let Some(queen) = bot
+                .units
+                .my
+                .units
+                .filter(|u| {
+                    u.type_id() == UnitTypeId::Queen
+                        && u.is_idle()
+                        && u.has_ability(AbilityId::BuildCreepTumorQueen)
+                        && u.energy().unwrap() > 75
+                })
+                .first()
             {
-                queen.command(
-                    AbilityId::BuildCreepTumorQueen,
-                    Target::Pos(position),
-                    false,
-                );
+                if let Some(closest_spot) = self
+                    .spread_map
+                    .iter()
+                    .filter(|&p| {
+                        (!bot.is_visible((p.x as usize, p.y as usize))
+                            || !bot.has_creep((p.x as usize, p.y as usize)))
+                            && (queen.position().distance(p)
+                                >= bot.pathing_distance(queen.position(), *p).unwrap_or(200f32))
+                    })
+                    .closest(queen.position())
+                {
+                    if let Some(position) = bot.find_placement(
+                        UnitTypeId::CreepTumor,
+                        *closest_spot,
+                        Default::default(),
+                    ) {
+                        queen.command(
+                            AbilityId::BuildCreepTumorQueen,
+                            Target::Pos(position),
+                            false,
+                        );
+                    }
+                }
             }
         }
     }
 
     fn handle_injection(&mut self, bot: &mut Bot) {
         let mut queens = bot.units.my.units.of_type(UnitTypeId::Queen).filter(|u| {
-            !u.is_using(AbilityId::EffectInjectLarva) && u.has_ability(AbilityId::EffectInjectLarva)
+            !u.is_using(AbilityId::EffectInjectLarva)
+                && u.has_ability(AbilityId::EffectInjectLarva)
+                && !u.is_attacked()
         });
         let injecting_queens = bot
             .units
