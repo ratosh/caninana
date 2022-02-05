@@ -9,8 +9,8 @@ use rust_sc2::Event::UnitDestroyed;
 
 use crate::command_queue::Command;
 use crate::managers::production_manager::BuildingRequirement;
-use crate::{BotInfo, EventListener, Manager};
 use crate::managers::queen_manager::PathingDistance;
+use crate::{BotInfo, EventListener, Manager};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum UnitDecision {
@@ -55,7 +55,7 @@ impl ArmyManager {
         //         }
         //     }
         // }
-        if drones >= 25 {
+        if drones >= 28 {
             self.allowed_tech.insert(UnitTypeId::Roach);
         }
         // if drones >= 38 {
@@ -169,9 +169,8 @@ impl ArmyManager {
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Mutalisk));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Ultralisk));
 
-        // Attack when speed upgrade is > 80% ready
-        // Defend our locations
-        let defense_range = if self.defending { 16f32 } else { 8f32 };
+        // Defend our townhalls
+        let defense_range = if self.defending { 20f32 } else { 10f32 };
         if self.defending {
             my_army.extend(
                 bot.units
@@ -179,7 +178,7 @@ impl ArmyManager {
                     .units
                     .ready()
                     .of_type(UnitTypeId::Queen)
-                    .filter(|u| !u.is_using(AbilityId::EffectInjectLarva)),
+                    .filter(|u| !u.is_using(AbilityId::EffectInjectLarva) || u.is_attacked()),
             );
         }
         if my_army.is_empty() {
@@ -264,14 +263,13 @@ impl ArmyManager {
                 .units
                 .my
                 .all
-                .filter(|e| e.position().distance(unit) < 9f32);
+                .filter(|e| e.position().distance(unit) < 7f32);
             let our_strength = friendly_units.strength(bot);
 
             let their_strength = priority_targets
                 .filter(|e| {
                     e.can_attack_unit(unit)
-                        && e.position().distance(unit)
-                            < e.range_vs(unit) + e.real_speed() + unit.real_speed()
+                        && e.in_real_range(unit, e.real_speed() + unit.real_speed())
                 })
                 .max_value(|f| *enemy_strength_per_enemy_unit.get(&f.tag()).unwrap())
                 .unwrap_or_default();
@@ -286,18 +284,19 @@ impl ArmyManager {
                 their_strength
             );
             let previous_decision = self.allied_decision.get(&unit.tag());
-            let decision = if (our_strength > their_strength * 1.6f32 && has_lingspeed)
-                || our_strength > their_strength * 2.4f32
-            {
-                UnitDecision::Advance
-            } else if our_strength < their_strength * 0.8 {
-                UnitDecision::Retreat
-            } else if let Some(existing_decision) = previous_decision {
-                // Keep previous decision
-                *existing_decision
-            } else {
-                UnitDecision::Undefined
-            };
+            let decision =
+                if (!has_lingspeed && !self.defending) || our_strength < their_strength * 0.8f32 {
+                    UnitDecision::Retreat
+                } else if (our_strength > their_strength * 1.2f32 && self.defending)
+                    || our_strength > their_strength * 2.0f32
+                {
+                    UnitDecision::Advance
+                } else if let Some(existing_decision) = previous_decision {
+                    // Keep previous decision
+                    *existing_decision
+                } else {
+                    UnitDecision::Undefined
+                };
 
             self.allied_decision.insert(unit.tag(), decision);
         }
@@ -340,16 +339,17 @@ impl ArmyManager {
 
             let threats = priority_targets
                 .iter()
-                .filter(|t| {
-                    t.can_attack_unit(unit) && t.in_real_range(unit, 0f32)
-                });
+                .filter(|t| t.can_attack_unit(unit) && t.in_real_range(unit, -unit.speed()));
 
             let closest_attackable = priority_targets
                 .iter()
                 .filter(|t| {
                     unit.can_attack_unit(t)
                         && t.in_real_range(unit, t.speed() + unit.speed())
-                        && (!unit.is_melee() || bot.pathing_distance(unit.position(), t.position()).is_some())
+                        && (!unit.is_melee()
+                            || bot
+                                .pathing_distance(unit.position(), t.position())
+                                .is_some())
                 })
                 .closest(unit);
 
@@ -378,7 +378,7 @@ impl ArmyManager {
                 .furthest(bot.enemy_start);
 
             if let Some(target) = target_in_range {
-                if decision == UnitDecision::Retreat && (unit.on_cooldown() || unit.is_melee()) {
+                if decision == UnitDecision::Retreat && unit.on_cooldown() {
                     Self::move_towards(bot, unit, -2.0f32);
                 } else if unit.range_vs(target) > target.range_vs(unit)
                     && unit.weapon_cooldown().unwrap_or_default() > 5f32
@@ -407,10 +407,10 @@ impl ArmyManager {
                     Self::move_towards(bot, unit, -2f32);
                 } else if let Some(allied) = my_army
                     .iter()
-                    .filter(|u|
+                    .filter(|u| {
                         u.distance(unit) > 5f32
-                        && *self.allied_decision.get(&u.tag()).unwrap() == UnitDecision::Advance
-                    )
+                            && *self.allied_decision.get(&u.tag()).unwrap() == UnitDecision::Advance
+                    })
                     .closest(unit)
                 {
                     unit.order_move_to(Target::Pos(allied.position()), 2f32, false);
@@ -447,11 +447,14 @@ impl ArmyManager {
             .center()
         {
             let position = {
-                let pos = unit.position().towards(threat_center, unit.speed() * multiplier);
+                let pos = unit
+                    .position()
+                    .towards(threat_center, unit.speed() * multiplier);
                 if bot.is_pathable(pos) {
                     pos
                 } else {
-                    *unit.position()
+                    *unit
+                        .position()
                         .neighbors8()
                         .iter()
                         .filter(|p| bot.is_pathable(**p))
@@ -513,9 +516,9 @@ impl ArmyManager {
     fn queue_units(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
         let min_queens = 8.min(bot.units.my.townhalls.len() + 4);
         bot_info.build_queue.push(
-            Command::new_unit(UnitTypeId::Queen, min_queens, false),
+            Command::new_unit(UnitTypeId::Queen, min_queens, true),
             false,
-            35,
+            50,
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
@@ -531,19 +534,12 @@ impl ArmyManager {
             .peekable()
             .peek()
             .is_some();
-        let their_supply = self
-            .enemy_units
-            .values()
-            .filter(|f| !f.unit.is_worker())
-            .map(|f| f.unit.supply_cost())
-            .sum::<f32>() as usize;
         let wanted_army_supply = if drones < 70 {
-            let min_army = drones / 4;
             if advanced_enemy {
                 debug!("They have advanced troops! Build army!");
-                min_army.max(their_supply + 2) as isize
+                drones as isize
             } else {
-                min_army as isize
+                (drones / 6) as isize
             }
         } else {
             (bot.supply_army + bot.supply_left) as isize - (min_queens as isize * 2)
@@ -589,11 +585,11 @@ impl ArmyManager {
             );
         }
 
-        if drones > 34 {
-            bot_info
-                .build_queue
-                .push(Command::new_unit(UnitTypeId::Overseer, 2, false), false, 1);
-        }
+        bot_info.build_queue.push(
+            Command::new_unit(UnitTypeId::Overseer, drones / 30, true),
+            false,
+            100,
+        );
     }
 
     fn army_distribution(&self, bot: &Bot, bot_info: &mut BotInfo) -> HashMap<UnitTypeId, isize> {
