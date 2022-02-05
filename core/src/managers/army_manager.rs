@@ -9,6 +9,7 @@ use rust_sc2::Event::UnitDestroyed;
 
 use crate::command_queue::Command;
 use crate::managers::production_manager::BuildingRequirement;
+use crate::managers::queen_manager::PathingDistance;
 use crate::{BotInfo, EventListener, Manager};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -54,7 +55,7 @@ impl ArmyManager {
         //         }
         //     }
         // }
-        if drones >= 25 {
+        if drones >= 28 {
             self.allowed_tech.insert(UnitTypeId::Roach);
         }
         // if drones >= 38 {
@@ -168,15 +169,8 @@ impl ArmyManager {
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Mutalisk));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Ultralisk));
 
-        // Attack when speed upgrade is > 80% ready
-        // Defend our locations
-        let base_count = bot.owned_expansions().count();
-        let extra_range = base_count as f32;
-        let defense_range = if self.defending {
-            15f32 + extra_range
-        } else {
-            7f32 + extra_range
-        };
+        // Defend our townhalls
+        let defense_range = if self.defending { 20f32 } else { 10f32 };
         if self.defending {
             my_army.extend(
                 bot.units
@@ -184,7 +178,7 @@ impl ArmyManager {
                     .units
                     .ready()
                     .of_type(UnitTypeId::Queen)
-                    .filter(|u| !u.is_using(AbilityId::EffectInjectLarva)),
+                    .filter(|u| !u.is_using(AbilityId::EffectInjectLarva) || u.is_attacked()),
             );
         }
         if my_army.is_empty() {
@@ -211,9 +205,10 @@ impl ArmyManager {
                 .values()
                 .filter(|u| {
                     !u.unit.is_flying()
-                        && u.unit.can_attack()
-                        && u.unit.can_be_attacked()
-                        && u.unit.type_id() != UnitTypeId::Larva
+                        && (u.unit.can_attack() && u.unit.can_be_attacked()
+                            || (u.unit.type_id() == UnitTypeId::WidowMine
+                                || u.unit.type_id() == UnitTypeId::Infestor
+                                || u.unit.type_id() == UnitTypeId::Medivac))
                 })
                 .map(|u| u.unit.clone())
                 .collect::<Vec<Unit>>(),
@@ -246,9 +241,7 @@ impl ArmyManager {
 
         Self::overseer_micro(bot);
         let mut close_allied_strength = HashMap::new();
-        let mut close_allied_count = HashMap::new();
         let mut enemy_strength_per_enemy_unit = HashMap::new();
-        let mut enemy_count_per_enemy_unit = HashMap::new();
         let mut enemy_units_being_targeted_count = HashMap::new();
         for unit in my_army.iter() {
             if let Some(tag) = unit.target_tag() {
@@ -261,11 +254,7 @@ impl ArmyManager {
             let their_strength = priority_targets
                 .filter(|e| e.position().distance(unit) < 11f32)
                 .strength(bot);
-            let their_count = priority_targets
-                .filter(|e| e.position().distance(unit) < 11f32 && !e.is_worker())
-                .len();
             enemy_strength_per_enemy_unit.insert(unit.tag(), their_strength);
-            enemy_count_per_enemy_unit.insert(unit.tag(), their_count);
         }
         debug!("Unit analysis");
 
@@ -275,53 +264,41 @@ impl ArmyManager {
                 .units
                 .my
                 .all
-                .filter(|e| e.position().distance(unit) < 9f32);
+                .filter(|e| e.position().distance(unit) < 7f32);
             let our_strength = friendly_units.strength(bot);
-            let our_count = friendly_units.len();
 
             let their_strength = priority_targets
                 .filter(|e| {
                     e.can_attack_unit(unit)
-                        && e.position().distance(unit)
-                            < e.range_vs(unit) + e.real_speed() + unit.real_speed()
+                        && e.in_real_range(unit, e.real_speed() + unit.real_speed())
                 })
                 .max_value(|f| *enemy_strength_per_enemy_unit.get(&f.tag()).unwrap())
                 .unwrap_or_default();
 
-            let their_count = priority_targets
-                .filter(|e| {
-                    e.can_attack_unit(unit)
-                        && e.position().distance(unit)
-                            < e.range_vs(unit) + e.real_speed() + unit.real_speed()
-                })
-                .max_value(|f| *enemy_count_per_enemy_unit.get(&f.tag()).unwrap())
-                .unwrap_or_default();
-
             close_allied_strength.insert(unit.tag(), our_strength);
-            close_allied_count.insert(unit.tag(), our_count);
 
             debug!(
-                "Unit[{:?}|{:?}] {:?}[{:?}]vs{:?}[{:?}]",
+                "Unit[{:?}|{:?}] {:?}vs{:?}",
                 unit.tag(),
                 unit.type_id(),
                 our_strength,
-                our_count,
-                their_strength,
-                their_count
+                their_strength
             );
             let previous_decision = self.allied_decision.get(&unit.tag());
-            let decision = if (our_strength > their_strength * 1.6f32 && has_lingspeed)
-                || our_strength > their_strength * 2.4f32
-            {
-                UnitDecision::Advance
-            } else if our_strength < their_strength * 0.8 {
-                UnitDecision::Retreat
-            } else if let Some(existing_decision) = previous_decision {
-                // Keep previous decision
-                *existing_decision
-            } else {
-                UnitDecision::Undefined
-            };
+            let decision =
+                if (!has_lingspeed && !self.defending) || our_strength < their_strength * 0.8f32 {
+                    UnitDecision::Retreat
+                } else if (our_strength > their_strength * 0.9f32 && self.defending)
+                    || our_strength > their_strength * 1.6f32
+                    || bot.minerals > 2_000
+                {
+                    UnitDecision::Advance
+                } else if let Some(existing_decision) = previous_decision {
+                    // Keep previous decision
+                    *existing_decision
+                } else {
+                    UnitDecision::Undefined
+                };
 
             self.allied_decision.insert(unit.tag(), decision);
         }
@@ -362,10 +339,19 @@ impl ArmyManager {
                 .filter(|t| unit.can_attack_unit(t) && unit.in_real_range(t, 0.1f32))
                 .min_by_key(|t| t.hits());
 
-            let closest_threat = priority_targets
+            let threats = priority_targets
+                .iter()
+                .filter(|t| t.can_attack_unit(unit) && t.in_real_range(unit, -unit.speed()));
+
+            let closest_attackable = priority_targets
                 .iter()
                 .filter(|t| {
-                    t.can_attack_unit(unit) && t.in_real_range(unit, t.speed() + unit.speed())
+                    unit.can_attack_unit(t)
+                        && t.in_real_range(unit, t.speed() + unit.speed())
+                        && (!unit.is_melee()
+                            || bot
+                                .pathing_distance(unit.position(), t.position())
+                                .is_some())
                 })
                 .closest(unit);
 
@@ -394,12 +380,12 @@ impl ArmyManager {
                 .furthest(bot.enemy_start);
 
             if let Some(target) = target_in_range {
-                if decision == UnitDecision::Retreat && (unit.on_cooldown() || unit.is_melee()) {
-                    Self::move_towards(bot, unit, -unit.speed());
+                if decision == UnitDecision::Retreat && unit.on_cooldown() {
+                    Self::move_towards(bot, unit, -2.0f32);
                 } else if unit.range_vs(target) > target.range_vs(unit)
                     && unit.weapon_cooldown().unwrap_or_default() > 5f32
                 {
-                    Self::move_towards(bot, unit, -0.5f32);
+                    Self::move_towards(bot, unit, -0.6f32);
                 } else if decision == UnitDecision::Advance
                     && unit.range_vs(target) < target.range_vs(unit)
                     && unit.weapon_cooldown().unwrap_or_default() > 5f32
@@ -409,7 +395,7 @@ impl ArmyManager {
                     unit.order_attack(Target::Tag(target.tag()), false);
                 }
             } else if decision == UnitDecision::Advance {
-                if let Some(target) = closest_threat {
+                if let Some(target) = closest_attackable {
                     unit.order_attack(Target::Tag(target.tag()), false);
                 } else if let Some(target) = closest_weak {
                     unit.order_attack(Target::Pos(target.position()), false);
@@ -418,25 +404,14 @@ impl ArmyManager {
                 } else if let Some(target) = secondary_target {
                     unit.order_attack(Target::Pos(target.position()), false);
                 }
-            } else if decision == UnitDecision::Retreat {
-                if let Some(allied) = my_army
-                    .iter()
-                    .filter(|u| {
-                        *self.allied_decision.get(&u.tag()).unwrap() == UnitDecision::Undefined
-                    })
-                    .closest(unit)
-                {
-                    unit.order_move_to(Target::Pos(allied.position()), 2f32, false);
-                } else {
-                    unit.order_move_to(Target::Pos(bot.start_location), 7f32, false);
-                }
-            } else if decision == UnitDecision::Undefined {
-                if let Some(target) = closest_threat {
-                    Self::move_towards(bot, target, -2f32);
+            } else if decision == UnitDecision::Retreat || decision == UnitDecision::Undefined {
+                if threats.count() > 0 {
+                    Self::move_towards(bot, unit, -2f32);
                 } else if let Some(allied) = my_army
                     .iter()
                     .filter(|u| {
-                        *self.allied_decision.get(&u.tag()).unwrap() == UnitDecision::Advance
+                        u.distance(unit) > 5f32
+                            && *self.allied_decision.get(&u.tag()).unwrap() == UnitDecision::Advance
                     })
                     .closest(unit)
                 {
@@ -444,8 +419,6 @@ impl ArmyManager {
                 } else {
                     unit.order_move_to(Target::Pos(bot.start_location), 7f32, false);
                 }
-            } else {
-                unit.order_move_to(Target::Pos(bot.start_location), 7f32, false);
             }
 
             // Bring back my queens
@@ -478,7 +451,7 @@ impl ArmyManager {
             let position = {
                 let pos = unit
                     .position()
-                    .towards(threat_center, multiplier * unit.speed());
+                    .towards(threat_center, unit.speed() * multiplier);
                 if bot.is_pathable(pos) {
                     pos
                 } else {
@@ -502,7 +475,11 @@ impl ArmyManager {
             .units
             .of_type(UnitTypeId::Overseer)
             .sorted(|f| f.tag());
-        let mut enemy_units = bot.units.enemy.units.clone();
+        let mut enemy_units = bot
+            .units
+            .enemy
+            .units
+            .filter(|f| !f.is_worker() && f.can_attack());
         for overseer in overseers.iter() {
             let position = if let Some(closest_anti_air) = bot
                 .units
@@ -525,7 +502,7 @@ impl ArmyManager {
                 enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
                 unit.position()
             } else if let Some(unit) = enemy_units.clone().furthest(bot.enemy_start) {
-                enemy_units.remove(unit.tag());
+                enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
                 unit.position()
             } else {
                 bot.enemy_start
@@ -535,11 +512,11 @@ impl ArmyManager {
     }
 
     fn queue_units(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
-        let min_queens = 7.min(bot.units.my.townhalls.len() + 2);
+        let min_queens = 8.min(bot.units.my.townhalls.len() + 4);
         bot_info.build_queue.push(
-            Command::new_unit(UnitTypeId::Queen, min_queens, false),
+            Command::new_unit(UnitTypeId::Queen, min_queens, true),
             false,
-            35,
+            50,
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
@@ -548,27 +525,19 @@ impl ArmyManager {
             .values()
             .filter(|u| {
                 !u.unit.is_worker()
-                    && u.unit.type_id() != UnitTypeId::Overlord
-                    && u.unit.type_id() != UnitTypeId::Overseer
-                    && u.unit.position().distance(bot.enemy_start) * 2f32
+                    && u.unit.can_attack()
+                    && u.unit.position().distance(bot.enemy_start)
                         > u.unit.position().distance(bot.start_location)
             })
             .peekable()
             .peek()
             .is_some();
-        let their_supply = self
-            .enemy_units
-            .values()
-            .filter(|f| !f.unit.is_worker())
-            .map(|f| f.unit.supply_cost())
-            .sum::<f32>() as usize;
-        let wanted_army_supply = if drones < 76 {
-            let min_army = drones / 4;
+        let wanted_army_supply = if drones < 70 {
             if advanced_enemy {
                 debug!("They have advanced troops! Build army!");
-                min_army.max(their_supply + 2) as isize
+                drones as isize
             } else {
-                min_army as isize
+                (drones / 6) as isize
             }
         } else {
             (bot.supply_army + bot.supply_left) as isize - (min_queens as isize * 2)
@@ -614,11 +583,11 @@ impl ArmyManager {
             );
         }
 
-        if drones > 34 {
-            bot_info
-                .build_queue
-                .push(Command::new_unit(UnitTypeId::Overseer, 2, false), false, 1);
-        }
+        bot_info.build_queue.push(
+            Command::new_unit(UnitTypeId::Overseer, drones / 30, true),
+            false,
+            100,
+        );
     }
 
     fn army_distribution(&self, bot: &Bot, bot_info: &mut BotInfo) -> HashMap<UnitTypeId, isize> {
@@ -904,7 +873,7 @@ impl CounteredBy for UnitTypeId {
             // Race::Protoss
             UnitTypeId::Zealot => vec![
                 UnitTypeId::Roach,
-                UnitTypeId::Mutalisk,
+                // UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord,
             ],
             UnitTypeId::Sentry => vec![
@@ -918,12 +887,15 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk],
             UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
             UnitTypeId::DarkTemplar => vec![
-                UnitTypeId::Mutalisk,
+                // UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord
             ],
             UnitTypeId::Carrier => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             // UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
-            UnitTypeId::Oracle => vec![UnitTypeId::Hydralisk, UnitTypeId::Mutalisk],
+            UnitTypeId::Oracle => vec![
+                UnitTypeId::Hydralisk,
+                // UnitTypeId::Mutalisk
+            ],
             // UnitTypeId::Tempest => vec![UnitTypeId::Corruptor],
             UnitTypeId::Adept => vec![UnitTypeId::Roach],
             UnitTypeId::Disruptor => vec![UnitTypeId::Ultralisk],
@@ -937,20 +909,23 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::Marauder => vec![
                 UnitTypeId::Hydralisk,
-                UnitTypeId::Mutalisk,
+                // UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord,
             ],
             UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk],
-            UnitTypeId::Reaper => vec![UnitTypeId::Roach],
+            UnitTypeId::Reaper => vec![UnitTypeId::Ravager],
             UnitTypeId::Ghost => vec![UnitTypeId::Roach, UnitTypeId::Ultralisk],
-            UnitTypeId::Hellion => vec![UnitTypeId::Roach, UnitTypeId::Mutalisk],
+            UnitTypeId::Hellion => vec![
+                UnitTypeId::Roach,
+                // UnitTypeId::Mutalisk
+            ],
             UnitTypeId::SiegeTank => vec![
-                UnitTypeId::Mutalisk,
+                // UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord,
                 UnitTypeId::Ravager,
             ],
             UnitTypeId::SiegeTankSieged => vec![
-                UnitTypeId::Mutalisk,
+                // UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord,
                 UnitTypeId::Ravager,
             ],
@@ -959,7 +934,11 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::BroodLord,
             ],
-            // UnitTypeId::Banshee => vec![UnitTypeId::Mutalisk, UnitTypeId::Corruptor],
+            UnitTypeId::Banshee => vec![
+                UnitTypeId::Hydralisk,
+                // UnitTypeId::Mutalisk,
+                // UnitTypeId::Corruptor
+            ],
             UnitTypeId::Viking => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Raven => vec![UnitTypeId::Corruptor],
             // UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
@@ -981,7 +960,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Colossus,
                 UnitTypeId::SiegeTank,
                 UnitTypeId::SiegeTankSieged,
-                UnitTypeId::Mutalisk,
+                // UnitTypeId::Mutalisk,
                 UnitTypeId::Roach,
                 UnitTypeId::Ultralisk,
             ],
@@ -991,7 +970,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::SiegeTank,
                 UnitTypeId::SiegeTankSieged,
                 UnitTypeId::Marauder,
-                UnitTypeId::Mutalisk,
+                // UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord,
             ],
             UnitTypeId::Hydralisk => vec![
@@ -1045,7 +1024,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Viper => vec![
                 UnitTypeId::Phoenix,
                 UnitTypeId::Viking,
-                UnitTypeId::Mutalisk,
+                // UnitTypeId::Mutalisk,
                 // UnitTypeId::Corruptor,
             ],
             UnitTypeId::Ravager => vec![
