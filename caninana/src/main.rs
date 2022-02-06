@@ -10,6 +10,7 @@ use rand::prelude::*;
 use rust_sc2::prelude::*;
 
 use caninana_core::managers::army_manager::ArmyManager;
+use caninana_core::managers::defense_manager::DefenseManager;
 use caninana_core::managers::production_manager::ProductionManager;
 use caninana_core::managers::queen_manager::QueenManager;
 use caninana_core::managers::ravager_manager::RavagerManager;
@@ -172,6 +173,7 @@ fn main() -> SC2Result<()> {
 #[derive(Default)]
 struct Caninana {
     army_manager: ArmyManager,
+    defense_manager: DefenseManager,
     production_manager: ProductionManager,
     ravager_manager: RavagerManager,
     queen_manager: QueenManager,
@@ -195,6 +197,8 @@ impl Player for Caninana {
 
     fn on_step(&mut self, _iteration: usize) -> SC2Result<()> {
         self.army_manager
+            .process(&mut self._bot, &mut self.bot_info);
+        self.defense_manager
             .process(&mut self._bot, &mut self.bot_info);
         self.production_manager
             .process(&mut self._bot, &mut self.bot_info);
