@@ -258,7 +258,6 @@ impl ArmyManager {
         }
         debug!("Unit analysis");
 
-        let has_lingspeed = bot.has_upgrade(UpgradeId::Zerglingmovementspeed);
         for unit in my_army.iter() {
             let friendly_units = bot
                 .units
@@ -285,20 +284,22 @@ impl ArmyManager {
                 their_strength
             );
             let previous_decision = self.allied_decision.get(&unit.tag());
-            let decision =
-                if (!has_lingspeed && !self.defending) || our_strength < their_strength * 0.8f32 {
-                    UnitDecision::Retreat
-                } else if (our_strength > their_strength * 0.9f32 && self.defending)
-                    || our_strength > their_strength * 1.6f32
-                    || bot.minerals > 2_000
-                {
-                    UnitDecision::Advance
-                } else if let Some(existing_decision) = previous_decision {
-                    // Keep previous decision
-                    *existing_decision
-                } else {
-                    UnitDecision::Undefined
-                };
+            let decision = if bot.minerals < 1_000
+                && ((!self.defending && our_strength < their_strength * 0.6f32)
+                    || our_strength < their_strength * 0.8f32)
+            {
+                UnitDecision::Retreat
+            } else if (our_strength > their_strength * 1.2f32 && self.defending)
+                || our_strength > their_strength * 1.6f32
+                || bot.minerals > 2_000
+            {
+                UnitDecision::Advance
+            } else if let Some(existing_decision) = previous_decision {
+                // Keep previous decision
+                *existing_decision
+            } else {
+                UnitDecision::Undefined
+            };
 
             self.allied_decision.insert(unit.tag(), decision);
         }
@@ -365,13 +366,9 @@ impl ArmyManager {
                 })
                 .closest(unit);
 
-            let globally_weak = priority_targets
+            let extended_enemy = priority_targets
                 .iter()
-                .filter(|t| {
-                    unit.can_attack_unit(t)
-                        && *enemy_strength_per_enemy_unit.get(&t.tag()).unwrap() * 2f32
-                            < local_allied_strength
-                })
+                .filter(|t| unit.can_attack_unit(t))
                 .furthest(bot.enemy_start);
 
             let secondary_target = secondary_targets
@@ -399,10 +396,12 @@ impl ArmyManager {
                     unit.order_attack(Target::Tag(target.tag()), false);
                 } else if let Some(target) = closest_weak {
                     unit.order_attack(Target::Pos(target.position()), false);
-                } else if let Some(target) = globally_weak {
+                } else if let Some(target) = extended_enemy {
                     unit.order_attack(Target::Pos(target.position()), false);
                 } else if let Some(target) = secondary_target {
                     unit.order_attack(Target::Pos(target.position()), false);
+                } else {
+                    unit.order_attack(Target::Pos(bot.enemy_start), false);
                 }
             } else if decision == UnitDecision::Retreat || decision == UnitDecision::Undefined {
                 if threats.count() > 0 {
@@ -512,7 +511,7 @@ impl ArmyManager {
     }
 
     fn queue_units(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
-        let min_queens = 8.min(bot.units.my.townhalls.len() + 4);
+        let min_queens = 8.min(bot.units.my.townhalls.len() + 2);
         bot_info.build_queue.push(
             Command::new_unit(UnitTypeId::Queen, min_queens, true),
             false,
@@ -550,37 +549,18 @@ impl ArmyManager {
 
         // TODO: Base a difference on enemy units
         // TODO: When facing air enemies make anti-air
-        let unit_distribution = self.army_distribution(bot, bot_info);
+        let unit_distribution = self.army_distribution(bot, bot_info, wanted_army_supply);
 
         let total_weight = unit_distribution
             .values()
             .filter(|u| **u > 0)
-            .sum::<isize>();
+            .sum::<usize>();
         if total_weight > 0 {
-            let mut used_supply = 0f32;
-            for (unit_type, weight) in unit_distribution {
-                if weight <= 0 {
-                    continue;
-                }
-                let supply_cost = bot.game_data.units[&unit_type].food_required;
-                let existing_supply =
-                    (bot.units.my.units.of_type(unit_type).len() as f32 * supply_cost) as isize;
-                let dedicated_supply = (wanted_army_supply * weight / total_weight) as f32;
-                let amount = (dedicated_supply / supply_cost).round() as usize;
-
+            for (unit_type, amount) in unit_distribution {
                 bot_info
                     .build_queue
                     .push(Command::new_unit(unit_type, amount, true), false, 35);
-                used_supply += dedicated_supply;
-                debug!(
-                    "Unit {:?}>{:?}|{:?}[{:?}]",
-                    unit_type, existing_supply, dedicated_supply, amount
-                );
             }
-            debug!(
-                "Final army supply {:?}>{:?}",
-                wanted_army_supply, used_supply
-            );
         }
 
         bot_info.build_queue.push(
@@ -590,7 +570,12 @@ impl ArmyManager {
         );
     }
 
-    fn army_distribution(&self, bot: &Bot, bot_info: &mut BotInfo) -> HashMap<UnitTypeId, isize> {
+    fn army_distribution(
+        &self,
+        bot: &Bot,
+        bot_info: &mut BotInfo,
+        wanted_army_supply: isize,
+    ) -> HashMap<UnitTypeId, usize> {
         let mut unit_distribution = HashMap::new();
 
         for unit_type in self.allowed_tech.iter() {
@@ -621,7 +606,44 @@ impl ArmyManager {
                 unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
             }
         }
-        unit_distribution
+        let mut result = HashMap::new();
+
+        let total_weight = unit_distribution
+            .values()
+            .filter(|u| **u > 0)
+            .sum::<isize>();
+        if total_weight > 0 {
+            let mut used_supply = 0;
+            for (unit_type, weight) in unit_distribution {
+                if weight <= 0 {
+                    continue;
+                }
+                let supply_cost = bot.game_data.units[&unit_type].food_required;
+                let dedicated_supply = (wanted_army_supply * weight / total_weight) as f32;
+                let existing_supply =
+                    (bot.units.my.units.of_type(unit_type).len() as f32 * supply_cost) as isize;
+                let amount = (dedicated_supply / supply_cost).round() as usize;
+                used_supply += dedicated_supply as isize;
+                result.insert(unit_type, amount);
+                debug!(
+                    "Unit {:?}>{:?}|{:?}[{:?}]",
+                    unit_type, existing_supply, dedicated_supply, amount
+                );
+            }
+            if wanted_army_supply > used_supply {
+                let extra_supply_unit = UnitTypeId::Zergling;
+                let supply_cost = bot.game_data.units[&extra_supply_unit].food_required;
+                let extra_supply = (wanted_army_supply - used_supply) as usize;
+                *result.entry(extra_supply_unit).or_insert(0) +=
+                    (extra_supply as f32 / supply_cost) as usize;
+            }
+            debug!(
+                "Final army supply {:?}>{:?}",
+                wanted_army_supply,
+                result.values().sum::<usize>()
+            );
+        }
+        result
     }
 
     fn unit_value(bot: &Bot, unit_type: UnitTypeId) -> isize {
@@ -703,7 +725,7 @@ impl ArmyManager {
             );
         }
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergMeleeWeaponsLevel1)
+            && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel1)
         {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1, false),
@@ -724,7 +746,7 @@ impl ArmyManager {
             );
         }
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergMeleeWeaponsLevel2)
+            && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel2)
         {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel2, false),
@@ -738,16 +760,21 @@ impl ArmyManager {
             );
         }
         if bot.counter().all().count(UnitTypeId::Roach) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergMissileWeaponsLevel1)
+            && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel1)
         {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, false),
                 false,
                 90,
             );
+            bot_info.build_queue.push(
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, false),
+                false,
+                80,
+            );
         }
         if bot.counter().all().count(UnitTypeId::Roach) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergMissileWeaponsLevel2)
+            && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel2)
         {
             bot_info.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2, false),
@@ -835,6 +862,10 @@ impl Strength for Units {
     }
 }
 
+trait Strength {
+    fn strength(&self, bot: &Bot) -> f32;
+}
+
 impl StrengthVs for Units {
     fn strength_vs(&self, bot: &Bot, unit: &Unit) -> f32 {
         self.iter()
@@ -846,10 +877,6 @@ impl StrengthVs for Units {
 
 trait StrengthVs {
     fn strength_vs(&self, bot: &Bot, unit: &Unit) -> f32;
-}
-
-trait Strength {
-    fn strength(&self, bot: &Bot) -> f32;
 }
 
 //TODO: Give bonus for units better at one role.
