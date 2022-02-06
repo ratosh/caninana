@@ -227,6 +227,8 @@ impl ProductionManager {
                 self.build_gas(bot);
             } else if bot.race_values.start_townhall == unit_type {
                 self.build_expansion(bot, unit_type);
+            } else if unit_type.is_static_defense() {
+                self.build_static_defense(bot, unit_type);
             } else if let Some(location) = bot.find_placement(
                 unit_type,
                 bot.units
@@ -285,6 +287,39 @@ impl ProductionManager {
         }
     }
 
+    fn build_static_defense(&self, bot: &mut Bot, unit_type: UnitTypeId) {
+        let defenses = bot
+            .units
+            .my
+            .all
+            .filter(|unit| unit.type_id().is_static_defense());
+        let defenseless_halls = bot
+            .units
+            .my
+            .townhalls
+            .ready()
+            .filter(|u| defenses.in_range(u, 11f32).len() < 3);
+        let defense_towards = bot.units.cached.units.center().unwrap_or(bot.enemy_start);
+        if let Some(townhall) = defenseless_halls.iter().closest(defense_towards) {
+            let placement_position = townhall.position().towards(defense_towards, 7f32);
+            if let Some(builder) = self.get_builder(bot, placement_position) {
+                let options = PlacementOptions {
+                    max_distance: 5,
+                    step: 1,
+                    random: false,
+                    addon: false,
+                };
+                if let Some(placement) = bot.find_placement(unit_type, placement_position, options)
+                {
+                    builder.build(unit_type, placement, false);
+                    bot.subtract_resources(unit_type, false);
+                }
+            }
+        } else {
+            debug!("No defenseless townhall");
+        }
+    }
+
     fn build_gas(&self, bot: &mut Bot) {
         let mut geysers = Units::new();
         for owned_expansion in bot.owned_expansions() {
@@ -304,6 +339,16 @@ impl ProductionManager {
 // TODO: Check if all this info could prob be retrieved from game_info.
 trait ProducedOn {
     fn produced_on(&self) -> UnitTypeId;
+}
+
+trait IsStaticDefense {
+    fn is_static_defense(&self) -> bool;
+}
+
+impl IsStaticDefense for UnitTypeId {
+    fn is_static_defense(&self) -> bool {
+        matches!(self, UnitTypeId::SpineCrawler | UnitTypeId::SporeCrawler)
+    }
 }
 
 trait MorphUpgrade {
@@ -361,6 +406,7 @@ impl BuildingRequirement for UnitTypeId {
             UnitTypeId::Hive => Some(UnitTypeId::InfestationPit),
             UnitTypeId::Spire => Some(UnitTypeId::Lair),
             UnitTypeId::UltraliskCavern => Some(UnitTypeId::Hive),
+            UnitTypeId::SpineCrawler | UnitTypeId::SporeCrawler => Some(UnitTypeId::SpawningPool),
             _ => None,
         }
     }
