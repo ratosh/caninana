@@ -11,38 +11,36 @@ impl PoolFirst {
     fn push_commands(&mut self, bot_info: &mut BotInfo) {
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Drone, 13, false), true, 1000);
+            .push(Command::new_unit(UnitTypeId::Drone, 13, true), true, 1000);
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Overlord, 2, false), true, 990);
+            .push(Command::new_unit(UnitTypeId::Overlord, 2, true), true, 990);
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Drone, 16, false), true, 980);
+            .push(Command::new_unit(UnitTypeId::Drone, 16, true), true, 980);
         bot_info.build_queue.push(
-            Command::new_unit(UnitTypeId::SpawningPool, 1, false),
+            Command::new_unit(UnitTypeId::SpawningPool, 1, true),
             true,
             970,
         );
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Drone, 17, false), true, 960);
+            .push(Command::new_unit(UnitTypeId::Drone, 17, true), true, 960);
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Hatchery, 2, false), true, 950);
+            .push(Command::new_unit(UnitTypeId::Hatchery, 2, true), true, 950);
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Drone, 18, false), true, 940);
-        bot_info.build_queue.push(
-            Command::new_unit(UnitTypeId::Extractor, 1, false),
-            true,
-            930,
-        );
+            .push(Command::new_unit(UnitTypeId::Drone, 18, true), true, 940);
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Queen, 1, false), true, 920);
+            .push(Command::new_unit(UnitTypeId::Extractor, 1, true), true, 930);
         bot_info
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Zergling, 3, false), true, 910);
+            .push(Command::new_unit(UnitTypeId::Queen, 1, true), true, 920);
+        bot_info
+            .build_queue
+            .push(Command::new_unit(UnitTypeId::Zergling, 3, true), true, 910);
     }
 }
 

@@ -27,14 +27,7 @@ impl DefenseManager {
             })
             .is_empty();
         if advanced_enemy {
-            let enemy_supply = bot
-                .units
-                .cached
-                .units
-                .filter(|unit| !unit.is_worker() && unit.is_ready())
-                .supply();
-            let crawlers = enemy_supply as usize / 8;
-            println!("E{enemy_supply:?} C{crawlers:?}");
+            let crawlers = bot.units.my.townhalls.len() - 1;
             bot_info.build_queue.push(
                 Command::new_unit(UnitTypeId::SpineCrawler, crawlers, true),
                 false,

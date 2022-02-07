@@ -297,8 +297,7 @@ impl ProductionManager {
             .units
             .my
             .townhalls
-            .ready()
-            .filter(|u| defenses.in_range(u, 11f32).len() < 3);
+            .filter(|u| defenses.in_range(u, 11f32).is_empty());
         let defense_towards = bot.units.cached.units.center().unwrap_or(bot.enemy_start);
         if let Some(townhall) = defenseless_halls.iter().closest(defense_towards) {
             let placement_position = townhall.position().towards(defense_towards, 7f32);
