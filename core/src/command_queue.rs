@@ -4,15 +4,15 @@ use rust_sc2::prelude::*;
 #[derive(Debug, Clone)]
 struct InnerQueue {
     pub command: Command,
-    pub blocking: bool,
+    pub blocked: bool,
     pub priority: usize,
 }
 
 impl InnerQueue {
-    fn new(command: Command, blocking: bool, priority: usize) -> Self {
+    fn new(command: Command, blocked: bool, priority: usize) -> Self {
         Self {
             command,
-            blocking,
+            blocked,
             priority,
         }
     }
@@ -80,22 +80,21 @@ impl CommandQueue {
         });
     }
 
-    pub fn push(&mut self, command: Command, blocking: bool, priority: usize) {
+    pub fn push(&mut self, command: Command, blocked: bool, priority: usize) {
         let replace_previous_command = self.queue.iter().position(|i| match &i.command {
             Command::UnitCommand {
                 unit_type,
-                wanted_amount: previous_amount,
+                wanted_amount: _,
                 save_resources: _,
             } => match command {
                 Command::UnitCommand {
                     unit_type: new_type,
-                    wanted_amount: new_amount,
+                    wanted_amount: _,
                     save_resources: _,
                 } => {
-                    !i.blocking
+                    !i.blocked
                         && *unit_type == new_type
-                        && ((*previous_amount <= new_amount && i.priority <= priority)
-                            || (*previous_amount >= new_amount && i.priority >= priority))
+                        && i.priority == priority
                 }
                 _ => false,
             },
@@ -114,7 +113,7 @@ impl CommandQueue {
             self.queue.remove(previous_command_index);
         }
         let index = self.queue.iter().position(|i| i.priority < priority);
-        let item = InnerQueue::new(command, blocking, priority);
+        let item = InnerQueue::new(command, blocked, priority);
         if let Some(found_index) = index {
             self.queue.insert(found_index, item);
         } else {
@@ -140,9 +139,6 @@ impl Iterator for CommandQueueIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.queue.len() {
-            if self.index > 0 && self.queue[self.index - 1].blocking {
-                return None;
-            }
             let item = self.queue[self.index].clone();
             self.index += 1;
             return Some(item.command);
@@ -172,12 +168,12 @@ mod tests {
     }
 
     #[test]
-    fn iterator_more_units_replaced() {
+    fn iterator_more_units_equal_priority_replaced() {
         let mut queue = CommandQueue::default();
         let command1 = Command::new_unit(UnitTypeId::Zergling, 10, false);
         let command2 = Command::new_unit(UnitTypeId::Zergling, 20, false);
         queue.push(command1, false, 0);
-        queue.push(command2.clone(), false, 5);
+        queue.push(command2.clone(), false, 0);
         let mut iter = queue.into_iter();
         let next = iter.next();
         assert_eq!(next.is_some(), true);
@@ -190,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    fn iterator_less_units_equal_or_less_priority_replaced() {
+    fn iterator_less_units_equal_priority_replaced() {
         let mut queue = CommandQueue::default();
         let command1 = Command::new_unit(UnitTypeId::Zergling, 20, false);
         let command2 = Command::new_unit(UnitTypeId::Zergling, 10, false);
@@ -221,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn iterator_blocking_check() {
+    fn iterator_blocked_check() {
         let mut queue = CommandQueue::default();
         let command1 = Command::new_unit(UnitTypeId::Zergling, 10, false);
         let command2 = Command::new_unit(UnitTypeId::Zergling, 20, false);
@@ -231,29 +227,6 @@ mod tests {
         let next = iter.next();
         let next2 = iter.next();
         assert_eq!(next.is_some(), true);
-        assert_eq!(next2.is_some(), false);
-    }
-
-    #[test]
-    fn iterator_real_case1() {
-        let mut queue = CommandQueue::default();
-
-        let command1 = Command::new_unit(UnitTypeId::Zergling, 32, false);
-        let command2 = Command::new_unit(UnitTypeId::Queen, 4, false);
-        let command3 = Command::new_unit(UnitTypeId::Zergling, 52, false);
-        let command4 = Command::new_unit(UnitTypeId::Hatchery, 3, false);
-        queue.push(command1, true, 20);
-        queue.push(command2, false, 2);
-        queue.push(command3, false, 0);
-        queue.push(command4, false, 0);
-        let mut iter = queue.into_iter();
-        let next = iter.next();
-        let next2 = iter.next();
-        let next3 = iter.next();
-        let next4 = iter.next();
-        assert_eq!(next.is_some(), true);
-        assert_eq!(next2.is_some(), false);
-        assert_eq!(next3.is_some(), false);
-        assert_eq!(next4.is_some(), false);
+        assert_eq!(next2.is_some(), true);
     }
 }

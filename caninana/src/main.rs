@@ -48,7 +48,7 @@ fn main() -> SC2Result<()> {
             )
             (@arg difficulty: -d --difficulty
                 +takes_value
-                "Sets opponent diffuculty"
+                "Sets opponent difficulty"
             )
             (@arg ai_build: --("ai-build")
                 +takes_value

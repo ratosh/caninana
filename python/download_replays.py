@@ -5,7 +5,7 @@ import os
 import requests
 
 # Download
-bot_ids = [384]  # Ids on AI ARENA
+bot_ids = [386]  # Ids on AI ARENA
 token = os.environ['ARENA_API_TOKEN']  # Environment variable with token from: https://aiarena.net/profile/token/
 file_path = './replays/'
 auth = {'Authorization': f'Token {token}'}

@@ -1,4 +1,15 @@
 # Performance from ai_arena
+## v0.3.3 (bot_id 383)
+
+51.81% win rate after 166 games
+
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| LucidPJS           | -20 | 0    | 4      | 0    |
+| smallBly           | -16 | 0    | 4      | 0    |
+| AlienAsh           | -14 | 1    | 3      | 0    |
+| TheGoldenArmada    | -12 | 0    | 3      | 0    |
+| Tyr                | -10 | 0    | 3      | 0    |
 
 ## v0.2.5 (bot_id 382)
 40.93% win rate after 408 games
