@@ -32,11 +32,9 @@ impl PoolFirst {
         bot_info
             .build_queue
             .push(Command::new_unit(UnitTypeId::Drone, 18, true), true, 940);
-        bot_info.build_queue.push(
-            Command::new_unit(UnitTypeId::Extractor, 1, true),
-            true,
-            930,
-        );
+        bot_info
+            .build_queue
+            .push(Command::new_unit(UnitTypeId::Extractor, 1, true), true, 930);
         bot_info
             .build_queue
             .push(Command::new_unit(UnitTypeId::Queen, 1, true), true, 920);

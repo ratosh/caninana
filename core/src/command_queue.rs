@@ -91,11 +91,7 @@ impl CommandQueue {
                     unit_type: new_type,
                     wanted_amount: _,
                     save_resources: _,
-                } => {
-                    !i.blocked
-                        && *unit_type == new_type
-                        && i.priority == priority
-                }
+                } => !i.blocked && *unit_type == new_type && i.priority == priority,
                 _ => false,
             },
             Command::UpgradeCommand {

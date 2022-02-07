@@ -504,9 +504,11 @@ impl ArmyManager {
 
     fn queue_units(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
         let min_queens = 8.min(bot.units.my.townhalls.len() + 2);
-        bot_info
-            .build_queue
-            .push(Command::new_unit(UnitTypeId::Queen, min_queens, true), false, 50);
+        bot_info.build_queue.push(
+            Command::new_unit(UnitTypeId::Queen, min_queens, true),
+            false,
+            50,
+        );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
         let advanced_enemy = self
