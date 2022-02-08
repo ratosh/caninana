@@ -5,8 +5,8 @@
 #[macro_use]
 extern crate clap;
 
-use caninana_core::*;
 use rand::prelude::*;
+use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use caninana_core::managers::army_manager::ArmyManager;
@@ -16,7 +16,7 @@ use caninana_core::managers::queen_manager::QueenManager;
 use caninana_core::managers::ravager_manager::RavagerManager;
 use caninana_core::managers::resource_manager::ResourceManager;
 use caninana_core::managers::worker_manager::WorkerManager;
-
+use caninana_core::*;
 use caninana_openings::zerg::poolfirst::PoolFirst;
 
 fn main() -> SC2Result<()> {
@@ -170,17 +170,29 @@ fn main() -> SC2Result<()> {
 }
 
 #[bot]
-#[derive(Default)]
 struct Caninana {
-    army_manager: ArmyManager,
-    defense_manager: DefenseManager,
-    production_manager: ProductionManager,
-    ravager_manager: RavagerManager,
-    queen_manager: QueenManager,
-    resource_manager: ResourceManager,
-    worker_manager: WorkerManager,
+    components: Vec<Box<dyn AIComponent>>,
     opening: PoolFirst,
-    bot_info: BotInfo,
+    bot_state: BotState,
+}
+
+impl Default for Caninana {
+    fn default() -> Self {
+        Self {
+            _bot: Bot::default(),
+            components: vec![
+                Box::new(ArmyManager::default()),
+                Box::new(DefenseManager::default()),
+                Box::new(ProductionManager::default()),
+                Box::new(QueenManager::default()),
+                Box::new(RavagerManager::default()),
+                Box::new(ResourceManager::default()),
+                Box::new(WorkerManager::default()),
+            ],
+            opening: Default::default(),
+            bot_state: Default::default(),
+        }
+    }
 }
 
 impl Player for Caninana {
@@ -189,27 +201,16 @@ impl Player for Caninana {
     }
 
     fn on_start(&mut self) -> SC2Result<()> {
-        self.opening.opening(&self._bot, &mut self.bot_info);
+        self.opening.opening(&self._bot, &mut self.bot_state);
         self._bot
             .chat_ally(format!("Tag:{}v{}", crate_name!(), crate_version!()).as_str());
         Ok(())
     }
 
     fn on_step(&mut self, _iteration: usize) -> SC2Result<()> {
-        self.army_manager
-            .process(&mut self._bot, &mut self.bot_info);
-        self.defense_manager
-            .process(&mut self._bot, &mut self.bot_info);
-        self.production_manager
-            .process(&mut self._bot, &mut self.bot_info);
-        self.ravager_manager
-            .process(&mut self._bot, &mut self.bot_info);
-        self.queen_manager
-            .process(&mut self._bot, &mut self.bot_info);
-        self.resource_manager
-            .process(&mut self._bot, &mut self.bot_info);
-        self.worker_manager
-            .process(&mut self._bot, &mut self.bot_info);
+        for component in self.components.iter_mut() {
+            component.process(&mut self._bot, &mut self.bot_state);
+        }
         Ok(())
     }
 
@@ -220,8 +221,9 @@ impl Player for Caninana {
     }
 
     fn on_event(&mut self, event: Event) -> SC2Result<()> {
-        self.army_manager.on_event(&event);
-        self.worker_manager.on_event(&event);
+        for component in self.components.iter_mut() {
+            component.on_event(&event);
+        }
         Ok(())
     }
 }

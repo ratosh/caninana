@@ -5,7 +5,7 @@ use rust_sc2::prelude::*;
 use crate::command_queue::Command;
 use crate::command_queue::Command::*;
 use crate::managers::queen_manager::PathingDistance;
-use crate::{BotInfo, Manager};
+use crate::{AIComponent, BotState};
 
 #[derive(Default)]
 pub struct ProductionManager {
@@ -32,22 +32,22 @@ impl ProductionManager {
         }
     }
 
-    fn produce_units(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
-        bot_info.build_queue.check_completion(bot);
-        for command in bot_info.build_queue.into_iter() {
+    fn produce_units(&self, bot: &mut Bot, bot_state: &mut BotState) {
+        bot_state.build_queue.check_completion(bot);
+        for command in bot_state.build_queue.into_iter() {
             match command {
                 UnitCommand {
                     unit_type,
                     wanted_amount,
                     save_resources,
                 } => {
-                    self.produce(bot, bot_info, unit_type, wanted_amount, save_resources);
+                    self.produce(bot, bot_state, unit_type, wanted_amount, save_resources);
                 }
                 UpgradeCommand {
                     upgrade,
                     save_resources,
                 } => {
-                    self.upgrade(bot, bot_info, upgrade, save_resources);
+                    self.upgrade(bot, bot_state, upgrade, save_resources);
                 }
             }
         }
@@ -58,7 +58,7 @@ impl ProductionManager {
     fn produce(
         &self,
         bot: &mut Bot,
-        bot_info: &mut BotInfo,
+        bot_state: &mut BotState,
         unit_type: UnitTypeId,
         wanted_amount: usize,
         save_resources: bool,
@@ -73,7 +73,7 @@ impl ProductionManager {
         }
         if let Some(requirement) = unit_type.building_requirement() {
             if bot.counter().all().count(requirement) == 0 {
-                bot_info.build_queue.push(
+                bot_state.build_queue.push(
                     Command::new_unit(requirement, 1, save_resources),
                     false,
                     Self::REQUIREMENT_QUEUE_PRIORITY,
@@ -85,7 +85,7 @@ impl ProductionManager {
         }
         let upgrade_ability = unit_type.morph_ability();
         if upgrade_ability.is_some() {
-            self.morph_upgrade(bot, bot_info, unit_type, save_resources);
+            self.morph_upgrade(bot, bot_state, unit_type, save_resources);
         } else if unit_type.is_structure() {
             self.build(bot, unit_type, wanted_amount);
         } else {
@@ -94,7 +94,7 @@ impl ProductionManager {
                 if !bot.can_afford(unit_type, true) {
                     break;
                 }
-                self.produce_unit(bot, bot_info, unit_type, save_resources);
+                self.produce_unit(bot, bot_state, unit_type, save_resources);
             }
         }
     }
@@ -103,7 +103,7 @@ impl ProductionManager {
     fn produce_unit(
         &self,
         bot: &mut Bot,
-        bot_info: &mut BotInfo,
+        bot_state: &mut BotState,
         unit_type: UnitTypeId,
         save_resources: bool,
     ) {
@@ -130,7 +130,7 @@ impl ProductionManager {
             && bot.units.my.structures.of_type(produced_on).is_empty()
         {
             debug!("No building to create, pushing one to the queue");
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_unit(produced_on, 1, save_resources),
                 false,
                 Self::REQUIREMENT_QUEUE_PRIORITY,
@@ -141,7 +141,7 @@ impl ProductionManager {
     fn upgrade(
         &self,
         bot: &mut Bot,
-        bot_info: &mut BotInfo,
+        bot_state: &mut BotState,
         upgrade: UpgradeId,
         save_resources: bool,
     ) {
@@ -149,7 +149,7 @@ impl ProductionManager {
         if bot.can_afford_upgrade(upgrade) {
             if let Some(requirement) = upgrade.building_requirement() {
                 if bot.counter().count(requirement) == 0 {
-                    bot_info.build_queue.push(
+                    bot_state.build_queue.push(
                         Command::new_unit(requirement, 1, save_resources),
                         false,
                         Self::REQUIREMENT_QUEUE_PRIORITY,
@@ -163,7 +163,7 @@ impl ProductionManager {
                     building.research(upgrade, false);
                     bot.subtract_upgrade_cost(upgrade);
                 } else {
-                    bot_info.build_queue.push(
+                    bot_state.build_queue.push(
                         Command::new_unit(produced_on, 1, save_resources),
                         false,
                         Self::REQUIREMENT_QUEUE_PRIORITY,
@@ -178,7 +178,7 @@ impl ProductionManager {
     fn morph_upgrade(
         &self,
         bot: &mut Bot,
-        bot_info: &mut BotInfo,
+        bot_state: &mut BotState,
         unit_type: UnitTypeId,
         save_resources: bool,
     ) {
@@ -201,7 +201,7 @@ impl ProductionManager {
             unit.use_ability(upgrade_ability.unwrap(), false);
             bot.subtract_resources(unit_type, false);
         } else {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_unit(produced_on, 1, save_resources),
                 false,
                 Self::REQUIREMENT_QUEUE_PRIORITY,
@@ -458,15 +458,17 @@ impl BuildingRequirement for UpgradeId {
     }
 }
 
-impl Manager for ProductionManager {
-    fn process(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
+impl AIComponent for ProductionManager {
+    fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
         let last_loop = self.last_loop;
         let game_loop = bot.state.observation.game_loop();
         if last_loop + Self::PROCESS_DELAY > game_loop {
             return;
         }
         self.last_loop = game_loop;
-        self.produce_units(bot, bot_info);
+        self.produce_units(bot, bot_state);
         self.cancel_buildings(bot);
     }
+
+    fn on_event(&mut self, _: &Event) {}
 }

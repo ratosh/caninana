@@ -3,7 +3,7 @@ use rust_sc2::action::ActionResult;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
-use crate::{BotInfo, Manager};
+use crate::{AIComponent, BotState};
 
 #[derive(Default)]
 pub struct QueenManager {
@@ -267,8 +267,8 @@ impl PathingDistance for Bot {
     }
 }
 
-impl Manager for QueenManager {
-    fn process(&mut self, bot: &mut Bot, _: &mut BotInfo) {
+impl AIComponent for QueenManager {
+    fn process(&mut self, bot: &mut Bot, _: &mut BotState) {
         let last_loop = self.last_loop;
         let game_loop = bot.state.observation.game_loop();
         if last_loop + Self::PROCESS_DELAY > game_loop {
@@ -279,4 +279,6 @@ impl Manager for QueenManager {
         self.handle_spread(bot);
         self.handle_transfusion(bot);
     }
+
+    fn on_event(&mut self, _: &Event) {}
 }

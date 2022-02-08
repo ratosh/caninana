@@ -321,7 +321,7 @@ impl WorkerManager {
         }
     }
 
-    fn queue_worker(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
+    fn queue_worker(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let ideal_miners = bot
             .units
             .my
@@ -345,7 +345,7 @@ impl WorkerManager {
 
         let wanted_workers = 80.min(ideal_miners + ideal_geysers);
 
-        bot_info.build_queue.push(
+        bot_state.build_queue.push(
             Command::new_unit(UnitTypeId::Drone, wanted_workers as usize, false),
             false,
             25,
@@ -353,8 +353,8 @@ impl WorkerManager {
     }
 }
 
-impl Manager for WorkerManager {
-    fn process(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
+impl AIComponent for WorkerManager {
+    fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
         let last_loop = self.last_loop;
         let game_loop = bot.state.observation.game_loop();
         if last_loop + Self::PROCESS_DELAY > game_loop {
@@ -365,11 +365,9 @@ impl Manager for WorkerManager {
         self.decision(bot);
         self.assignment(bot);
         self.micro(bot);
-        self.queue_worker(bot, bot_info);
+        self.queue_worker(bot, bot_state);
     }
-}
 
-impl EventListener for WorkerManager {
     fn on_event(&mut self, event: &Event) {
         if let Event::UnitDestroyed(tag, alliance) = event {
             match alliance {
