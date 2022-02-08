@@ -10,7 +10,7 @@ use rust_sc2::Event::UnitDestroyed;
 use crate::command_queue::Command;
 use crate::managers::production_manager::BuildingRequirement;
 use crate::managers::queen_manager::PathingDistance;
-use crate::{BotInfo, EventListener, Manager};
+use crate::{AIComponent, BotState};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum UnitDecision {
@@ -502,9 +502,9 @@ impl ArmyManager {
         }
     }
 
-    fn queue_units(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
+    fn queue_units(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
         let min_queens = 8.min(bot.units.my.townhalls.len() + 2);
-        bot_info.build_queue.push(
+        bot_state.build_queue.push(
             Command::new_unit(UnitTypeId::Queen, min_queens, true),
             false,
             50,
@@ -541,7 +541,7 @@ impl ArmyManager {
 
         // TODO: Base a difference on enemy units
         // TODO: When facing air enemies make anti-air
-        let unit_distribution = self.army_distribution(bot, bot_info, wanted_army_supply);
+        let unit_distribution = self.army_distribution(bot, bot_state, wanted_army_supply);
 
         let total_weight = unit_distribution
             .values()
@@ -549,13 +549,13 @@ impl ArmyManager {
             .sum::<usize>();
         if total_weight > 0 {
             for (unit_type, amount) in unit_distribution {
-                bot_info
+                bot_state
                     .build_queue
                     .push(Command::new_unit(unit_type, amount, true), false, 35);
             }
         }
 
-        bot_info.build_queue.push(
+        bot_state.build_queue.push(
             Command::new_unit(UnitTypeId::Overseer, drones / 30, true),
             false,
             100,
@@ -565,7 +565,7 @@ impl ArmyManager {
     fn army_distribution(
         &self,
         bot: &Bot,
-        bot_info: &mut BotInfo,
+        bot_state: &mut BotState,
         wanted_army_supply: isize,
     ) -> HashMap<UnitTypeId, usize> {
         let mut unit_distribution = HashMap::new();
@@ -583,14 +583,14 @@ impl ArmyManager {
                         .of_type(another_requirement)
                         .is_empty()
                     {
-                        bot_info.build_queue.push(
+                        bot_state.build_queue.push(
                             Command::new_unit(requirement, 1, true),
                             false,
                             100,
                         );
                     }
                 } else {
-                    bot_info
+                    bot_state
                         .build_queue
                         .push(Command::new_unit(requirement, 1, true), false, 100);
                 }
@@ -660,7 +660,7 @@ impl ArmyManager {
         value as isize
     }
 
-    fn queue_upgrades(&self, bot: &mut Bot, bot_info: &mut BotInfo) {
+    fn queue_upgrades(&self, bot: &mut Bot, bot_state: &mut BotState) {
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
             && bot.vespene
                 > bot
@@ -670,47 +670,47 @@ impl ArmyManager {
                     .unwrap()
                     .vespene_cost
         {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingmovementspeed, true),
                 false,
                 150,
             );
         }
         if bot.counter().all().count(UnitTypeId::Zergling) > 20 {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingattackspeed, false),
                 false,
                 50,
             );
         }
         if bot.counter().all().count(UnitTypeId::Drone) > 30 {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Overlordspeed, true),
                 false,
                 80,
             );
         }
         if bot.counter().all().count(UnitTypeId::Baneling) > 0 {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::CentrificalHooks, false),
                 false,
                 50,
             );
         }
         if bot.counter().all().count(UnitTypeId::Roach) > 0 {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::GlialReconstitution, true),
                 false,
                 100,
             );
         }
         if bot.counter().all().count(UnitTypeId::Hydralisk) > 0 {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::EvolveGroovedSpines, false),
                 false,
                 70,
             );
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::EvolveMuscularAugments, true),
                 false,
                 80,
@@ -719,19 +719,19 @@ impl ArmyManager {
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
             && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel1)
         {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1, false),
                 false,
                 70,
             );
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, false),
                 false,
                 80,
             );
         }
         if bot.counter().all().count(bot.race_values.worker) > 45 {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_unit(UnitTypeId::EvolutionChamber, 2, false),
                 false,
                 50,
@@ -740,12 +740,12 @@ impl ArmyManager {
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
             && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel2)
         {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel2, false),
                 false,
                 60,
             );
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, false),
                 false,
                 70,
@@ -754,12 +754,12 @@ impl ArmyManager {
         if bot.counter().all().count(UnitTypeId::Roach) > 0
             && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel1)
         {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, false),
                 false,
                 90,
             );
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, false),
                 false,
                 80,
@@ -768,41 +768,41 @@ impl ArmyManager {
         if bot.counter().all().count(UnitTypeId::Roach) > 0
             && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel2)
         {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2, false),
                 false,
                 80,
             );
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, false),
                 false,
                 70,
             );
         }
         if bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel3) {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel3, false),
                 false,
                 60,
             );
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel3, false),
                 false,
                 50,
             );
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel3, false),
                 false,
                 70,
             );
         }
         if bot.counter().all().count(UnitTypeId::Ultralisk) > 0 {
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ChitinousPlating, false),
                 false,
                 50,
             );
-            bot_info.build_queue.push(
+            bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::AnabolicSynthesis, true),
                 false,
                 55,
@@ -1084,8 +1084,8 @@ impl ArmyManager {
     const PROCESS_DELAY: u32 = 5;
 }
 
-impl Manager for ArmyManager {
-    fn process(&mut self, bot: &mut Bot, bot_info: &mut BotInfo) {
+impl AIComponent for ArmyManager {
+    fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
         let last_loop = self.last_loop;
         let game_loop = bot.state.observation.game_loop();
         if last_loop + Self::PROCESS_DELAY > game_loop {
@@ -1094,14 +1094,12 @@ impl Manager for ArmyManager {
         self.last_loop = game_loop;
         self.check_unit_cache(bot);
         self.tech_decision(bot);
-        self.queue_upgrades(bot, bot_info);
-        self.queue_units(bot, bot_info);
+        self.queue_upgrades(bot, bot_state);
+        self.queue_units(bot, bot_state);
         self.scout(bot);
         self.micro(bot);
     }
-}
 
-impl EventListener for ArmyManager {
     fn on_event(&mut self, event: &Event) {
         if let UnitDestroyed(tag, _) = event {
             self.destroy_unit(*tag);
