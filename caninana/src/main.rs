@@ -10,6 +10,7 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use caninana_core::managers::army_manager::ArmyManager;
+use caninana_core::managers::cache_manager::CacheManager;
 use caninana_core::managers::defense_manager::DefenseManager;
 use caninana_core::managers::production_manager::ProductionManager;
 use caninana_core::managers::queen_manager::QueenManager;
@@ -171,7 +172,7 @@ fn main() -> SC2Result<()> {
 
 #[bot]
 struct Caninana {
-    components: Vec<Box<dyn AIComponent>>,
+    components: Vec<ProcessLimiter>,
     opening: PoolFirst,
     bot_state: BotState,
 }
@@ -181,13 +182,14 @@ impl Default for Caninana {
         Self {
             _bot: Bot::default(),
             components: vec![
-                Box::new(ArmyManager::default()),
-                Box::new(DefenseManager::default()),
-                Box::new(ProductionManager::default()),
-                Box::new(QueenManager::default()),
-                Box::new(RavagerManager::default()),
-                Box::new(ResourceManager::default()),
-                Box::new(WorkerManager::default()),
+                ProcessLimiter::new(0, Box::new(CacheManager::default())),
+                ProcessLimiter::new(5, Box::new(ArmyManager::default())),
+                ProcessLimiter::new(15, Box::new(DefenseManager::default())),
+                ProcessLimiter::new(15, Box::new(ProductionManager::default())),
+                ProcessLimiter::new(15, Box::new(QueenManager::default())),
+                ProcessLimiter::new(15, Box::new(RavagerManager::default())),
+                ProcessLimiter::new(15, Box::new(ResourceManager::default())),
+                ProcessLimiter::new(15, Box::new(WorkerManager::default())),
             ],
             opening: Default::default(),
             bot_state: Default::default(),
@@ -222,7 +224,7 @@ impl Player for Caninana {
 
     fn on_event(&mut self, event: Event) -> SC2Result<()> {
         for component in self.components.iter_mut() {
-            component.on_event(&event);
+            component.on_event(&event, &mut self.bot_state);
         }
         Ok(())
     }

@@ -5,7 +5,6 @@ use rand::prelude::*;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 use rust_sc2::units::Container;
-use rust_sc2::Event::UnitDestroyed;
 
 use crate::command_queue::Command;
 use crate::managers::production_manager::BuildingRequirement;
@@ -19,26 +18,10 @@ enum UnitDecision {
     Undefined,
 }
 
-pub struct UnitCache {
-    unit: Unit,
-    last_seen: f32,
-}
-
-impl UnitCache {
-    fn new(unit: Unit, time: f32) -> Self {
-        Self {
-            unit,
-            last_seen: time,
-        }
-    }
-}
-
 #[derive(Default)]
 pub struct ArmyManager {
-    last_loop: u32,
     defending: bool,
     allowed_tech: HashSet<UnitTypeId>,
-    enemy_units: HashMap<u64, UnitCache>,
     allied_decision: HashMap<u64, UnitDecision>,
 }
 
@@ -72,31 +55,6 @@ impl ArmyManager {
 }
 
 impl ArmyManager {
-    const FOG_AREA_CACHE_TIME: f32 = 120f32;
-    const VISIBLE_AREA_CACHE_TIME: f32 = 10f32;
-
-    pub fn destroy_unit(&mut self, tag: u64) {
-        if self.allied_decision.contains_key(&tag) {
-            debug!("Unit [{tag:?}] destroyed")
-        }
-        self.allied_decision.remove(&tag);
-        self.enemy_units.remove(&tag);
-    }
-
-    fn check_unit_cache(&mut self, bot: &Bot) {
-        for unit in bot.units.enemy.all.iter() {
-            self.enemy_units
-                .insert(unit.tag(), UnitCache::new(unit.clone(), bot.time));
-        }
-        self.enemy_units.retain(|_, value| {
-            if bot.is_visible(value.unit.position()) {
-                value.last_seen + Self::VISIBLE_AREA_CACHE_TIME > bot.time
-            } else {
-                value.last_seen + Self::FOG_AREA_CACHE_TIME > bot.time
-            }
-        });
-    }
-
     fn scout(&self, bot: &mut Bot) {
         let overlords = bot
             .units
@@ -157,7 +115,7 @@ impl ArmyManager {
         }
     }
 
-    fn micro(&mut self, bot: &mut Bot) {
+    fn micro(&mut self, bot: &mut Bot, bot_state: &BotState) {
         let mut my_army = Units::new();
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Zergling));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Baneling));
@@ -199,19 +157,13 @@ impl ArmyManager {
 
         // Retreat when aggression is small
         // Attack when we build enough numbers again
-        priority_targets.extend(
-            self.enemy_units
-                .values()
-                .filter(|u| {
-                    !u.unit.is_flying()
-                        && (u.unit.can_attack() && u.unit.can_be_attacked()
-                            || (u.unit.type_id() == UnitTypeId::WidowMine
-                                || u.unit.type_id() == UnitTypeId::Infestor
-                                || u.unit.type_id() == UnitTypeId::Medivac))
-                })
-                .map(|u| u.unit.clone())
-                .collect::<Vec<Unit>>(),
-        );
+        priority_targets.extend(bot_state.enemy_cache.units().filter(|u| {
+            !u.is_flying()
+                && (u.can_attack() && u.can_be_attacked()
+                    || (u.type_id() == UnitTypeId::WidowMine
+                        || u.type_id() == UnitTypeId::Infestor
+                        || u.type_id() == UnitTypeId::Medivac))
+        }));
 
         secondary_targets.extend(bot.units.enemy.all.ground().filter(|u| {
             !u.is_flying()
@@ -511,18 +463,16 @@ impl ArmyManager {
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        let advanced_enemy = self
-            .enemy_units
-            .values()
+        let advanced_enemy = !bot_state
+            .enemy_cache
+            .units()
             .filter(|u| {
-                !u.unit.is_worker()
-                    && u.unit.can_attack()
-                    && u.unit.position().distance(bot.enemy_start) * 2f32
-                        > u.unit.position().distance(bot.start_location)
+                !u.is_worker()
+                    && u.can_attack()
+                    && u.position().distance(bot.enemy_start) * 2f32
+                        > u.position().distance(bot.start_location)
             })
-            .peekable()
-            .peek()
-            .is_some();
+            .is_empty();
         let wanted_army_supply = if drones < 70 {
             if advanced_enemy {
                 debug!("They have advanced troops! Build army!");
@@ -1080,29 +1030,12 @@ impl RaceFinder for UnitTypeId {
     }
 }
 
-impl ArmyManager {
-    const PROCESS_DELAY: u32 = 5;
-}
-
 impl AIComponent for ArmyManager {
     fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        let last_loop = self.last_loop;
-        let game_loop = bot.state.observation.game_loop();
-        if last_loop + Self::PROCESS_DELAY > game_loop {
-            return;
-        }
-        self.last_loop = game_loop;
-        self.check_unit_cache(bot);
         self.tech_decision(bot);
         self.queue_upgrades(bot, bot_state);
         self.queue_units(bot, bot_state);
         self.scout(bot);
-        self.micro(bot);
-    }
-
-    fn on_event(&mut self, event: &Event) {
-        if let UnitDestroyed(tag, _) = event {
-            self.destroy_unit(*tag);
-        }
+        self.micro(bot, bot_state);
     }
 }

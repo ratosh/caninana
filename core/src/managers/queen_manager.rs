@@ -7,13 +7,10 @@ use crate::{AIComponent, BotState};
 
 #[derive(Default)]
 pub struct QueenManager {
-    last_loop: u32,
     spread_map: Vec<Point2>,
 }
 
 impl QueenManager {
-    const PROCESS_DELAY: u32 = 15;
-
     fn handle_transfusion(&mut self, bot: &mut Bot) {
         let queens = bot.units.my.units.of_type(UnitTypeId::Queen).filter(|u| {
             !u.is_using(AbilityId::EffectInjectLarva)
@@ -269,16 +266,8 @@ impl PathingDistance for Bot {
 
 impl AIComponent for QueenManager {
     fn process(&mut self, bot: &mut Bot, _: &mut BotState) {
-        let last_loop = self.last_loop;
-        let game_loop = bot.state.observation.game_loop();
-        if last_loop + Self::PROCESS_DELAY > game_loop {
-            return;
-        }
-        self.last_loop = game_loop;
         self.handle_injection(bot);
         self.handle_spread(bot);
         self.handle_transfusion(bot);
     }
-
-    fn on_event(&mut self, _: &Event) {}
 }

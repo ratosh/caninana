@@ -8,13 +8,10 @@ use crate::managers::queen_manager::PathingDistance;
 use crate::{AIComponent, BotState};
 
 #[derive(Default)]
-pub struct ProductionManager {
-    last_loop: u32,
-}
+pub struct ProductionManager {}
 
 impl ProductionManager {
     const REQUIREMENT_QUEUE_PRIORITY: usize = 100_000;
-    const PROCESS_DELAY: u32 = 20;
 
     fn cancel_buildings(&self, bot: &mut Bot) {
         for structure in bot
@@ -460,15 +457,7 @@ impl BuildingRequirement for UpgradeId {
 
 impl AIComponent for ProductionManager {
     fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        let last_loop = self.last_loop;
-        let game_loop = bot.state.observation.game_loop();
-        if last_loop + Self::PROCESS_DELAY > game_loop {
-            return;
-        }
-        self.last_loop = game_loop;
         self.produce_units(bot, bot_state);
         self.cancel_buildings(bot);
     }
-
-    fn on_event(&mut self, _: &Event) {}
 }
