@@ -5,9 +5,7 @@ use crate::command_queue::Command;
 use crate::{AIComponent, BotState};
 
 #[derive(Default)]
-pub struct DefenseManager {
-    last_loop: u32,
-}
+pub struct DefenseManager {}
 
 impl DefenseManager {
     pub fn check_defensive_placement(&self, _: &mut Bot) {
@@ -47,21 +45,9 @@ trait Supply {
     fn supply(&self) -> f32;
 }
 
-impl DefenseManager {
-    const PROCESS_DELAY: u32 = 15;
-}
-
 impl AIComponent for DefenseManager {
     fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        let last_loop = self.last_loop;
-        let game_loop = bot.state.observation.game_loop();
-        if last_loop + Self::PROCESS_DELAY > game_loop {
-            return;
-        }
-        self.last_loop = game_loop;
         // self.check_defensive_placement(bot);
         self.queue_defense(bot, bot_state);
     }
-
-    fn on_event(&mut self, _: &Event) {}
 }

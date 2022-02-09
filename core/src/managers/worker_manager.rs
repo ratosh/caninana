@@ -17,7 +17,6 @@ enum WorkerDecision {
 
 #[derive(Default)]
 pub struct WorkerManager {
-    last_loop: u32,
     worker_decision: HashMap<u64, WorkerDecision>,
 
     // (worker_tag, resource_tag)
@@ -56,7 +55,6 @@ impl WorkerManager {
 }
 
 impl WorkerManager {
-    const PROCESS_DELAY: u32 = 10;
     const MINERAL_WORKERS: usize = 2;
     const GEYSERS_WORKERS: usize = 3;
 
@@ -72,12 +70,13 @@ impl WorkerManager {
                     && bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range)
             })
             .len();
-        let workers_attacking = bot
+        let weak_attackers = bot
             .units
             .enemy
-            .workers
-            .filter(|f| {
-                bot.units.my.townhalls.closest_distance(f.position()) <= Some(defense_range)
+            .all
+            .filter(|u| {
+                (u.is_worker() || u.type_id() == UnitTypeId::Zergling)
+                    && bot.units.my.townhalls.closest_distance(u.position()) <= Some(defense_range)
             })
             .len();
         let enemy_buildings_close = bot.units.enemy.all.filter(|f| {
@@ -106,7 +105,7 @@ impl WorkerManager {
         debug!(
             "U[{:?}] W[{:?}] S[{:?}] F[{:?}]",
             units_attacking,
-            workers_attacking,
+            weak_attackers,
             enemy_buildings_close.len(),
             current_fighters
         );
@@ -119,13 +118,13 @@ impl WorkerManager {
             needed_fighters += (pylons_close * 5).max(current_fighters)
         }
         if cannons_close > 0 {
-            needed_fighters += (pylons_close * 4).max(current_fighters)
+            needed_fighters += (cannons_close * 4).max(current_fighters)
         }
-        if workers_attacking > 0 {
-            needed_fighters += (workers_attacking * 12 / 10).max(current_fighters)
+        if weak_attackers > 0 {
+            needed_fighters += (weak_attackers * 12 / 10).max(current_fighters)
         }
         needed_fighters = needed_fighters.saturating_sub(army_supply);
-        let back_threshold = if units_attacking > workers_attacking {
+        let back_threshold = if units_attacking > weak_attackers {
             0.5f32
         } else {
             0.10f32
@@ -294,7 +293,32 @@ impl WorkerManager {
                     }
                 }
                 WorkerDecision::Fight => {
-                    if let Some(target) = bot.units.enemy.all.closest(worker) {
+                    if worker.on_cooldown() {
+                        if let Some(center) = bot
+                            .units
+                            .enemy
+                            .all
+                            .filter(|u| {
+                                u.can_attack_unit(worker)
+                                    && u.in_range(worker, worker.speed() + u.speed())
+                            })
+                            .center()
+                        {
+                            worker.move_to(
+                                Target::Pos(worker.position().towards(center, -worker.speed())),
+                                false,
+                            );
+                        }
+                    } else if let Some(target) = bot
+                        .units
+                        .enemy
+                        .all
+                        .iter()
+                        .filter(|f| worker.in_range(f, 0.1))
+                        .min_by_key(|u| u.hits())
+                    {
+                        worker.attack(Target::Tag(target.tag()), false);
+                    } else if let Some(target) = bot.units.enemy.all.closest(worker) {
                         worker.attack(Target::Pos(target.position()), false);
                     }
                 }
@@ -355,20 +379,13 @@ impl WorkerManager {
 
 impl AIComponent for WorkerManager {
     fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        let last_loop = self.last_loop;
-        let game_loop = bot.state.observation.game_loop();
-        if last_loop + Self::PROCESS_DELAY > game_loop {
-            return;
-        }
-        self.last_loop = game_loop;
-
         self.decision(bot);
         self.assignment(bot);
         self.micro(bot);
         self.queue_worker(bot, bot_state);
     }
 
-    fn on_event(&mut self, event: &Event) {
+    fn on_event(&mut self, event: &Event, _: &mut BotState) {
         if let Event::UnitDestroyed(tag, alliance) = event {
             match alliance {
                 Some(Alliance::Own) => {

@@ -1,6 +1,18 @@
 # Performance from ai_arena
-## v0.3.3 (bot_id 383)
 
+## v0.4.1 (384)
+35.32% win rate after 235 games
+
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| Roro               | -24 | 0    | 6      | 0    |
+| ANIbot             | -24 | 0    | 6      | 0    |
+| Tyckles            | -21 | 0    | 8      | 0    |
+| zUnkP              | -17 | 1    | 5      | 0    |
+| TheGoldenArmada    | -16 | 1    | 5      | 0    |
+
+
+## v0.3.3 (383)
 51.81% win rate after 166 games
 
 | Bot                | Elo | Wins | Losses | Ties |
@@ -11,7 +23,7 @@
 | TheGoldenArmada    | -12 | 0    | 3      | 0    |
 | Tyr                | -10 | 0    | 3      | 0    |
 
-## v0.2.5 (bot_id 382)
+## v0.2.5 (382)
 40.93% win rate after 408 games
 
 | Bot                | Elo | Wins | Losses | Ties |
@@ -22,7 +34,7 @@
 | smallBly           | -31 | 1    | 9      | 0    |
 | MechaShark         | -30 | 3    | 10     | 1    |
 
-## v0.1.8 (bot_id 380)
+## v0.1.8 (380)
 47.55% win rate after 326 games
 
 | Bot                | Elo | Wins | Losses | Ties |
@@ -33,7 +45,7 @@
 | BenBotBC           | -31 | 1    | 12     | 0    |
 | DominionDog        | -31 | 1    | 12     | 0    |
 
-## v0.1.3 (bot_id 375)
+## v0.1.3 (375)
 58.93% win rate after 168 games
 
 | Bot                | Elo | Wins | Losses | Ties |
@@ -44,7 +56,7 @@
 | MechaShark         | -12 | 0    | 3      | 0    |
 | whalemean          | -10 | 0    | 3      | 0    |
 
-## v0.1.0 (bot_id 376)
+## v0.1.0 (376)
 61.95% win rate after 226 games
 
 | Bot                | Elo | Wins | Losses | Ties |

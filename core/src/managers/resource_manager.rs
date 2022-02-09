@@ -5,13 +5,9 @@ use crate::command_queue::Command;
 use crate::{AIComponent, BotState};
 
 #[derive(Default)]
-pub struct ResourceManager {
-    last_loop: u32,
-}
+pub struct ResourceManager {}
 
 impl ResourceManager {
-    const PROCESS_DELAY: u32 = 10;
-
     fn order_supply(&self, bot: &mut Bot, bot_state: &mut BotState) {
         if bot.supply_cap >= 200 {
             return;
@@ -84,16 +80,8 @@ impl ResourceManager {
 
 impl AIComponent for ResourceManager {
     fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        let last_loop = self.last_loop;
-        let game_loop = bot.state.observation.game_loop();
-        if last_loop + Self::PROCESS_DELAY > game_loop {
-            return;
-        }
-        self.last_loop = game_loop;
         self.order_supply(bot, bot_state);
         self.order_expansion(bot, bot_state);
         self.order_geysers(bot, bot_state);
     }
-
-    fn on_event(&mut self, _: &Event) {}
 }

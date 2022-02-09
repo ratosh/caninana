@@ -4,12 +4,9 @@ use rust_sc2::prelude::*;
 use crate::{AIComponent, BotState};
 
 #[derive(Default)]
-pub struct RavagerManager {
-    last_loop: u32,
-}
+pub struct RavagerManager {}
 
 impl RavagerManager {
-    const PROCESS_DELAY: u32 = 5;
     const CORROSIVE_POSSIBLE_TARGETS: [UnitTypeId; 10] = [
         UnitTypeId::SiegeTankSieged,
         UnitTypeId::Thor,
@@ -54,15 +51,6 @@ impl RavagerManager {
 
 impl AIComponent for RavagerManager {
     fn process(&mut self, bot: &mut Bot, _: &mut BotState) {
-        let last_loop = self.last_loop;
-        let game_loop = bot.state.observation.game_loop();
-        if last_loop + Self::PROCESS_DELAY > game_loop {
-            return;
-        }
-        self.last_loop = game_loop;
-
         self.cast_corrosive_bile(bot);
     }
-
-    fn on_event(&mut self, _: &Event) {}
 }
