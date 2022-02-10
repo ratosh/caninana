@@ -547,33 +547,43 @@ impl ArmyManager {
             .filter(|u| **u > 0)
             .sum::<isize>();
         if total_weight > 0 {
-            let mut used_supply = 0;
+            let mut resource_limited_supply = 0;
+            let mut vespene = bot.vespene as usize;
             for (unit_type, weight) in unit_distribution {
                 if weight <= 0 {
                     continue;
                 }
                 let supply_cost = bot.game_data.units[&unit_type].food_required;
+                let vespene_cost = bot.game_data.units[&unit_type].vespene_cost as usize;
                 let dedicated_supply = (wanted_army_supply * weight / total_weight) as f32;
                 let existing_supply =
                     (bot.units.my.units.of_type(unit_type).len() as f32 * supply_cost) as isize;
                 let amount = (dedicated_supply / supply_cost).round() as usize;
-                used_supply += dedicated_supply as isize;
+                if vespene > vespene_cost && vespene_cost > 0 {
+                    let new_supply = amount.saturating_sub(existing_supply as usize);
+                    let possible_units = new_supply.min(vespene / vespene_cost);
+                    vespene -= possible_units * vespene_cost;
+                    resource_limited_supply += (possible_units as f32 * supply_cost) as isize;
+                }
                 result.insert(unit_type, amount);
                 debug!(
                     "Unit {:?}>{:?}|{:?}[{:?}]",
                     unit_type, existing_supply, dedicated_supply, amount
                 );
             }
-            if wanted_army_supply > used_supply && bot_state.spending_focus == SpendingFocus::Army {
+            if wanted_army_supply > resource_limited_supply
+                && bot_state.spending_focus == SpendingFocus::Army
+            {
                 let extra_supply_unit = UnitTypeId::Zergling;
                 let supply_cost = bot.game_data.units[&extra_supply_unit].food_required;
-                let extra_supply = (wanted_army_supply - used_supply) as usize;
+                let extra_supply = (wanted_army_supply - resource_limited_supply) as usize;
                 *result.entry(extra_supply_unit).or_insert(0) +=
                     (extra_supply as f32 / supply_cost) as usize;
             }
             debug!(
-                "Final army supply {:?}>{:?}",
+                "Final army supply {:?}>{:?}>{:?}",
                 wanted_army_supply,
+                resource_limited_supply,
                 result.values().sum::<usize>()
             );
         }
