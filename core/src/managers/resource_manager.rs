@@ -1,13 +1,53 @@
+use log::debug;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
-use crate::{AIComponent, BotState};
+use crate::utils::Supply;
+use crate::{AIComponent, BotState, SpendingFocus};
 
 #[derive(Default)]
 pub struct ResourceManager {}
 
 impl ResourceManager {
+    fn spending_decision(&mut self, bot: &Bot, bot_state: &mut BotState) {
+        let advanced_units = !bot
+            .units
+            .my
+            .units
+            .filter(|unit| {
+                unit.can_attack()
+                    && unit
+                        .position()
+                        .is_closer(unit.distance(bot.start_location) / 2f32, bot.enemy_start)
+            })
+            .is_empty();
+        let advanced_enemy_units = !bot_state
+            .enemy_cache
+            .units()
+            .filter(|unit| {
+                unit.can_attack()
+                    && unit
+                        .position()
+                        .is_closer(unit.distance(bot.enemy_start) * 2f32, bot.start_location)
+            })
+            .is_empty();
+        let enemy_supply = bot_state
+            .enemy_cache
+            .units()
+            .filter(|unit| unit.can_attack())
+            .supply();
+        let our_supply = bot.units.my.all.filter(|unit| unit.can_attack()).supply();
+
+        bot_state.spending_focus =
+            if advanced_units && !advanced_enemy_units && our_supply >= enemy_supply {
+                SpendingFocus::Economy
+            } else {
+                SpendingFocus::Army
+            };
+        debug!("Decision {:?}", bot_state.spending_focus);
+    }
+
     fn order_supply(&self, bot: &mut Bot, bot_state: &mut BotState) {
         if bot.supply_cap >= 200 {
             return;
@@ -80,6 +120,7 @@ impl ResourceManager {
 
 impl AIComponent for ResourceManager {
     fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
+        self.spending_decision(bot, bot_state);
         self.order_supply(bot, bot_state);
         self.order_expansion(bot, bot_state);
         self.order_geysers(bot, bot_state);

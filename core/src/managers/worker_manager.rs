@@ -75,7 +75,7 @@ impl WorkerManager {
             .enemy
             .all
             .filter(|u| {
-                (u.is_worker() || u.type_id() == UnitTypeId::Zergling)
+                u.is_worker()
                     && bot.units.my.townhalls.closest_distance(u.position()) <= Some(defense_range)
             })
             .len();
@@ -127,10 +127,10 @@ impl WorkerManager {
         let back_threshold = if units_attacking > weak_attackers {
             0.5f32
         } else {
-            0.10f32
+            0.1f32
         };
 
-        for worker in bot.units.my.workers.sorted(|f| f.tag()).iter() {
+        for worker in bot.units.my.workers.sorted(|f| f.hits()).iter() {
             let attackers_in_range = !bot
                 .units
                 .enemy
@@ -139,10 +139,12 @@ impl WorkerManager {
                     f.can_attack_ground() && f.in_range(worker, 2f32 + f.speed() + worker.speed())
                 })
                 .is_empty();
-            let decision = if worker.health_percentage().unwrap_or_default() < back_threshold
-                && attackers_in_range
-            {
-                WorkerDecision::Run
+            let decision = if worker.health_percentage().unwrap_or_default() < back_threshold {
+                if attackers_in_range {
+                    WorkerDecision::Run
+                } else {
+                    WorkerDecision::Gather
+                }
             } else if needed_fighters > 0 {
                 needed_fighters -= 1;
                 WorkerDecision::Fight
