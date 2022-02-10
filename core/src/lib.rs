@@ -1,5 +1,6 @@
 pub mod command_queue;
 pub mod managers;
+pub mod utils;
 
 use crate::command_queue::CommandQueue;
 use crate::managers::cache_manager::UnitsCache;
@@ -49,14 +50,15 @@ pub trait AIComponent {
     fn on_event(&mut self, _: &Event, _: &mut BotState) {}
 }
 
-pub enum ArmyDecision {
-    Retreat,
-    Advance,
+#[derive(Debug, PartialEq, Clone)]
+pub enum SpendingFocus {
+    Economy,
+    Army,
 }
 
-impl Default for ArmyDecision {
+impl Default for SpendingFocus {
     fn default() -> Self {
-        ArmyDecision::Advance
+        Self::Economy
     }
 }
 
@@ -64,5 +66,5 @@ impl Default for ArmyDecision {
 pub struct BotState {
     pub build_queue: CommandQueue,
     pub enemy_cache: UnitsCache,
-    pub army_decision: ArmyDecision,
+    pub spending_focus: SpendingFocus,
 }

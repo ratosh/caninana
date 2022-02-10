@@ -9,7 +9,7 @@ use rust_sc2::units::Container;
 use crate::command_queue::Command;
 use crate::managers::production_manager::BuildingRequirement;
 use crate::managers::queen_manager::PathingDistance;
-use crate::{AIComponent, BotState};
+use crate::{AIComponent, BotState, SpendingFocus};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum UnitDecision {
@@ -26,7 +26,7 @@ pub struct ArmyManager {
 }
 
 impl ArmyManager {
-    fn tech_decision(&mut self, bot: &Bot) {
+    fn tech_decision(&mut self, bot: &Bot, bot_state: &BotState) {
         let drones = bot.counter().all().count(UnitTypeId::Drone);
         // for unit in bot.units.enemy.all.iter() {
         //     for counter in unit.type_id().countered_by() {
@@ -35,6 +35,12 @@ impl ArmyManager {
         //         }
         //     }
         // }
+        self.allowed_tech.insert(UnitTypeId::Zergling);
+
+        // Don't tech up if we're investing on producing an army
+        if bot_state.spending_focus == SpendingFocus::Army {
+            return;
+        }
         if drones >= 25 {
             self.allowed_tech.insert(UnitTypeId::Roach);
         }
@@ -43,8 +49,6 @@ impl ArmyManager {
         // }
         if drones >= 50 || !bot.units.enemy.all.flying().is_empty() {
             self.allowed_tech.insert(UnitTypeId::Hydralisk);
-        } else if !bot.units.enemy.all.is_empty() || drones >= 19 {
-            self.allowed_tech.insert(UnitTypeId::Zergling);
         }
         if drones >= 66 {
             //     self.allowed_tech.insert(UnitTypeId::Mutalisk);
@@ -350,15 +354,12 @@ impl ArmyManager {
             } else if decision == UnitDecision::Retreat || decision == UnitDecision::Undefined {
                 if threats.count() > 0 {
                     Self::move_towards(bot, unit, -2f32);
-                } else if let Some(allied) = my_army
-                    .iter()
-                    .filter(|u| {
-                        u.distance(unit) > 5f32
-                            && *self.allied_decision.get(&u.tag()).unwrap() == UnitDecision::Advance
-                    })
-                    .closest(unit)
-                {
-                    unit.order_move_to(Target::Pos(allied.position()), 2f32, false);
+                } else if let Some(allied) = bot.units.my.townhalls.closest(unit) {
+                    unit.order_move_to(
+                        Target::Pos(allied.position().towards(bot.start_center, 7f32)),
+                        2f32,
+                        false,
+                    );
                 } else {
                     unit.order_move_to(Target::Pos(bot.start_location), 7f32, false);
                 }
@@ -463,18 +464,8 @@ impl ArmyManager {
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        let advanced_enemy = !bot_state
-            .enemy_cache
-            .units()
-            .filter(|u| {
-                !u.is_worker()
-                    && u.can_attack()
-                    && u.position().distance(bot.enemy_start) * 2f32
-                        > u.position().distance(bot.start_location)
-            })
-            .is_empty();
         let wanted_army_supply = if drones < 70 {
-            if advanced_enemy {
+            if bot_state.spending_focus == SpendingFocus::Army {
                 debug!("They have advanced troops! Build army!");
                 drones as isize
             } else {
@@ -499,6 +490,7 @@ impl ArmyManager {
             .sum::<usize>();
         if total_weight > 0 {
             for (unit_type, amount) in unit_distribution {
+                debug!("U[{:?}] A[{:?}]", unit_type, amount);
                 bot_state
                     .build_queue
                     .push(Command::new_unit(unit_type, amount, true), false, 35);
@@ -572,7 +564,7 @@ impl ArmyManager {
                     unit_type, existing_supply, dedicated_supply, amount
                 );
             }
-            if wanted_army_supply > used_supply {
+            if wanted_army_supply > used_supply && bot_state.spending_focus == SpendingFocus::Army {
                 let extra_supply_unit = UnitTypeId::Zergling;
                 let supply_cost = bot.game_data.units[&extra_supply_unit].food_required;
                 let extra_supply = (wanted_army_supply - used_supply) as usize;
@@ -625,6 +617,9 @@ impl ArmyManager {
                 false,
                 150,
             );
+        }
+        if bot_state.spending_focus == SpendingFocus::Army {
+            return;
         }
         if bot.counter().all().count(UnitTypeId::Zergling) > 20 {
             bot_state.build_queue.push(
@@ -1032,7 +1027,7 @@ impl RaceFinder for UnitTypeId {
 
 impl AIComponent for ArmyManager {
     fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        self.tech_decision(bot);
+        self.tech_decision(bot, bot_state);
         self.queue_upgrades(bot, bot_state);
         self.queue_units(bot, bot_state);
         self.scout(bot);

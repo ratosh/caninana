@@ -280,7 +280,7 @@ impl ProductionManager {
                 }
             }
         } else {
-            debug!("No neutral expansion?");
+            debug!("No expansion location?");
         }
     }
 
