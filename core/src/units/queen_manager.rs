@@ -3,8 +3,8 @@ use rust_sc2::action::ActionResult;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
-use crate::{AIComponent, BotState};
 use crate::utils::PathingDistance;
+use crate::{AIComponent, BotState};
 
 #[derive(Default)]
 pub struct QueenManager {

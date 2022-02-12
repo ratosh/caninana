@@ -5,10 +5,10 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 use rust_sc2::units::Container;
 
-use crate::{AIComponent, BotState, SpendingFocus};
 use crate::command_queue::Command;
-use crate::params::{*};
-use crate::utils::{*};
+use crate::params::*;
+use crate::utils::*;
+use crate::{AIComponent, BotState, SpendingFocus};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum UnitDecision {
@@ -87,11 +87,12 @@ impl ArmyManager {
 
         let enemy_attack_force = bot.units.enemy.all.visible().filter(|e| {
             e.can_attack()
-                && bot.units
-                .my
-                .townhalls
-                .iter()
-                .any(|h| h.is_closer(defense_range, *e))
+                && bot
+                    .units
+                    .my
+                    .townhalls
+                    .iter()
+                    .any(|h| h.is_closer(defense_range, *e))
         });
 
         self.defending = !enemy_attack_force.is_empty();
@@ -104,9 +105,9 @@ impl ArmyManager {
         priority_targets.extend(bot_state.enemy_cache.units().filter(|u| {
             !u.is_flying()
                 && (u.can_attack() && u.can_be_attacked()
-                || (u.type_id() == UnitTypeId::WidowMine
-                || u.type_id() == UnitTypeId::Infestor
-                || u.type_id() == UnitTypeId::Medivac))
+                    || (u.type_id() == UnitTypeId::WidowMine
+                        || u.type_id() == UnitTypeId::Infestor
+                        || u.type_id() == UnitTypeId::Medivac))
         }));
 
         secondary_targets.extend(bot.units.enemy.all.ground().filter(|u| {
@@ -139,7 +140,9 @@ impl ArmyManager {
 
         for unit in priority_targets.iter() {
             let their_strength = priority_targets
-                .filter(|e| e.in_real_range(unit, unit.speed() + e.speed() + unit.real_ground_range()))
+                .filter(|e| {
+                    e.in_real_range(unit, unit.speed() + e.speed() + unit.real_ground_range())
+                })
                 .strength(bot);
             their_strength_per_enemy_unit.insert(unit.tag(), their_strength);
         }
@@ -173,7 +176,7 @@ impl ArmyManager {
 
             let decision = if bot.minerals < 1_000
                 && ((self.defending && our_strength < their_strength * 0.4f32)
-                || our_strength < their_strength * 0.8f32)
+                    || our_strength < their_strength * 0.8f32)
             {
                 UnitDecision::Retreat
             } else if (our_strength > their_strength * 0.8f32 && self.defending)
@@ -210,9 +213,9 @@ impl ArmyManager {
                     unit.can_attack_unit(t)
                         && t.in_real_range(unit, t.speed() + unit.speed())
                         && (!unit.is_melee()
-                        || bot
-                        .pathing_distance(unit.position(), t.position())
-                        .is_some())
+                            || bot
+                                .pathing_distance(unit.position(), t.position())
+                                .is_some())
                 })
                 .closest(unit);
 
@@ -222,7 +225,7 @@ impl ArmyManager {
                     unit.can_attack_unit(t)
                         && unit.distance(t.position()) <= 15f32
                         && *their_strength_per_enemy_unit.get(&t.tag()).unwrap() * 2f32
-                        < local_allied_strength
+                            < local_allied_strength
                 })
                 .closest(unit);
 
@@ -433,8 +436,12 @@ impl ArmyManager {
                 if vespene_cost > 0 {
                     let possible_units = new_supply.min(vespene / vespene_cost);
                     vespene -= possible_units * vespene_cost;
-                    resource_limited_supply += existing_supply + (possible_units as f32 * supply_cost) as isize;
-                    debug!("Possible {:?}/{:?} -> {:?}", vespene, vespene_cost, possible_units);
+                    resource_limited_supply +=
+                        existing_supply + (possible_units as f32 * supply_cost) as isize;
+                    debug!(
+                        "Possible {:?}/{:?} -> {:?}",
+                        vespene, vespene_cost, possible_units
+                    );
                 } else {
                     resource_limited_supply += dedicated_supply as isize;
                 }
@@ -453,7 +460,10 @@ impl ArmyManager {
                 *result.entry(extra_supply_unit).or_insert(0) +=
                     (extra_supply as f32 / supply_cost) as usize;
 
-                debug!("Extra lings {:?}", (extra_supply as f32 / supply_cost) as usize);
+                debug!(
+                    "Extra lings {:?}",
+                    (extra_supply as f32 / supply_cost) as usize
+                );
             }
             debug!(
                 "Final army supply {:?}>{:?}>{:?}",
@@ -490,12 +500,12 @@ impl ArmyManager {
     fn queue_upgrades(&self, bot: &mut Bot, bot_state: &mut BotState) {
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
             && bot.vespene
-            > bot
-            .game_data
-            .upgrades
-            .get(&UpgradeId::Zerglingmovementspeed)
-            .unwrap()
-            .vespene_cost
+                > bot
+                    .game_data
+                    .upgrades
+                    .get(&UpgradeId::Zerglingmovementspeed)
+                    .unwrap()
+                    .vespene_cost
         {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingmovementspeed, true),

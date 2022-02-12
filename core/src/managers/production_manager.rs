@@ -4,8 +4,8 @@ use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
 use crate::command_queue::Command::*;
+use crate::utils::*;
 use crate::{AIComponent, BotState};
-use crate::utils::{*};
 
 #[derive(Default)]
 pub struct ProductionManager {}

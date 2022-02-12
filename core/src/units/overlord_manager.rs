@@ -1,9 +1,9 @@
 use rand::prelude::*;
 use rust_sc2::bot::Bot;
-use rust_sc2::prelude::{*};
+use rust_sc2::prelude::*;
 
-use crate::{AIComponent, BotState};
 use crate::utils::UnitOrderCheck;
+use crate::{AIComponent, BotState};
 
 #[derive(Default)]
 pub struct OverlordManager {}

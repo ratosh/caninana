@@ -5,8 +5,8 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
-use crate::*;
 use crate::params::MAX_WORKERS;
+use crate::*;
 
 #[derive(PartialEq, Debug, Clone)]
 enum WorkerDecision {

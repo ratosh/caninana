@@ -1,5 +1,5 @@
 use rust_sc2::bot::Bot;
-use rust_sc2::prelude::{*};
+use rust_sc2::prelude::*;
 
 pub trait Supply {
     fn supply(&self) -> u32;
@@ -73,7 +73,6 @@ fn should_send_order(unit: &Unit, target: Target, range: f32, queue: bool) -> bo
     }
 }
 
-
 // TODO: Check if all this info could prob be retrieved from game_info.
 pub trait ProducedOn {
     fn produced_on(&self) -> UnitTypeId;
@@ -85,7 +84,13 @@ pub trait IsStaticDefense {
 
 impl IsStaticDefense for UnitTypeId {
     fn is_static_defense(&self) -> bool {
-        matches!(self, UnitTypeId::SpineCrawler | UnitTypeId::SporeCrawler | UnitTypeId::PhotonCannon | UnitTypeId::Bunker)
+        matches!(
+            self,
+            UnitTypeId::SpineCrawler
+                | UnitTypeId::SporeCrawler
+                | UnitTypeId::PhotonCannon
+                | UnitTypeId::Bunker
+        )
     }
 }
 

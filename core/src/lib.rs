@@ -1,8 +1,8 @@
 pub mod command_queue;
 pub mod managers;
+mod params;
 pub mod units;
 pub mod utils;
-mod params;
 
 use crate::command_queue::CommandQueue;
 use crate::managers::cache_manager::UnitsCache;
