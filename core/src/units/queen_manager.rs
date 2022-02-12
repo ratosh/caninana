@@ -4,6 +4,7 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::{AIComponent, BotState};
+use crate::utils::PathingDistance;
 
 #[derive(Default)]
 pub struct QueenManager {
@@ -229,34 +230,6 @@ impl CreepPlacement for Bot {
             }
         }
         None
-    }
-}
-
-trait Between {
-    fn between(self, pos: Point2) -> Point2;
-}
-
-impl Between for Point2 {
-    fn between(self, other: Self) -> Self {
-        (self + other) / 2f32
-    }
-}
-
-pub trait PathingDistance {
-    fn pathing_distance(&self, p1: Point2, p2: Point2) -> Option<f32>;
-}
-
-impl PathingDistance for Bot {
-    fn pathing_distance(&self, p1: Point2, p2: Point2) -> Option<f32> {
-        if let Result::Ok(result) = self.query_pathing(vec![(Target::Pos(p1), p2)]) {
-            if result.is_empty() {
-                None
-            } else {
-                Some(result.iter().map(|d| d.unwrap_or(100f32)).sum())
-            }
-        } else {
-            None
-        }
     }
 }
 

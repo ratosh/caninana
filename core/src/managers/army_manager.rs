@@ -1,15 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
 use log::debug;
-use rand::prelude::*;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 use rust_sc2::units::Container;
 
-use crate::command_queue::Command;
-use crate::managers::production_manager::BuildingRequirement;
-use crate::managers::queen_manager::PathingDistance;
 use crate::{AIComponent, BotState, SpendingFocus};
+use crate::command_queue::Command;
+use crate::params::{*};
+use crate::utils::{*};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum UnitDecision {
@@ -47,10 +46,10 @@ impl ArmyManager {
         // if drones >= 38 {
         //     self.allowed_tech.insert(UnitTypeId::Ravager);
         // }
-        if drones >= 50 || !bot.units.enemy.all.flying().is_empty() {
+        if drones >= 48 || !bot.units.enemy.all.flying().is_empty() {
             self.allowed_tech.insert(UnitTypeId::Hydralisk);
         }
-        if drones >= 66 {
+        if drones >= 56 {
             //     self.allowed_tech.insert(UnitTypeId::Mutalisk);
             self.allowed_tech.insert(UnitTypeId::Corruptor);
             //     self.allowed_tech.insert(UnitTypeId::Ultralisk);
@@ -59,66 +58,6 @@ impl ArmyManager {
 }
 
 impl ArmyManager {
-    fn scout(&self, bot: &mut Bot) {
-        let overlords = bot
-            .units
-            .my
-            .units
-            .of_type(UnitTypeId::Overlord)
-            .sorted(|u| u.tag());
-        let ramps = bot
-            .ramps
-            .enemy
-            .points
-            .iter()
-            .map(|p| Point2::new(p.0 as f32, p.1 as f32).towards(bot.start_center, 7f32))
-            .collect::<Vec<Point2>>();
-        let mut actual_ramps = vec![];
-        for ramp in ramps {
-            if let Some(distance) = actual_ramps.iter().closest_distance(ramp) {
-                if distance > 8f32 {
-                    actual_ramps.push(ramp);
-                }
-            } else {
-                actual_ramps.push(ramp);
-            }
-        }
-
-        for overlord in overlords.iter() {
-            let closest_ramp = actual_ramps.iter().closest(overlord).cloned();
-            if let Some(ramp) = closest_ramp {
-                actual_ramps.retain(|p| *p != ramp);
-            }
-            if let Some(closest_anti_air) = bot
-                .units
-                .enemy
-                .all
-                .filter(|f| {
-                    f.can_attack_air() && f.in_real_range(overlord, f.speed() + overlord.speed())
-                })
-                .iter()
-                .closest(overlord)
-            {
-                let position = overlord.position().towards(
-                    closest_anti_air.position(),
-                    -closest_anti_air.real_range_vs(overlord),
-                );
-                overlord.order_move_to(Target::Pos(position), 0.5f32, false);
-            } else if overlord.hits_percentage().unwrap_or_default() > 0.9f32 && overlord.is_idle()
-            {
-                if let Some(ramp) = closest_ramp {
-                    overlord.order_move_to(Target::Pos(ramp), 0.5f32, false);
-                } else {
-                    let mut rng = thread_rng();
-                    let random_x = (rng.next_u64() % bot.game_info.map_size.x as u64) as f32;
-                    let random_y = (rng.next_u64() % bot.game_info.map_size.y as u64) as f32;
-                    let position = Point2::new(random_x, random_y);
-                    overlord.order_move_to(Target::Pos(position), 0.5f32, false);
-                }
-            }
-        }
-    }
-
     fn micro(&mut self, bot: &mut Bot, bot_state: &BotState) {
         let mut my_army = Units::new();
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Zergling));
@@ -147,7 +86,8 @@ impl ArmyManager {
         }
 
         let enemy_attack_force = bot.units.enemy.all.visible().filter(|e| {
-            bot.units
+            e.can_attack()
+                && bot.units
                 .my
                 .townhalls
                 .iter()
@@ -164,9 +104,9 @@ impl ArmyManager {
         priority_targets.extend(bot_state.enemy_cache.units().filter(|u| {
             !u.is_flying()
                 && (u.can_attack() && u.can_be_attacked()
-                    || (u.type_id() == UnitTypeId::WidowMine
-                        || u.type_id() == UnitTypeId::Infestor
-                        || u.type_id() == UnitTypeId::Medivac))
+                || (u.type_id() == UnitTypeId::WidowMine
+                || u.type_id() == UnitTypeId::Infestor
+                || u.type_id() == UnitTypeId::Medivac))
         }));
 
         secondary_targets.extend(bot.units.enemy.all.ground().filter(|u| {
@@ -194,13 +134,12 @@ impl ArmyManager {
             );
         }
 
-        Self::overseer_micro(bot);
-        let mut close_allied_strength = HashMap::new();
+        let mut our_strength_per_enemy_unit = HashMap::new();
         let mut their_strength_per_enemy_unit = HashMap::new();
 
         for unit in priority_targets.iter() {
             let their_strength = priority_targets
-                .filter(|e| e.in_real_range(unit, unit.speed() + e.speed() + 5f32))
+                .filter(|e| e.in_real_range(unit, unit.speed() + e.speed() + unit.real_ground_range()))
                 .strength(bot);
             their_strength_per_enemy_unit.insert(unit.tag(), their_strength);
         }
@@ -221,7 +160,7 @@ impl ArmyManager {
                 .max_value(|f| *their_strength_per_enemy_unit.get(&f.tag()).unwrap())
                 .unwrap_or_default();
 
-            close_allied_strength.insert(unit.tag(), our_strength);
+            our_strength_per_enemy_unit.insert(unit.tag(), our_strength);
 
             debug!(
                 "Unit[{:?}|{:?}] {:?}vs{:?}",
@@ -233,11 +172,11 @@ impl ArmyManager {
             let previous_decision = self.allied_decision.get(&unit.tag());
 
             let decision = if bot.minerals < 1_000
-                && ((!self.defending && our_strength < their_strength * 0.6f32)
-                    || our_strength < their_strength * 0.8f32)
+                && ((self.defending && our_strength < their_strength * 0.4f32)
+                || our_strength < their_strength * 0.8f32)
             {
                 UnitDecision::Retreat
-            } else if (our_strength > their_strength * 1.2f32 && self.defending)
+            } else if (our_strength > their_strength * 0.8f32 && self.defending)
                 || our_strength > their_strength * 1.6f32
                 || bot.minerals > 2_000
             {
@@ -252,35 +191,8 @@ impl ArmyManager {
             self.allied_decision.insert(unit.tag(), decision);
         }
 
-        // debug!("Decision report");
-        // for unit in my_army.iter() {
-        //     debug!(
-        //         "Unit[{:?}|{:?}] {:?}",
-        //         unit.tag(),
-        //         unit.type_id(),
-        //         self.allied_decision.get(&unit.tag())
-        //     );
-        //     match self.allied_decision.get(&unit.tag()) {
-        //         None => {}
-        //         Some(decision) => {
-        //             let color = match decision {
-        //                 UnitDecision::Advance => {
-        //                     (0, 0, 255)
-        //                 }
-        //                 UnitDecision::Retreat => {
-        //                     (255, 0, 0)
-        //                 }
-        //                 UnitDecision::Undefined => {
-        //                     (255, 255, 255)
-        //                 }
-        //             };
-        //             bot.debug.draw_sphere(unit.position3d(), 0.3f32, Some(color));
-        //         }
-        //     }
-        // }
-
         for unit in my_army.iter() {
-            let local_allied_strength = *close_allied_strength.get(&unit.tag()).unwrap();
+            let local_allied_strength = *our_strength_per_enemy_unit.get(&unit.tag()).unwrap();
             let decision = *self.allied_decision.get(&unit.tag()).unwrap();
 
             let target_in_range = priority_targets
@@ -298,9 +210,9 @@ impl ArmyManager {
                     unit.can_attack_unit(t)
                         && t.in_real_range(unit, t.speed() + unit.speed())
                         && (!unit.is_melee()
-                            || bot
-                                .pathing_distance(unit.position(), t.position())
-                                .is_some())
+                        || bot
+                        .pathing_distance(unit.position(), t.position())
+                        .is_some())
                 })
                 .closest(unit);
 
@@ -310,7 +222,7 @@ impl ArmyManager {
                     unit.can_attack_unit(t)
                         && unit.distance(t.position()) <= 15f32
                         && *their_strength_per_enemy_unit.get(&t.tag()).unwrap() * 2f32
-                            < local_allied_strength
+                        < local_allied_strength
                 })
                 .closest(unit);
 
@@ -354,7 +266,7 @@ impl ArmyManager {
             } else if decision == UnitDecision::Retreat || decision == UnitDecision::Undefined {
                 if threats.count() > 0 {
                     Self::move_towards(bot, unit, -2f32);
-                } else if let Some(allied) = bot.units.my.townhalls.closest(unit) {
+                } else if let Some(allied) = bot.units.my.townhalls.closest(bot.start_location) {
                     unit.order_move_to(
                         Target::Pos(allied.position().towards(bot.start_center, 7f32)),
                         2f32,
@@ -412,49 +324,6 @@ impl ArmyManager {
         }
     }
 
-    fn overseer_micro(bot: &Bot) {
-        let overseers = bot
-            .units
-            .my
-            .units
-            .of_type(UnitTypeId::Overseer)
-            .sorted(|f| f.tag());
-        let mut enemy_units = bot
-            .units
-            .enemy
-            .units
-            .filter(|f| !f.is_worker() && f.can_attack());
-        for overseer in overseers.iter() {
-            let position = if let Some(closest_anti_air) = bot
-                .units
-                .enemy
-                .all
-                .filter(|f| {
-                    f.can_attack_air() && f.in_real_range(overseer, f.speed() + overseer.speed())
-                })
-                .iter()
-                .closest(overseer)
-            {
-                overseer
-                    .position()
-                    .towards(closest_anti_air.position(), -overseer.speed())
-            } else if let Some(unit) = enemy_units
-                .clone()
-                .filter(|f| f.is_cloaked())
-                .furthest(bot.enemy_start)
-            {
-                enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
-                unit.position()
-            } else if let Some(unit) = enemy_units.clone().furthest(bot.enemy_start) {
-                enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
-                unit.position()
-            } else {
-                bot.enemy_start
-            };
-            overseer.order_move_to(Target::Pos(position), 1.0f32, false);
-        }
-    }
-
     fn queue_units(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
         let min_queens = 8.min(bot.units.my.townhalls.len() + 2);
         bot_state.build_queue.push(
@@ -464,12 +333,12 @@ impl ArmyManager {
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        let wanted_army_supply = if drones < 70 {
+        let wanted_army_supply = if drones < MAX_WORKERS {
             if bot_state.spending_focus == SpendingFocus::Army {
                 debug!("They have advanced troops! Build army!");
-                drones as isize
+                (drones * 8 / 5) as isize
             } else {
-                (drones / 6) as isize
+                (drones / 5) as isize
             }
         } else {
             (bot.supply_army + bot.supply_left) as isize - (min_queens as isize * 2)
@@ -559,11 +428,15 @@ impl ArmyManager {
                 let existing_supply =
                     (bot.units.my.units.of_type(unit_type).len() as f32 * supply_cost) as isize;
                 let amount = (dedicated_supply / supply_cost).round() as usize;
-                if vespene > vespene_cost && vespene_cost > 0 {
-                    let new_supply = amount.saturating_sub(existing_supply as usize);
+                let new_supply = amount.saturating_sub(existing_supply as usize);
+                debug!("NS {:?}", new_supply);
+                if vespene_cost > 0 {
                     let possible_units = new_supply.min(vespene / vespene_cost);
                     vespene -= possible_units * vespene_cost;
-                    resource_limited_supply += (possible_units as f32 * supply_cost) as isize;
+                    resource_limited_supply += existing_supply + (possible_units as f32 * supply_cost) as isize;
+                    debug!("Possible {:?}/{:?} -> {:?}", vespene, vespene_cost, possible_units);
+                } else {
+                    resource_limited_supply += dedicated_supply as isize;
                 }
                 result.insert(unit_type, amount);
                 debug!(
@@ -579,6 +452,8 @@ impl ArmyManager {
                 let extra_supply = (wanted_army_supply - resource_limited_supply) as usize;
                 *result.entry(extra_supply_unit).or_insert(0) +=
                     (extra_supply as f32 / supply_cost) as usize;
+
+                debug!("Extra lings {:?}", (extra_supply as f32 / supply_cost) as usize);
             }
             debug!(
                 "Final army supply {:?}>{:?}>{:?}",
@@ -615,12 +490,12 @@ impl ArmyManager {
     fn queue_upgrades(&self, bot: &mut Bot, bot_state: &mut BotState) {
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
             && bot.vespene
-                > bot
-                    .game_data
-                    .upgrades
-                    .get(&UpgradeId::Zerglingmovementspeed)
-                    .unwrap()
-                    .vespene_cost
+            > bot
+            .game_data
+            .upgrades
+            .get(&UpgradeId::Zerglingmovementspeed)
+            .unwrap()
+            .vespene_cost
         {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingmovementspeed, true),
@@ -762,40 +637,6 @@ impl ArmyManager {
                 false,
                 55,
             );
-        }
-    }
-}
-
-trait UnitOrderCheck {
-    fn order_move_to(&self, target: Target, range: f32, queue: bool);
-    fn order_attack(&self, target: Target, queue: bool);
-}
-
-impl UnitOrderCheck for Unit {
-    fn order_move_to(&self, target: Target, range: f32, queue: bool) {
-        if should_send_order(self, target, range, queue) {
-            self.move_to(target, queue);
-        }
-    }
-
-    fn order_attack(&self, target: Target, queue: bool) {
-        if should_send_order(self, target, 0.3f32, queue) {
-            self.attack(target, queue);
-        }
-    }
-}
-
-fn should_send_order(unit: &Unit, target: Target, range: f32, queue: bool) -> bool {
-    if queue {
-        true
-    } else {
-        match (unit.target(), target) {
-            (Target::Pos(current_pos), Target::Pos(wanted_pos)) => {
-                current_pos.distance(wanted_pos) > range
-            }
-            (_, Target::Pos(wanted_pos)) => unit.position().distance(wanted_pos) > range,
-            (Target::Tag(current_tag), Target::Tag(wanted_tag)) => current_tag != wanted_tag,
-            (_, _) => true,
         }
     }
 }
@@ -1040,7 +881,6 @@ impl AIComponent for ArmyManager {
         self.tech_decision(bot, bot_state);
         self.queue_upgrades(bot, bot_state);
         self.queue_units(bot, bot_state);
-        self.scout(bot);
         self.micro(bot, bot_state);
     }
 }

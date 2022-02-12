@@ -4,8 +4,8 @@ use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
 use crate::command_queue::Command::*;
-use crate::managers::queen_manager::PathingDistance;
 use crate::{AIComponent, BotState};
+use crate::utils::{*};
 
 #[derive(Default)]
 pub struct ProductionManager {}
@@ -328,129 +328,6 @@ impl ProductionManager {
                 builder.build_gas(geyser.tag(), false);
                 bot.subtract_resources(bot.race_values.gas, false);
             }
-        }
-    }
-}
-
-// TODO: Check if all this info could prob be retrieved from game_info.
-trait ProducedOn {
-    fn produced_on(&self) -> UnitTypeId;
-}
-
-trait IsStaticDefense {
-    fn is_static_defense(&self) -> bool;
-}
-
-impl IsStaticDefense for UnitTypeId {
-    fn is_static_defense(&self) -> bool {
-        matches!(self, UnitTypeId::SpineCrawler | UnitTypeId::SporeCrawler)
-    }
-}
-
-trait MorphUpgrade {
-    fn morph_ability(&self) -> Option<AbilityId>;
-}
-
-pub trait BuildingRequirement {
-    fn building_requirement(&self) -> Option<UnitTypeId>;
-}
-
-impl ProducedOn for UnitTypeId {
-    fn produced_on(&self) -> UnitTypeId {
-        match *self {
-            UnitTypeId::Queen | UnitTypeId::Lair => UnitTypeId::Hatchery,
-            UnitTypeId::Hive => UnitTypeId::Lair,
-            UnitTypeId::Baneling => UnitTypeId::Zergling,
-            UnitTypeId::Ravager => UnitTypeId::Roach,
-            UnitTypeId::Overseer => UnitTypeId::Overlord,
-            _ => UnitTypeId::Larva,
-        }
-    }
-}
-
-impl MorphUpgrade for UnitTypeId {
-    fn morph_ability(&self) -> Option<AbilityId> {
-        match *self {
-            UnitTypeId::Lair => Some(AbilityId::UpgradeToLairLair),
-            UnitTypeId::Hive => Some(AbilityId::UpgradeToHiveHive),
-            UnitTypeId::Baneling => Some(AbilityId::MorphZerglingToBanelingBaneling),
-            UnitTypeId::Ravager => Some(AbilityId::MorphToRavagerRavager),
-            UnitTypeId::Overseer => Some(AbilityId::MorphOverseer),
-            _ => None,
-        }
-    }
-}
-
-impl BuildingRequirement for UnitTypeId {
-    fn building_requirement(&self) -> Option<UnitTypeId> {
-        match *self {
-            // Units
-            UnitTypeId::Queen => Some(UnitTypeId::SpawningPool),
-            UnitTypeId::Zergling => Some(UnitTypeId::SpawningPool),
-            UnitTypeId::Baneling => Some(UnitTypeId::BanelingNest),
-            UnitTypeId::Roach => Some(UnitTypeId::RoachWarren),
-            UnitTypeId::Ravager => Some(UnitTypeId::RoachWarren),
-            UnitTypeId::Hydralisk => Some(UnitTypeId::HydraliskDen),
-            UnitTypeId::HydraliskDen => Some(UnitTypeId::Lair),
-            UnitTypeId::Mutalisk => Some(UnitTypeId::Spire),
-            UnitTypeId::Overseer => Some(UnitTypeId::Lair),
-            UnitTypeId::Ultralisk => Some(UnitTypeId::UltraliskCavern),
-            UnitTypeId::Corruptor => Some(UnitTypeId::Spire),
-
-            // Buildings
-            UnitTypeId::Lair => Some(UnitTypeId::SpawningPool),
-            UnitTypeId::Hive => Some(UnitTypeId::InfestationPit),
-            UnitTypeId::Spire => Some(UnitTypeId::Lair),
-            UnitTypeId::UltraliskCavern => Some(UnitTypeId::Hive),
-            UnitTypeId::SpineCrawler | UnitTypeId::SporeCrawler => Some(UnitTypeId::SpawningPool),
-            _ => None,
-        }
-    }
-}
-
-impl ProducedOn for UpgradeId {
-    fn produced_on(&self) -> UnitTypeId {
-        match *self {
-            UpgradeId::Zerglingattackspeed | UpgradeId::Zerglingmovementspeed => {
-                UnitTypeId::SpawningPool
-            }
-            UpgradeId::CentrificalHooks => UnitTypeId::BanelingNest,
-            UpgradeId::GlialReconstitution => UnitTypeId::RoachWarren,
-            UpgradeId::EvolveGroovedSpines | UpgradeId::EvolveMuscularAugments => {
-                UnitTypeId::HydraliskDen
-            }
-            UpgradeId::ChitinousPlating | UpgradeId::AnabolicSynthesis => {
-                UnitTypeId::UltraliskCavern
-            }
-            UpgradeId::Overlordspeed => UnitTypeId::Hatchery,
-            UpgradeId::ZergGroundArmorsLevel1
-            | UpgradeId::ZergGroundArmorsLevel2
-            | UpgradeId::ZergGroundArmorsLevel3
-            | UpgradeId::ZergMissileWeaponsLevel1
-            | UpgradeId::ZergMissileWeaponsLevel2
-            | UpgradeId::ZergMissileWeaponsLevel3
-            | UpgradeId::ZergMeleeWeaponsLevel1
-            | UpgradeId::ZergMeleeWeaponsLevel2
-            | UpgradeId::ZergMeleeWeaponsLevel3 => UnitTypeId::EvolutionChamber,
-            _ => {
-                panic!("Idk where to produce {:?}", self);
-            }
-        }
-    }
-}
-
-impl BuildingRequirement for UpgradeId {
-    fn building_requirement(&self) -> Option<UnitTypeId> {
-        match *self {
-            UpgradeId::CentrificalHooks
-            | UpgradeId::ZergGroundArmorsLevel2
-            | UpgradeId::ZergMissileWeaponsLevel2
-            | UpgradeId::ZergMeleeWeaponsLevel2 => Some(UnitTypeId::Lair),
-            UpgradeId::Zerglingattackspeed
-            | UpgradeId::ZergGroundArmorsLevel3
-            | UpgradeId::ZergMissileWeaponsLevel3
-            | UpgradeId::ZergMeleeWeaponsLevel3 => Some(UnitTypeId::Hive),
-            _ => None,
         }
     }
 }
