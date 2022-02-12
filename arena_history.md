@@ -1,5 +1,16 @@
 # Performance from ai_arena
 
+## v0.4.6 (386)
+44.56% win rate after 193 games
+
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| SF4G               | -20 | 0    | 5      | 0    |
+| zUnkP              | -16 | 0    | 4      | 0    |
+| Rasputin           | -15 | 0    | 3      | 0    |
+| JaProBot           | -13 | 1    | 2      | 0    |
+| TheGoldenArmada    | -12 | 0    | 4      | 0    |
+
 ## v0.4.1 (384)
 35.32% win rate after 235 games
 
