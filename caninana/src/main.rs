@@ -13,10 +13,11 @@ use caninana_core::managers::army_manager::ArmyManager;
 use caninana_core::managers::cache_manager::CacheManager;
 use caninana_core::managers::defense_manager::DefenseManager;
 use caninana_core::managers::production_manager::ProductionManager;
-use caninana_core::managers::queen_manager::QueenManager;
-use caninana_core::managers::ravager_manager::RavagerManager;
 use caninana_core::managers::resource_manager::ResourceManager;
 use caninana_core::managers::worker_manager::WorkerManager;
+use caninana_core::units::overlord_manager::OverlordManager;
+use caninana_core::units::queen_manager::QueenManager;
+use caninana_core::units::ravager_manager::RavagerManager;
 use caninana_core::*;
 use caninana_openings::zerg::poolfirst::PoolFirst;
 
@@ -186,10 +187,11 @@ impl Default for Caninana {
                 ProcessLimiter::new(5, Box::new(ArmyManager::default())),
                 ProcessLimiter::new(15, Box::new(DefenseManager::default())),
                 ProcessLimiter::new(15, Box::new(ProductionManager::default())),
-                ProcessLimiter::new(15, Box::new(QueenManager::default())),
-                ProcessLimiter::new(15, Box::new(RavagerManager::default())),
                 ProcessLimiter::new(15, Box::new(ResourceManager::default())),
                 ProcessLimiter::new(15, Box::new(WorkerManager::default())),
+                ProcessLimiter::new(15, Box::new(OverlordManager::default())),
+                ProcessLimiter::new(15, Box::new(QueenManager::default())),
+                ProcessLimiter::new(15, Box::new(RavagerManager::default())),
             ],
             opening: Default::default(),
             bot_state: Default::default(),

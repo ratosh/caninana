@@ -5,6 +5,7 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
+use crate::params::MAX_WORKERS;
 use crate::*;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -59,7 +60,7 @@ impl WorkerManager {
     const GEYSERS_WORKERS: usize = 3;
 
     fn decision(&mut self, bot: &mut Bot) {
-        let defense_range = 14f32;
+        let defense_range = 19f32;
 
         let units_attacking = bot
             .units
@@ -361,6 +362,7 @@ impl WorkerManager {
                 }
             })
             .sum::<u32>();
+
         let ideal_geysers = bot
             .units
             .my
@@ -369,7 +371,7 @@ impl WorkerManager {
             .map(|e| e.ideal_harvesters().unwrap_or_default())
             .sum::<u32>();
 
-        let wanted_workers = 80.min(ideal_miners + ideal_geysers);
+        let wanted_workers = (ideal_miners + ideal_geysers).min(MAX_WORKERS as u32);
 
         bot_state.build_queue.push(
             Command::new_unit(UnitTypeId::Drone, wanted_workers as usize, false),
