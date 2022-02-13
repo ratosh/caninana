@@ -65,25 +65,45 @@ impl WorkerManager {
 
         let close_units = bot.units.enemy.units.filter(|f| {
             f.can_attack_ground()
-                && bot.units.my.townhalls.closest_distance(f.position()).unwrap_or(100f32) <= defense_range
+                && bot
+                    .units
+                    .my
+                    .townhalls
+                    .closest_distance(f.position())
+                    .unwrap_or(100f32)
+                    <= defense_range
         });
 
         let units_attacking = bot
             .units
             .enemy
             .all
-            .filter(|u| u.can_attack_ground() && close_units.closest_distance(u.position()).unwrap_or(100f32) < surroundings_range)
+            .filter(|u| {
+                u.can_attack_ground()
+                    && close_units.closest_distance(u.position()).unwrap_or(100f32)
+                        < surroundings_range
+            })
             .len();
 
         let weak_attackers = bot
             .units
             .enemy
             .all
-            .filter(|u| u.is_worker() && close_units.closest_distance(u.position()).unwrap_or(100f32) < surroundings_range)
+            .filter(|u| {
+                u.is_worker()
+                    && close_units.closest_distance(u.position()).unwrap_or(100f32)
+                        < surroundings_range
+            })
             .len();
         let enemy_buildings_close = bot.units.enemy.all.filter(|f| {
             !f.is_ready()
-                && bot.units.my.townhalls.closest_distance(f.position()).unwrap_or(100f32) <= defense_range
+                && bot
+                    .units
+                    .my
+                    .townhalls
+                    .closest_distance(f.position())
+                    .unwrap_or(100f32)
+                    <= defense_range
         });
         let spines_close = enemy_buildings_close
             .of_type(UnitTypeId::SpineCrawler)
