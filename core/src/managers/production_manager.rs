@@ -5,7 +5,7 @@ use rust_sc2::prelude::*;
 use crate::command_queue::Command;
 use crate::command_queue::Command::*;
 use crate::utils::*;
-use crate::{AIComponent, BotState};
+use crate::{AIComponent, BotState, SpendingFocus};
 
 #[derive(Default)]
 pub struct ProductionManager {}
@@ -253,7 +253,10 @@ impl ProductionManager {
         }
     }
 
-    fn build_expansion(&self, bot: &mut Bot, unit_type: UnitTypeId) {
+    fn build_expansion(&self, bot: &mut Bot, bot_state: &BotState, unit_type: UnitTypeId) {
+        if bot_state.spending_focus == SpendingFocus::Army {
+            return;
+        }
         if let Some(expansion_location) = bot
             .free_expansions()
             .filter(|e| bot.pathing_distance(bot.start_location, e.loc).is_some())

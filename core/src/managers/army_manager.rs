@@ -175,11 +175,11 @@ impl ArmyManager {
             let previous_decision = self.allied_decision.get(&unit.tag());
 
             let decision = if bot.minerals < 1_000
-                && ((self.defending && our_strength < their_strength * 0.4f32)
-                    || our_strength < their_strength * 0.8f32)
+                && !self.defending
+                && our_strength < their_strength * 0.8f32
             {
                 UnitDecision::Retreat
-            } else if (our_strength > their_strength * 0.8f32 && self.defending)
+            } else if self.defending
                 || our_strength > their_strength * 1.6f32
                 || bot.minerals > 2_000
             {
@@ -339,7 +339,7 @@ impl ArmyManager {
         let wanted_army_supply = if drones < MAX_WORKERS {
             if bot_state.spending_focus == SpendingFocus::Army {
                 debug!("They have advanced troops! Build army!");
-                (drones * 8 / 5) as isize
+                (drones * 6 / 5) as isize
             } else {
                 (drones / 5) as isize
             }
@@ -707,7 +707,7 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::Stalker => vec![UnitTypeId::Zergling],
             UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
-            // UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
             UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
             UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk],
             UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
@@ -716,12 +716,12 @@ impl CounteredBy for UnitTypeId {
                 // UnitTypeId::BroodLord
             ],
             UnitTypeId::Carrier => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
-            // UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
             UnitTypeId::Oracle => vec![
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::Mutalisk
             ],
-            // UnitTypeId::Tempest => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Tempest => vec![UnitTypeId::Corruptor],
             UnitTypeId::Adept => vec![UnitTypeId::Roach],
             UnitTypeId::Disruptor => vec![UnitTypeId::Ultralisk],
             // Race::Terran
@@ -765,10 +765,10 @@ impl CounteredBy for UnitTypeId {
                 // UnitTypeId::Corruptor
             ],
             UnitTypeId::Viking => vec![UnitTypeId::Hydralisk],
-            UnitTypeId::Raven => vec![UnitTypeId::Corruptor],
-            // UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Raven => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
+            UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
             UnitTypeId::HellionTank => vec![UnitTypeId::Roach],
-            // UnitTypeId::Liberator => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Liberator => vec![UnitTypeId::Corruptor],
             // Race::Zerg
             UnitTypeId::Zergling => vec![
                 UnitTypeId::Zealot,
@@ -815,7 +815,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Marine,
                 UnitTypeId::Thor,
                 UnitTypeId::Hydralisk,
-                // UnitTypeId::Corruptor,
+                UnitTypeId::Corruptor,
             ],
             UnitTypeId::Corruptor => vec![
                 UnitTypeId::Stalker,
@@ -844,11 +844,12 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::VoidRay,
                 UnitTypeId::Phoenix,
                 UnitTypeId::Viking,
-                // UnitTypeId::Corruptor,
+                UnitTypeId::Corruptor,
             ],
             UnitTypeId::Viper => vec![
                 UnitTypeId::Phoenix,
                 UnitTypeId::Viking,
+                UnitTypeId::Hydralisk,
                 // UnitTypeId::Mutalisk,
                 // UnitTypeId::Corruptor,
             ],
