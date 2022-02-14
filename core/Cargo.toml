@@ -9,3 +9,4 @@ edition = "2021"
 rust-sc2 = {version = "1.1", features = ["enemies_cache"] }
 rand = "0.8"
 log = "0.4"
+itertools = "0.10"

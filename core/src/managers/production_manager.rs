@@ -267,17 +267,10 @@ impl ProductionManager {
             )
         {
             if let Some(builder) = self.get_builder(bot, expansion_location) {
-                let options = PlacementOptions {
-                    max_distance: 2,
-                    step: 1,
-                    random: false,
-                    addon: false,
-                };
-                if let Some(placement) = bot.find_placement(unit_type, expansion_location, options)
-                {
-                    builder.build(unit_type, placement, false);
-                    bot.subtract_resources(bot.race_values.gas, false);
-                }
+                builder.build(unit_type, expansion_location, false);
+                bot.subtract_resources(bot.race_values.gas, false);
+            } else {
+                println!("No builder");
             }
         } else {
             debug!("No expansion location?");
