@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use itertools::Itertools;
+
 use log::debug;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
@@ -134,25 +136,33 @@ impl WorkerManager {
 
         let mut needed_fighters = 0;
         if spines_close > 0 {
-            needed_fighters += (spines_close * 5).max(current_fighters)
+            needed_fighters += spines_close * 5
         }
         if pylons_close > 0 {
-            needed_fighters += (pylons_close * 5).max(current_fighters)
+            needed_fighters += pylons_close * 5
         }
         if cannons_close > 0 {
-            needed_fighters += (cannons_close * 4).max(current_fighters)
+            needed_fighters += cannons_close * 4
         }
         if weak_attackers > 0 {
-            needed_fighters += (weak_attackers * 12 / 10).max(current_fighters)
+            needed_fighters += weak_attackers * 12 / 10
         }
-        needed_fighters = needed_fighters.saturating_sub(army_supply);
+        needed_fighters = needed_fighters
+            .saturating_sub(army_supply)
+            .saturating_sub(current_fighters);
         let back_threshold = if units_attacking > weak_attackers {
             0.5f32
         } else {
             0.1f32
         };
 
-        for worker in bot.units.my.workers.sorted(|f| f.hits()).iter() {
+        for worker in bot
+            .units
+            .my
+            .workers
+            .iter()
+            .sorted_by(|a, b| a.hits().cmp(&b.hits()).then(a.tag().cmp(&b.tag())))
+        {
             let attackers_in_range = !bot
                 .units
                 .enemy
