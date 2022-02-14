@@ -340,6 +340,8 @@ impl ArmyManager {
             if bot_state.spending_focus == SpendingFocus::Army {
                 debug!("They have advanced troops! Build army!");
                 (drones * 6 / 5) as isize
+            } else if bot_state.spending_focus == SpendingFocus::Balance {
+                (drones * 3 / 5) as isize
             } else {
                 (drones / 5) as isize
             }

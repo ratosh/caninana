@@ -55,6 +55,7 @@ pub trait AIComponent {
 #[derive(Debug, PartialEq, Clone)]
 pub enum SpendingFocus {
     Economy,
+    Balance,
     Army,
 }
 
