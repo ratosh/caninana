@@ -32,20 +32,34 @@ impl ResourceManager {
                         .is_closer(unit.distance(bot.enemy_start) * 2f32, bot.start_location)
             })
             .is_empty();
-        let enemy_supply = bot_state
+        let their_supply = bot_state
             .enemy_cache
             .units()
-            .filter(|unit| unit.can_attack())
+            .filter(|unit| !unit.is_worker() && unit.can_attack())
             .supply();
-        let our_supply = bot.units.my.all.filter(|unit| unit.can_attack()).supply();
+        let our_supply = bot
+            .units
+            .my
+            .all
+            .filter(|unit| !unit.is_worker() && unit.can_attack())
+            .supply();
 
         bot_state.spending_focus =
-            if advanced_units && !advanced_enemy_units && our_supply >= enemy_supply {
-                SpendingFocus::Economy
-            } else {
+            if !advanced_units && advanced_enemy_units && our_supply < their_supply {
                 SpendingFocus::Army
+            } else if !advanced_units || advanced_enemy_units || our_supply < their_supply {
+                SpendingFocus::Balance
+            } else {
+                SpendingFocus::Economy
             };
-        debug!("Decision {:?}", bot_state.spending_focus);
+        debug!(
+            "Decision {:?} > {:?} {:?} {:?}|{:?}",
+            bot_state.spending_focus,
+            advanced_units,
+            advanced_enemy_units,
+            our_supply,
+            their_supply
+        );
     }
 
     fn order_supply(&self, bot: &mut Bot, bot_state: &mut BotState) {
@@ -64,8 +78,8 @@ impl ResourceManager {
                     .food_provided as usize,
         );
         bot_state.build_queue.push(
-            Command::new_unit(UnitTypeId::Overlord, wanted_lords, false),
-            true,
+            Command::new_unit(UnitTypeId::Overlord, wanted_lords, true),
+            false,
             900,
         );
     }
