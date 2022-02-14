@@ -84,7 +84,7 @@ impl ProductionManager {
         if upgrade_ability.is_some() {
             self.morph_upgrade(bot, bot_state, unit_type, save_resources);
         } else if unit_type.is_structure() {
-            self.build(bot, unit_type, wanted_amount);
+            self.build(bot, bot_state, unit_type, wanted_amount);
         } else {
             let current_amount = bot.counter().all().count(unit_type);
             for _ in current_amount..wanted_amount {
@@ -217,13 +217,13 @@ impl ProductionManager {
         result.cloned()
     }
 
-    fn build(&self, bot: &mut Bot, unit_type: UnitTypeId, wanted_amount: usize) {
+    fn build(&self, bot: &mut Bot, bot_state: &BotState, unit_type: UnitTypeId, wanted_amount: usize) {
         debug!("Trying to build {:?} {:?}", unit_type, wanted_amount);
         if unit_type.is_structure() {
             if bot.race_values.gas == unit_type || bot.race_values.rich_gas == unit_type {
                 self.build_gas(bot);
             } else if bot.race_values.start_townhall == unit_type {
-                self.build_expansion(bot, unit_type);
+                self.build_expansion(bot, bot_state, unit_type);
             } else if unit_type.is_static_defense() {
                 self.build_static_defense(bot, unit_type);
             } else if let Some(location) = bot.find_placement(
