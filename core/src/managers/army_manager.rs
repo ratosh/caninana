@@ -341,7 +341,7 @@ impl ArmyManager {
                 debug!("They have advanced troops! Build army!");
                 (drones * 6 / 5) as isize
             } else if bot_state.spending_focus == SpendingFocus::Balance {
-                (drones * 3 / 5) as isize
+                (drones * 4 / 5) as isize
             } else {
                 (drones / 5) as isize
             }
@@ -730,6 +730,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Marine => vec![
                 // UnitTypeId::Baneling,
                 UnitTypeId::Roach,
+                UnitTypeId::Ravager,
                 UnitTypeId::Ultralisk,
                 // UnitTypeId::BroodLord,
                 // UnitTypeId::LurkerMP,

@@ -43,15 +43,22 @@ impl ResourceManager {
             .all
             .filter(|unit| !unit.is_worker() && unit.can_attack())
             .supply();
+        let mut conditions = 0;
+        if !advanced_units {
+            conditions += 1;
+        }
+        if advanced_enemy_units {
+            conditions += 1;
+        }
+        if our_supply < their_supply {
+            conditions += 1;
+        }
 
-        bot_state.spending_focus =
-            if !advanced_units && advanced_enemy_units && our_supply < their_supply {
-                SpendingFocus::Army
-            } else if !advanced_units || advanced_enemy_units || our_supply < their_supply {
-                SpendingFocus::Balance
-            } else {
-                SpendingFocus::Economy
-            };
+        bot_state.spending_focus = match conditions {
+            0 => SpendingFocus::Economy,
+            1 => SpendingFocus::Balance,
+            _ => SpendingFocus::Army,
+        };
         debug!(
             "Decision {:?} > {:?} {:?} {:?}|{:?}",
             bot_state.spending_focus,
