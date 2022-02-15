@@ -42,6 +42,7 @@ impl PathingDistance for Bot {
 pub trait UnitOrderCheck {
     fn order_move_to(&self, target: Target, range: f32, queue: bool);
     fn order_attack(&self, target: Target, queue: bool);
+    fn order_gather(&self, target: u64, queue: bool);
 }
 
 impl UnitOrderCheck for Unit {
@@ -54,6 +55,13 @@ impl UnitOrderCheck for Unit {
     fn order_attack(&self, target: Target, queue: bool) {
         if should_send_order(self, target, 0.3f32, queue) {
             self.attack(target, queue);
+        }
+    }
+
+    fn order_gather(&self, target: u64, queue: bool) {
+        let target_tag = Target::Tag(target);
+        if should_send_order(self, target_tag, 0.0f32, queue) {
+            self.gather(target, false);
         }
     }
 }
