@@ -540,7 +540,8 @@ impl ArmyManager {
             );
         }
         if bot.counter().all().count(UnitTypeId::Roach) > 0
-            && bot_state.spending_focus != SpendingFocus::Army {
+            && bot_state.spending_focus != SpendingFocus::Army
+        {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::GlialReconstitution, true),
                 false,

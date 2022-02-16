@@ -3,9 +3,9 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
+use crate::params::DOUBLE_GAS_PER_BASE_WORKERS;
 use crate::utils::Supply;
 use crate::{AIComponent, BotState, SpendingFocus};
-use crate::params::DOUBLE_GAS_PER_BASE_WORKERS;
 
 #[derive(Default)]
 pub struct ResourceManager {}
