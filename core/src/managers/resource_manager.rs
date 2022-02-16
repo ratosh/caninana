@@ -3,6 +3,7 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
+use crate::params::DOUBLE_GAS_PER_BASE_WORKERS;
 use crate::utils::Supply;
 use crate::{AIComponent, BotState, SpendingFocus};
 
@@ -126,7 +127,7 @@ impl ResourceManager {
     fn order_geysers(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let extractor = bot.race_values.gas;
         let drones = bot.counter().all().count(UnitTypeId::Drone);
-        let wanted_extractors = if drones < 35 {
+        let wanted_extractors = if drones < DOUBLE_GAS_PER_BASE_WORKERS {
             1.max(bot.counter().all().count(UnitTypeId::Drone) / 16)
         } else {
             bot.owned_expansions().count() * 2
