@@ -40,16 +40,14 @@ impl ArmyManager {
         if bot_state.spending_focus == SpendingFocus::Army {
             return;
         }
-        if drones >= 25 {
+        if drones > UNLOCK_ROACH_WORKERS {
             self.allowed_tech.insert(UnitTypeId::Roach);
+            //     self.allowed_tech.insert(UnitTypeId::Ravager);
         }
-        // if drones >= 38 {
-        //     self.allowed_tech.insert(UnitTypeId::Ravager);
-        // }
-        if drones >= 48 || !bot.units.enemy.all.flying().is_empty() {
+        if drones >= UNLOCK_HYDRA_WORKERS || !bot.units.enemy.all.flying().is_empty() {
             self.allowed_tech.insert(UnitTypeId::Hydralisk);
         }
-        if drones >= 56 {
+        if drones >= UNLOCK_LATE_TECH_WORKERS {
             //     self.allowed_tech.insert(UnitTypeId::Mutalisk);
             self.allowed_tech.insert(UnitTypeId::Corruptor);
             //     self.allowed_tech.insert(UnitTypeId::Ultralisk);
@@ -341,7 +339,7 @@ impl ArmyManager {
                 debug!("They have advanced troops! Build army!");
                 (drones * 6 / 5) as isize
             } else if bot_state.spending_focus == SpendingFocus::Balance {
-                (drones * 4 / 5) as isize
+                (drones * 3 / 5) as isize
             } else {
                 (drones / 5) as isize
             }
@@ -371,11 +369,13 @@ impl ArmyManager {
             }
         }
 
-        bot_state.build_queue.push(
-            Command::new_unit(UnitTypeId::Overseer, drones / 30, true),
-            false,
-            100,
-        );
+        if drones > UNLOCK_OVERSEER_WORKERS {
+            bot_state.build_queue.push(
+                Command::new_unit(UnitTypeId::Overseer, drones / 30, true),
+                false,
+                100,
+            );
+        }
     }
 
     fn army_distribution(
@@ -539,7 +539,8 @@ impl ArmyManager {
                 50,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Roach) > 0 {
+        if bot.counter().all().count(UnitTypeId::Roach) > 0
+            && bot_state.spending_focus != SpendingFocus::Army {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::GlialReconstitution, true),
                 false,
@@ -572,7 +573,7 @@ impl ArmyManager {
                 80,
             );
         }
-        if bot.counter().all().count(bot.race_values.worker) > 45 {
+        if bot.counter().all().count(bot.race_values.worker) > DOUBLE_EVOLUTION_WORKERS {
             bot_state.build_queue.push(
                 Command::new_unit(UnitTypeId::EvolutionChamber, 2, false),
                 false,
