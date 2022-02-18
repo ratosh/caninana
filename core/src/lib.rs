@@ -72,13 +72,11 @@ pub struct BotState {
     pub spending_focus: SpendingFocus,
 }
 
-
 pub trait UnwrapOrMax<T> {
     fn unwrap_or_max(self) -> T;
 }
 
 impl UnwrapOrMax<f32> for Option<f32> {
-
     fn unwrap_or_max(self) -> f32 {
         match self {
             Some(x) => x,

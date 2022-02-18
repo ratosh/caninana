@@ -279,7 +279,7 @@ impl ProductionManager {
                 builder.build(unit_type, expansion_location, false);
                 bot.subtract_resources(bot.race_values.gas, false);
             } else {
-                println!("No builder");
+                debug!("No builder");
             }
         } else {
             debug!("No expansion location?");

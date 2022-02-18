@@ -3,9 +3,9 @@ use rust_sc2::action::ActionResult;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
+use crate::params::*;
 use crate::utils::PathingDistance;
 use crate::{AIComponent, BotState, UnwrapOrMax};
-use crate::params::{*};
 
 #[derive(Default)]
 pub struct QueenManager {
@@ -27,7 +27,8 @@ impl QueenManager {
                 .units
                 .filter(|u| {
                     u.position().distance(queen.position()) < TRANSFUSION_MAX_RANGE
-                        && u.health_max().unwrap() - u.health().unwrap() > TRANSFUSION_MISSING_HEALTH
+                        && u.health_max().unwrap() - u.health().unwrap()
+                            > TRANSFUSION_MISSING_HEALTH
                 })
                 .closest(queen)
             {

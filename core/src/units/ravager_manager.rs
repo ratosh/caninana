@@ -25,7 +25,7 @@ impl RavagerManager {
         UnitTypeId::BroodLord,
         UnitTypeId::Infestor,
         UnitTypeId::SpineCrawler,
-        UnitTypeId::SporeCrawler
+        UnitTypeId::SporeCrawler,
     ];
 
     fn cast_corrosive_bile(&self, bot: &mut Bot) {

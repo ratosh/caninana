@@ -1,6 +1,6 @@
+use crate::UnwrapOrMax;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
-use crate::UnwrapOrMax;
 
 pub trait Supply {
     fn supply(&self) -> u32;
@@ -167,7 +167,7 @@ impl BuildingRequirement for UnitTypeId {
 impl ProducedOn for UpgradeId {
     fn produced_on(&self) -> UnitTypeId {
         match *self {
-            UpgradeId::Burrow =>  UnitTypeId::Hatchery,
+            UpgradeId::Burrow => UnitTypeId::Hatchery,
             UpgradeId::Zerglingattackspeed | UpgradeId::Zerglingmovementspeed => {
                 UnitTypeId::SpawningPool
             }
