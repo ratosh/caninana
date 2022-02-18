@@ -3,8 +3,9 @@ use rust_sc2::action::ActionResult;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
+use crate::params::*;
 use crate::utils::PathingDistance;
-use crate::{AIComponent, BotState};
+use crate::{AIComponent, BotState, UnwrapOrMax};
 
 #[derive(Default)]
 pub struct QueenManager {
@@ -15,7 +16,7 @@ impl QueenManager {
     fn handle_transfusion(&mut self, bot: &mut Bot) {
         let queens = bot.units.my.units.of_type(UnitTypeId::Queen).filter(|u| {
             !u.is_using(AbilityId::EffectInjectLarva)
-                && u.energy().unwrap_or(0) > 50
+                && u.energy().unwrap_or_default() > TRANSFUSION_MIN_ENERGY
                 && u.has_ability(AbilityId::TransfusionTransfusion)
         });
 
@@ -25,8 +26,9 @@ impl QueenManager {
                 .my
                 .units
                 .filter(|u| {
-                    u.position().distance(queen.position()) < 15f32
-                        && u.health_max().unwrap() - u.health().unwrap() > 60
+                    u.position().distance(queen.position()) < TRANSFUSION_MAX_RANGE
+                        && u.health_max().unwrap() - u.health().unwrap()
+                            > TRANSFUSION_MISSING_HEALTH
                 })
                 .closest(queen)
             {
@@ -56,7 +58,7 @@ impl QueenManager {
                         (!bot.is_visible((p.x as usize, p.y as usize))
                             || !bot.has_creep((p.x as usize, p.y as usize)))
                             && (h.position().distance(p)
-                                >= bot.pathing_distance(h.position(), *p).unwrap_or(200f32))
+                                >= bot.pathing_distance(h.position(), *p).unwrap_or_max())
                     })
                     .closest(h.position())
                 {
@@ -75,10 +77,9 @@ impl QueenManager {
             .my
             .units
             .filter(|u| {
-                u.type_id() == UnitTypeId::Queen
-                    && u.is_idle()
+                !u.is_using(AbilityId::EffectInjectLarva)
                     && u.has_ability(AbilityId::BuildCreepTumorQueen)
-                    && u.energy().unwrap() > 125
+                    && u.energy().unwrap_or_default() > CREEP_SPREAD_ENERGY
             })
             .first()
         {
@@ -89,7 +90,7 @@ impl QueenManager {
                     (!bot.is_visible((p.x as usize, p.y as usize))
                         || !bot.has_creep((p.x as usize, p.y as usize)))
                         && (queen.position().distance(p)
-                            >= bot.pathing_distance(queen.position(), *p).unwrap_or(200f32))
+                            >= bot.pathing_distance(queen.position(), *p).unwrap_or_max())
                 })
                 .closest(queen.position())
             {
@@ -138,9 +139,6 @@ impl QueenManager {
     }
 }
 
-const SPREAD_MAP_DISTANCE: usize = 4;
-const CREEP_SPREAD_DISTANCE: usize = 5;
-
 trait CreepMap {
     fn create_creep_spread_map(&self) -> Vec<Point2>;
 }
@@ -149,10 +147,10 @@ impl CreepMap for Bot {
     fn create_creep_spread_map(&self) -> Vec<Point2> {
         let mut result = vec![];
         for x in (self.game_info.playable_area.x0..self.game_info.playable_area.x1)
-            .step_by(SPREAD_MAP_DISTANCE)
+            .step_by(CREEP_SPREAD_MAP_DISTANCE)
         {
             for y in (self.game_info.playable_area.y0..self.game_info.playable_area.y1)
-                .step_by(SPREAD_MAP_DISTANCE)
+                .step_by(CREEP_SPREAD_MAP_DISTANCE)
             {
                 let point = Point2::new(x as f32, y as f32);
                 if self.is_placeable(point)
@@ -161,8 +159,8 @@ impl CreepMap for Bot {
                         .iter()
                         .map(|e| e.loc)
                         .closest_distance(point)
-                        .unwrap_or(0f32)
-                        > SPREAD_MAP_DISTANCE as f32
+                        .unwrap_or_default()
+                        > CREEP_SPREAD_MAP_DISTANCE as f32
                 {
                     result.push(point);
                 }
@@ -199,8 +197,8 @@ impl CreepPlacement for Bot {
                                 .iter()
                                 .map(|e| e.loc)
                                 .closest_distance(p)
-                                .unwrap()
-                                > range
+                                .unwrap_or_default()
+                                > CREEP_DISTANCE_TO_HALL
                         })
                         .collect::<Vec<Point2>>();
                     if let Ok(results) = self.query_placement(

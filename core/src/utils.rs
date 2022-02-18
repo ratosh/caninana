@@ -1,3 +1,4 @@
+use crate::UnwrapOrMax;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
@@ -31,7 +32,7 @@ impl PathingDistance for Bot {
             if result.is_empty() {
                 None
             } else {
-                Some(result.iter().map(|d| d.unwrap_or(100f32)).sum())
+                Some(result.iter().map(|d| d.unwrap_or_max()).sum())
             }
         } else {
             None
@@ -60,7 +61,7 @@ impl UnitOrderCheck for Unit {
 
     fn order_gather(&self, target: u64, queue: bool) {
         let target_tag = Target::Tag(target);
-        if should_send_order(self, target_tag, 0.0f32, queue) {
+        if should_send_order(self, target_tag, 0.1f32, queue) {
             self.gather(target, false);
         }
     }
@@ -166,6 +167,7 @@ impl BuildingRequirement for UnitTypeId {
 impl ProducedOn for UpgradeId {
     fn produced_on(&self) -> UnitTypeId {
         match *self {
+            UpgradeId::Burrow => UnitTypeId::Hatchery,
             UpgradeId::Zerglingattackspeed | UpgradeId::Zerglingmovementspeed => {
                 UnitTypeId::SpawningPool
             }
