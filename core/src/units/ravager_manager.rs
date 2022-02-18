@@ -7,17 +7,25 @@ use crate::{AIComponent, BotState};
 pub struct RavagerManager {}
 
 impl RavagerManager {
-    const CORROSIVE_POSSIBLE_TARGETS: [UnitTypeId; 10] = [
+    const CORROSIVE_POSSIBLE_TARGETS: [UnitTypeId; 18] = [
+        UnitTypeId::WidowMineBurrowed,
         UnitTypeId::SiegeTankSieged,
         UnitTypeId::Thor,
         UnitTypeId::Battlecruiser,
         UnitTypeId::LiberatorAG,
+        UnitTypeId::PlanetaryFortress,
+        UnitTypeId::Bunker,
         UnitTypeId::HighTemplar,
         UnitTypeId::Colossus,
         UnitTypeId::VoidRay,
         UnitTypeId::Carrier,
         UnitTypeId::Mothership,
+        UnitTypeId::PhotonCannon,
+        UnitTypeId::LurkerMPBurrowed,
         UnitTypeId::BroodLord,
+        UnitTypeId::Infestor,
+        UnitTypeId::SpineCrawler,
+        UnitTypeId::SporeCrawler
     ];
 
     fn cast_corrosive_bile(&self, bot: &mut Bot) {
@@ -26,16 +34,16 @@ impl RavagerManager {
             .my
             .units
             .filter(|f| f.has_ability(AbilityId::EffectCorrosiveBile));
+
         for ravager in ravagers {
             if let Some(target) = bot
                 .units
                 .enemy
                 .all
                 .iter()
-                .filter(|f| {
-                    ravager.in_ability_cast_range(AbilityId::EffectCorrosiveBile, *f, 0.0f32)
-                        && (f.is_structure()
-                            || Self::CORROSIVE_POSSIBLE_TARGETS.contains(&f.type_id()))
+                .filter(|u| {
+                    ravager.in_ability_cast_range(AbilityId::EffectCorrosiveBile, *u, 0.0f32)
+                        && (Self::CORROSIVE_POSSIBLE_TARGETS.contains(&u.type_id()))
                 })
                 .min_by_key(|t| t.hits())
             {

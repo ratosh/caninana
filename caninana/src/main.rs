@@ -186,7 +186,7 @@ impl Default for Caninana {
                 ProcessLimiter::new(0, Box::new(CacheManager::default())),
                 ProcessLimiter::new(5, Box::new(ArmyManager::default())),
                 ProcessLimiter::new(15, Box::new(DefenseManager::default())),
-                ProcessLimiter::new(15, Box::new(ProductionManager::default())),
+                ProcessLimiter::new(10, Box::new(ProductionManager::default())),
                 ProcessLimiter::new(15, Box::new(ResourceManager::default())),
                 ProcessLimiter::new(5, Box::new(WorkerManager::default())),
                 ProcessLimiter::new(15, Box::new(OverlordManager::default())),

@@ -116,7 +116,7 @@ impl ResourceManager {
                 Command::new_unit(
                     bot.race_values.start_townhall,
                     bot.counter().all().count(bot.race_values.start_townhall) + 1,
-                    true,
+                    bot_state.spending_focus != SpendingFocus::Army,
                 ),
                 false,
                 200,

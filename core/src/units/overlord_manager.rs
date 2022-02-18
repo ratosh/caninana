@@ -22,28 +22,31 @@ impl OverlordManager {
             .units
             .of_type(UnitTypeId::Overlord)
             .sorted(|u| u.tag());
-        let ramps = bot
+        let enemy_ramps = bot
             .ramps
             .enemy
             .points
             .iter()
             .map(|p| Point2::new(p.0 as f32, p.1 as f32).towards(bot.start_center, 7f32))
             .collect::<Vec<Point2>>();
-        let mut actual_ramps = vec![];
-        for ramp in ramps {
-            if let Some(distance) = actual_ramps.iter().closest_distance(ramp) {
+        let mut scout_points = vec![];
+        for ramp in enemy_ramps {
+            if let Some(distance) = scout_points.iter().closest_distance(ramp) {
                 if distance > 8f32 {
-                    actual_ramps.push(ramp);
+                    scout_points.push(ramp);
                 }
             } else {
-                actual_ramps.push(ramp);
+                scout_points.push(ramp);
             }
+        }
+        if let Some(natural) = bot.expansions.iter().take(2).last() {
+            scout_points.push(natural.loc);
         }
 
         for overlord in overlords.iter() {
-            let closest_ramp = actual_ramps.iter().closest(overlord).cloned();
-            if let Some(ramp) = closest_ramp {
-                actual_ramps.retain(|p| *p != ramp);
+            let scout_point = scout_points.iter().closest(overlord).cloned();
+            if let Some(interest_point) = scout_point {
+                scout_points.retain(|p| *p != interest_point);
             }
             if let Some(closest_anti_air) = bot
                 .units
@@ -62,7 +65,7 @@ impl OverlordManager {
                 overlord.order_move_to(Target::Pos(position), 0.5f32, false);
             } else if overlord.hits_percentage().unwrap_or_default() > 0.9f32 && overlord.is_idle()
             {
-                if let Some(ramp) = closest_ramp {
+                if let Some(ramp) = scout_point {
                     overlord.order_move_to(Target::Pos(ramp), 0.5f32, false);
                 } else {
                     let mut rng = thread_rng();
