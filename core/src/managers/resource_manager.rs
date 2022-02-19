@@ -95,18 +95,10 @@ impl ResourceManager {
     fn order_expansion(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let mut bases = Units::new();
 
-        if bot
-            .counter()
-            .ordered()
-            .count(bot.race_values.start_townhall)
-            != 0
-        {
-            return;
-        }
         for unit_type in bot.race_values.townhalls.iter() {
             bases.extend(bot.units.my.structures.of_type(*unit_type));
         }
-        let ideal_harvesters = bases.sum(|x| x.ideal_harvesters().unwrap());
+        let ideal_harvesters = bases.sum(|x| x.ideal_harvesters().unwrap_or(12));
         let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap())
             + bot.units.my.workers.idle().len() as u32;
         if ideal_harvesters < 64
@@ -115,7 +107,17 @@ impl ResourceManager {
             bot_state.build_queue.push(
                 Command::new_unit(
                     bot.race_values.start_townhall,
-                    bot.counter().all().count(bot.race_values.start_townhall) + 1,
+                    bot.counter().count(bot.race_values.start_townhall) + 1,
+                    bot_state.spending_focus != SpendingFocus::Army,
+                ),
+                false,
+                200,
+            );
+        } else {
+            bot_state.build_queue.push(
+                Command::new_unit(
+                    bot.race_values.start_townhall,
+                    bot.counter().all().count(bot.race_values.start_townhall),
                     bot_state.spending_focus != SpendingFocus::Army,
                 ),
                 false,

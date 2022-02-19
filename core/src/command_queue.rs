@@ -72,11 +72,11 @@ impl CommandQueue {
                 unit_type,
                 wanted_amount,
                 save_resources: _,
-            } => bot.counter().all().count(unit_type) < wanted_amount,
+            } => bot.counter().count(unit_type) < wanted_amount,
             Command::UpgradeCommand {
                 upgrade,
                 save_resources: _,
-            } => !bot.has_upgrade(upgrade) && !bot.is_ordered_upgrade(upgrade),
+            } => !bot.has_upgrade(upgrade),
         });
     }
 
@@ -91,7 +91,7 @@ impl CommandQueue {
                     unit_type: new_type,
                     wanted_amount: _,
                     save_resources: _,
-                } => !i.blocked && *unit_type == new_type && i.priority == priority,
+                } => !i.blocked && *unit_type == new_type,
                 _ => false,
             },
             Command::UpgradeCommand {
