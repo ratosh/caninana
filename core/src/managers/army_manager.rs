@@ -217,7 +217,6 @@ impl ArmyManager {
             let decision = if bot.minerals < 1_000
                 && ((our_strength < their_strength * 0.3f32)
                     || (!self.defending && our_strength < their_strength * 0.8f32))
-                || run_from_units
             {
                 UnitDecision::Retreat
             } else if (self.defending && our_strength > their_strength * 0.8f32)
