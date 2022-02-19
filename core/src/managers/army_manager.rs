@@ -203,6 +203,29 @@ impl ArmyManager {
             let our_strength = our_local_strength.max(our_surrounding_strength);
             our_strength_per_unit.insert(unit.tag(), our_strength);
 
+            let run_range = 3f32 + unit.real_speed();
+            let their_banelings = bot
+                .units
+                .enemy
+                .all
+                .of_type(UnitTypeId::Baneling)
+                .filter(|u| u.is_closer(run_range, unit));
+            let their_broodlings = bot
+                .units
+                .enemy
+                .all
+                .of_type(UnitTypeId::Broodling)
+                .filter(|u| u.is_closer(run_range, unit));
+            let projectile = bot
+                .units
+                .all
+                .of_type(UnitTypeId::RavagerCorrosiveBileMissile)
+                .filter(|u| u.is_closer(run_range, unit));
+
+            let run_from_units = (unit.is_melee()
+                && (!their_banelings.is_empty() || !their_broodlings.is_empty()))
+                || !projectile.is_empty();
+
             debug!(
                 "Unit[{:?}|{:?}] {:?}[{:?}|{:?}]vs{:?}",
                 unit.tag(),
