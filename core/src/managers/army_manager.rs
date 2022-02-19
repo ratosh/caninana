@@ -8,7 +8,7 @@ use rust_sc2::units::Container;
 use crate::command_queue::Command;
 use crate::params::*;
 use crate::utils::*;
-use crate::{AIComponent, BotState, SpendingFocus};
+use crate::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum UnitDecision {
@@ -25,8 +25,8 @@ pub struct ArmyManager {
 }
 
 impl ArmyManager {
-    fn tech_decision(&mut self, bot: &Bot, bot_state: &BotState) {
-        let drones = bot.counter().all().count(UnitTypeId::Drone);
+    fn army_unit_unlock(&mut self, bot: &Bot, bot_state: &BotState) {
+        let workers = bot.counter().all().count(bot.race_values.worker);
         // for unit in bot.units.enemy.all.iter() {
         //     for counter in unit.type_id().countered_by() {
         //         if counter.from_race(bot) == bot.race {
@@ -40,14 +40,14 @@ impl ArmyManager {
         if bot_state.spending_focus == SpendingFocus::Army {
             return;
         }
-        if drones > UNLOCK_ROACH_WORKERS {
+        if workers > UNLOCK_ROACH_WORKERS {
             self.allowed_tech.insert(UnitTypeId::Roach);
-            //     self.allowed_tech.insert(UnitTypeId::Ravager);
+            // self.allowed_tech.insert(UnitTypeId::Ravager);
         }
-        if drones >= UNLOCK_HYDRA_WORKERS || !bot.units.enemy.all.flying().is_empty() {
+        if workers >= UNLOCK_HYDRA_WORKERS || !bot.units.enemy.all.flying().is_empty() {
             self.allowed_tech.insert(UnitTypeId::Hydralisk);
         }
-        if drones >= UNLOCK_LATE_TECH_WORKERS {
+        if workers >= UNLOCK_LATE_TECH_WORKERS {
             //     self.allowed_tech.insert(UnitTypeId::Mutalisk);
             self.allowed_tech.insert(UnitTypeId::Corruptor);
             //     self.allowed_tech.insert(UnitTypeId::Ultralisk);
@@ -61,11 +61,20 @@ impl ArmyManager {
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Zergling));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Baneling));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Roach));
+        my_army.extend(
+            bot.units
+                .my
+                .units
+                .ready()
+                .of_type(UnitTypeId::RoachBurrowed),
+        );
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Ravager));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Hydralisk));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Corruptor));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Mutalisk));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Ultralisk));
+        my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::BroodLord));
+        my_army.sort(|u| u.tag());
 
         // Defend our townhalls
         let defense_range = if self.defending { 20f32 } else { 10f32 };
@@ -76,7 +85,16 @@ impl ArmyManager {
                     .units
                     .ready()
                     .of_type(UnitTypeId::Queen)
-                    .filter(|u| !u.is_using(AbilityId::EffectInjectLarva) || u.is_attacked()),
+                    .filter(|u| {
+                        !u.is_using(AbilityId::EffectInjectLarva)
+                            || bot
+                                .units
+                                .enemy
+                                .all
+                                .closest_distance(u.position())
+                                .unwrap_or_max()
+                                <= u.real_ground_range()
+                    }),
             );
         }
         if my_army.is_empty() {
@@ -195,6 +213,36 @@ impl ArmyManager {
         for unit in my_army.iter() {
             let local_allied_strength = *our_strength_per_enemy_unit.get(&unit.tag()).unwrap();
             let decision = *self.allied_decision.get(&unit.tag()).unwrap();
+            if unit.type_id() == UnitTypeId::Roach
+                && unit.has_ability(AbilityId::BurrowDownRoach)
+                && unit.health_percentage().unwrap_or_default() < BURROW_HEALTH_PERCENTAGE
+                && bot
+                    .units
+                    .enemy
+                    .all
+                    .filter(|u| u.is_detector() && u.is_closer(u.detect_range(), unit))
+                    .is_empty()
+            {
+                unit.use_ability(AbilityId::BurrowDownRoach, false);
+                continue;
+            } else if unit.type_id() == UnitTypeId::RoachBurrowed {
+                if unit.has_ability(AbilityId::BurrowUpRoach)
+                    && decision == UnitDecision::Advance
+                    && (unit.health_percentage().unwrap_or_default() >= UNBURROW_HEALTH_PERCENTAGE
+                        || !bot
+                            .units
+                            .enemy
+                            .all
+                            .filter(|u| u.is_detector() && u.is_closer(u.detect_range(), unit))
+                            .is_empty())
+                {
+                    unit.use_ability(AbilityId::BurrowUpRoach, false);
+                    continue;
+                }
+                if !bot.has_upgrade(UpgradeId::TunnelingClaws) {
+                    continue;
+                }
+            }
 
             let target_in_range = priority_targets
                 .iter()
@@ -336,7 +384,7 @@ impl ArmyManager {
         let drones = bot.counter().all().count(UnitTypeId::Drone);
         let wanted_army_supply = if drones < MAX_WORKERS {
             if bot_state.spending_focus == SpendingFocus::Army {
-                debug!("They have advanced troops! Build army!");
+                debug!("Army focus!");
                 (drones * 6 / 5) as isize
             } else if bot_state.spending_focus == SpendingFocus::Balance {
                 (drones * 3 / 5) as isize
@@ -525,7 +573,12 @@ impl ArmyManager {
                 50,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Drone) > 30 {
+        if bot.counter().all().count(bot.race_values.worker) > UNLOCK_BURROW_WORKERS {
+            bot_state
+                .build_queue
+                .push(Command::new_upgrade(UpgradeId::Burrow, true), false, 110);
+        }
+        if bot.counter().all().count(bot.race_values.worker) > OVERLORD_SPEED_WORKERS {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Overlordspeed, true),
                 false,
@@ -702,6 +755,7 @@ impl CounteredBy for UnitTypeId {
             // Race::Protoss
             UnitTypeId::Zealot => vec![
                 UnitTypeId::Roach,
+                UnitTypeId::Ravager,
                 // UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord,
             ],
@@ -738,6 +792,7 @@ impl CounteredBy for UnitTypeId {
                 // UnitTypeId::LurkerMP,
             ],
             UnitTypeId::Marauder => vec![
+                UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::Mutalisk,
                 // UnitTypeId::BroodLord,
@@ -894,7 +949,7 @@ impl RaceFinder for UnitTypeId {
 
 impl AIComponent for ArmyManager {
     fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        self.tech_decision(bot, bot_state);
+        self.army_unit_unlock(bot, bot_state);
         self.queue_upgrades(bot, bot_state);
         self.queue_units(bot, bot_state);
         self.micro(bot, bot_state);
