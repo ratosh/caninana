@@ -151,7 +151,7 @@ impl ArmyManager {
             );
         }
 
-        let mut our_strength_per_enemy_unit = HashMap::new();
+        let mut our_strength_per_unit = HashMap::new();
         let mut their_strength_per_enemy_unit = HashMap::new();
 
         for unit in priority_targets.iter() {
@@ -161,10 +161,23 @@ impl ArmyManager {
                 })
                 .strength(bot);
             their_strength_per_enemy_unit.insert(unit.tag(), their_strength);
+            let our_strength = bot
+                .units
+                .my
+                .all
+                .filter(|e| {
+                    e.can_attack_unit(unit)
+                        && e.in_real_range(
+                            unit,
+                            unit.speed() + e.speed() + unit.real_ground_range(),
+                        )
+                })
+                .strength(bot);
+            our_strength_per_unit.insert(unit.tag(), our_strength);
         }
 
         for unit in my_army.iter() {
-            let our_strength = bot
+            let our_local_strength = bot
                 .units
                 .my
                 .all
@@ -179,23 +192,35 @@ impl ArmyManager {
                 .max_value(|f| *their_strength_per_enemy_unit.get(&f.tag()).unwrap())
                 .unwrap_or_default();
 
-            our_strength_per_enemy_unit.insert(unit.tag(), our_strength);
+            let our_surrounding_strength = priority_targets
+                .filter(|u| {
+                    unit.can_attack_unit(u)
+                        && unit.in_real_range(u, u.real_speed() + unit.real_speed() + 1f32)
+                })
+                .max_value(|u| *our_strength_per_unit.get(&u.tag()).unwrap())
+                .unwrap_or_default();
+
+            let our_strength = our_local_strength.max(our_surrounding_strength);
+            our_strength_per_unit.insert(unit.tag(), our_strength);
 
             debug!(
-                "Unit[{:?}|{:?}] {:?}vs{:?}",
+                "Unit[{:?}|{:?}] {:?}[{:?}|{:?}]vs{:?}",
                 unit.tag(),
                 unit.type_id(),
                 our_strength,
+                our_local_strength,
+                our_surrounding_strength,
                 their_strength
             );
             let previous_decision = self.allied_decision.get(&unit.tag());
 
             let decision = if bot.minerals < 1_000
-                && !self.defending
-                && our_strength < their_strength * 0.8f32
+                && ((our_strength < their_strength * 0.3f32)
+                    || (!self.defending && our_strength < their_strength * 0.8f32))
+                || run_from_units
             {
                 UnitDecision::Retreat
-            } else if self.defending
+            } else if (self.defending && our_strength > their_strength * 0.8f32)
                 || our_strength > their_strength * 1.6f32
                 || bot.minerals > 2_000
             {
@@ -211,7 +236,6 @@ impl ArmyManager {
         }
 
         for unit in my_army.iter() {
-            let local_allied_strength = *our_strength_per_enemy_unit.get(&unit.tag()).unwrap();
             let decision = *self.allied_decision.get(&unit.tag()).unwrap();
             if unit.type_id() == UnitTypeId::Roach
                 && unit.has_ability(AbilityId::BurrowDownRoach)
@@ -243,15 +267,17 @@ impl ArmyManager {
                     continue;
                 }
             }
+            let local_allied_strength = *our_strength_per_unit.get(&unit.tag()).unwrap();
 
             let target_in_range = priority_targets
                 .iter()
                 .filter(|t| unit.can_attack_unit(t) && unit.in_real_range(t, 0.1f32))
                 .min_by_key(|t| t.hits());
 
-            let threats = priority_targets
-                .iter()
-                .filter(|t| t.can_attack_unit(unit) && t.in_real_range(unit, -unit.speed()));
+            let threats = priority_targets.iter().filter(|t| {
+                t.can_attack_unit(unit) && t.in_real_range(unit, -unit.speed())
+                    || t.type_id() == UnitTypeId::Baneling && t.is_closer(unit.speed() + 3f32, unit)
+            });
 
             let closest_attackable = priority_targets
                 .iter()
