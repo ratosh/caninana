@@ -5,7 +5,7 @@ use rust_sc2::prelude::*;
 use crate::command_queue::Command;
 use crate::command_queue::Command::*;
 use crate::utils::*;
-use crate::{AIComponent, BotState, SpendingFocus};
+use crate::*;
 
 #[derive(Default)]
 pub struct ProductionManager {}
@@ -60,12 +60,13 @@ impl ProductionManager {
         wanted_amount: usize,
         save_resources: bool,
     ) {
-        if !bot.can_afford(unit_type, true) {
+        if bot.counter().all().count(unit_type) >= wanted_amount {
+            return;
+        } else if !bot.can_afford(unit_type, true) {
             if save_resources {
                 bot.subtract_resources(unit_type, true);
+                bot.units.my.larvas.pop();
             }
-            return;
-        } else if bot.counter().all().count(unit_type) >= wanted_amount {
             return;
         }
         if let Some(requirement) = unit_type.building_requirement() {
@@ -143,6 +144,9 @@ impl ProductionManager {
         save_resources: bool,
     ) {
         let produced_on = upgrade.produced_on();
+        if bot.is_ordered_upgrade(upgrade) {
+            return;
+        }
         if bot.can_afford_upgrade(upgrade) {
             if let Some(requirement) = upgrade.building_requirement() {
                 if bot.counter().count(requirement) == 0 {
@@ -259,10 +263,7 @@ impl ProductionManager {
         }
     }
 
-    fn build_expansion(&self, bot: &mut Bot, bot_state: &BotState, unit_type: UnitTypeId) {
-        if bot_state.spending_focus == SpendingFocus::Army {
-            return;
-        }
+    fn build_expansion(&self, bot: &mut Bot, _bot_state: &BotState, unit_type: UnitTypeId) {
         if let Some(expansion_location) = bot
             .free_expansions()
             .filter(|e| bot.pathing_distance(bot.start_location, e.loc).is_some())

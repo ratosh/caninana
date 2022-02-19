@@ -224,10 +224,17 @@ impl WorkerManager {
                     if let Some(unit) = bot.units.all.get(**resource) {
                         unit.mineral_contents().unwrap_or_default()
                             + unit.vespene_contents().unwrap_or_default()
-                            < 1
+                            == 0
+                    } else if let Some(building) = bot.units.my.gas_buildings.get(**resource) {
+                        building.mineral_contents().unwrap_or_default()
+                            + building.vespene_contents().unwrap_or_default()
+                            == 0
+                    } else if let Some(resource) = bot.units.resources.get(**resource) {
+                        resource.mineral_contents().unwrap_or_default()
+                            + resource.vespene_contents().unwrap_or_default()
+                            == 0
                     } else {
-                        bot.units.resources.get(**resource).is_none()
-                            && bot.units.my.gas_buildings.get(**resource).is_none()
+                        true
                     }
                 })
                 .map(|(resource, _)| *resource)
@@ -273,6 +280,7 @@ impl WorkerManager {
                 .my
                 .gas_buildings
                 .ready()
+                .filter(|u| u.vespene_contents().unwrap_or_default() > 0)
                 .closer(9f32, townhall.position())
                 .iter()
                 .map(|g| g.tag())
