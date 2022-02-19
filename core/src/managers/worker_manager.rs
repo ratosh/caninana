@@ -170,7 +170,10 @@ impl WorkerManager {
             let decision = if needed_fighters > 0 {
                 needed_fighters -= 1;
                 WorkerDecision::Fight
-            } else if close_attackers && (weak_attackers == units_attacking || worker.hits_percentage().unwrap_or_default() <= 0.5) {
+            } else if close_attackers
+                && (weak_attackers == units_attacking
+                    || worker.hits_percentage().unwrap_or_default() <= 0.5)
+            {
                 WorkerDecision::Run
             } else if worker.is_constructing() {
                 WorkerDecision::Build
@@ -198,7 +201,7 @@ impl WorkerManager {
                         if worker.is_returning() {
                             if let Some(target) = worker.target_tag() {
                                 if let Some(unit) = bot.units.my.townhalls.get(target) {
-                                    return worker.distance(unit) > 9f32
+                                    return worker.distance(unit) > 9f32;
                                 }
                             }
                         }
@@ -312,7 +315,11 @@ impl WorkerManager {
 
     fn micro(&mut self, bot: &mut Bot) {
         let advance_mineral = bot.units.mineral_fields.closest(bot.enemy_start).unwrap();
-        let retreat_mineral = bot.units.mineral_fields.closest(bot.start_location).unwrap();
+        let retreat_mineral = bot
+            .units
+            .mineral_fields
+            .closest(bot.start_location)
+            .unwrap();
         for worker in bot.units.my.workers.iter() {
             let decision = self
                 .worker_decision
