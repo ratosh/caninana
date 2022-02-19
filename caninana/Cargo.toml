@@ -10,7 +10,7 @@ authors = ["Raoni Campos"]
 caninana-core = { path = "../core" }
 caninana-openings = { path = "../openings" }
 rust-sc2 = {version = "1.1", features = ["enemies_cache"] }
-clap = "2.34"
+clap = "3.1"
 
 rand = "0.8"
 
