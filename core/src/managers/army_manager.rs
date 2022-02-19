@@ -406,14 +406,17 @@ impl ArmyManager {
 
         let total_weight = unit_distribution
             .values()
-            .filter(|u| **u > 0)
+            .filter(|it| it.0 > 0)
+            .map(|it| it.0)
             .sum::<usize>();
         if total_weight > 0 {
-            for (unit_type, amount) in unit_distribution {
+            for (unit_type, (amount, priority)) in unit_distribution {
                 debug!("U[{:?}] A[{:?}]", unit_type, amount);
-                bot_state
-                    .build_queue
-                    .push(Command::new_unit(unit_type, amount, true), false, 35);
+                bot_state.build_queue.push(
+                    Command::new_unit(unit_type, amount, true),
+                    false,
+                    priority,
+                );
             }
         }
 
@@ -431,7 +434,7 @@ impl ArmyManager {
         bot: &Bot,
         bot_state: &mut BotState,
         wanted_army_supply: isize,
-    ) -> HashMap<UnitTypeId, usize> {
+    ) -> HashMap<UnitTypeId, (usize, usize)> {
         let mut unit_distribution = HashMap::new();
 
         for unit_type in self.allowed_tech.iter() {
@@ -466,66 +469,44 @@ impl ArmyManager {
 
         let total_weight = unit_distribution
             .values()
-            .filter(|u| **u > 0)
+            .filter(|u| u.0 > 0)
+            .map(|u| u.0)
             .sum::<isize>();
         if total_weight > 0 {
-            let mut resource_limited_supply = 0;
-            let mut vespene = bot.vespene as usize;
-            for (unit_type, weight) in unit_distribution {
+            let mut final_supply = 0f32;
+            for (unit_type, (weight, priority)) in unit_distribution {
                 if weight <= 0 {
                     continue;
                 }
                 let supply_cost = bot.game_data.units[&unit_type].food_required;
-                let vespene_cost = bot.game_data.units[&unit_type].vespene_cost as usize;
                 let dedicated_supply = (wanted_army_supply * weight / total_weight) as f32;
-                let existing_supply =
-                    (bot.units.my.units.of_type(unit_type).len() as f32 * supply_cost) as isize;
+                let existing_amount = bot.units.my.units.of_type(unit_type).len() as isize;
+                let existing_supply = (existing_amount as f32 * supply_cost) as isize;
                 let amount = (dedicated_supply / supply_cost).round() as usize;
-                let new_supply = amount.saturating_sub(existing_supply as usize);
-                debug!("NS {:?}", new_supply);
-                if vespene_cost > 0 {
-                    let possible_units = new_supply.min(vespene / vespene_cost);
-                    vespene -= possible_units * vespene_cost;
-                    resource_limited_supply +=
-                        existing_supply + (possible_units as f32 * supply_cost) as isize;
-                    debug!(
-                        "Possible {:?}/{:?} -> {:?}",
-                        vespene, vespene_cost, possible_units
-                    );
-                } else {
-                    resource_limited_supply += dedicated_supply as isize;
-                }
-                result.insert(unit_type, amount);
+                final_supply += dedicated_supply;
+                result.insert(unit_type, (amount, priority));
                 debug!(
                     "Unit {:?}>{:?}|{:?}[{:?}]",
                     unit_type, existing_supply, dedicated_supply, amount
                 );
             }
-            if wanted_army_supply > resource_limited_supply
-                && bot_state.spending_focus == SpendingFocus::Army
+            let larva = bot.units.my.larvas.len();
+            if bot_state.spending_focus == SpendingFocus::Army
+                && larva > 10
+                && (final_supply as isize) < wanted_army_supply
             {
                 let extra_supply_unit = UnitTypeId::Zergling;
-                let supply_cost = bot.game_data.units[&extra_supply_unit].food_required;
-                let extra_supply = (wanted_army_supply - resource_limited_supply) as usize;
-                *result.entry(extra_supply_unit).or_insert(0) +=
-                    (extra_supply as f32 / supply_cost) as usize;
+                let extra_supply = bot.counter().all().count(UnitTypeId::Zergling) + 5;
+                let mut entry = result.entry(extra_supply_unit).or_insert((0, 0));
+                entry.0 = entry.0.max(extra_supply);
 
-                debug!(
-                    "Extra lings {:?}",
-                    (extra_supply as f32 / supply_cost) as usize
-                );
+                debug!("Extra lings {:?}", extra_supply);
             }
-            debug!(
-                "Final army supply {:?}>{:?}>{:?}",
-                wanted_army_supply,
-                resource_limited_supply,
-                result.values().sum::<usize>()
-            );
         }
         result
     }
 
-    fn unit_value(bot: &Bot, unit_type: UnitTypeId) -> isize {
+    fn unit_value(bot: &Bot, unit_type: UnitTypeId) -> (isize, usize) {
         let mut value = match unit_type {
             UnitTypeId::Zergling => 10f32,
             UnitTypeId::Roach => 50f32,
@@ -536,15 +517,17 @@ impl ArmyManager {
             UnitTypeId::Ultralisk => 5f32,
             _ => 50f32,
         };
+        let mut priority = 35;
         for unit in bot.units.enemy.all.iter() {
             if unit.type_id().countered_by().contains(&unit_type) {
                 value += unit.supply_cost();
+                priority += 1;
             }
             if unit_type.countered_by().contains(&unit.type_id()) {
                 value -= unit.supply_cost();
             }
         }
-        value as isize
+        (value as isize, priority)
     }
 
     fn queue_upgrades(&self, bot: &mut Bot, bot_state: &mut BotState) {
