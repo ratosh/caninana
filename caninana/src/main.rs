@@ -19,7 +19,8 @@ use caninana_core::units::overlord_manager::OverlordManager;
 use caninana_core::units::queen_manager::QueenManager;
 use caninana_core::units::ravager_manager::RavagerManager;
 use caninana_core::*;
-use caninana_openings::zerg::poolfirst::PoolFirst;
+use caninana_openings::zerg::pool14::Pool14;
+use caninana_openings::zerg::pool16::Pool16;
 
 fn main() -> SC2Result<()> {
     env_logger::init();
@@ -174,7 +175,6 @@ fn main() -> SC2Result<()> {
 #[bot]
 struct Caninana {
     components: Vec<ProcessLimiter>,
-    opening: PoolFirst,
     bot_state: BotState,
 }
 
@@ -193,7 +193,6 @@ impl Default for Caninana {
                 ProcessLimiter::new(15, Box::new(QueenManager::default())),
                 ProcessLimiter::new(15, Box::new(RavagerManager::default())),
             ],
-            opening: Default::default(),
             bot_state: Default::default(),
         }
     }
@@ -205,7 +204,11 @@ impl Player for Caninana {
     }
 
     fn on_start(&mut self) -> SC2Result<()> {
-        self.opening.opening(&self._bot, &mut self.bot_state);
+        let mut opening: Box<dyn Opening> = match self._bot.enemy_race {
+            Race::Zerg => Box::new(Pool14::default()),
+            _ => Box::new(Pool16::default()),
+        };
+        opening.opening(&self._bot, &mut self.bot_state);
         self._bot
             .chat_ally(format!("Tag:{}v{}", crate_name!(), crate_version!()).as_str());
         Ok(())

@@ -78,6 +78,7 @@ impl QueenManager {
             .units
             .filter(|u| {
                 !u.is_using(AbilityId::EffectInjectLarva)
+                    && !u.is_using(AbilityId::BuildCreepTumorQueen)
                     && u.has_ability(AbilityId::BuildCreepTumorQueen)
                     && u.energy().unwrap_or_default() > CREEP_SPREAD_ENERGY
             })
