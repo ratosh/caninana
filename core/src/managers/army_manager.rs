@@ -91,12 +91,14 @@ impl ArmyManager {
                                 .units
                                 .enemy
                                 .all
-                                .filter(|e| u.in_real_range(e, 1f32)).is_empty()
+                                .filter(|e| u.in_real_range(e, 1f32))
+                                .is_empty()
                             || !bot
                                 .units
                                 .enemy
                                 .all
-                                .filter(|e| e.in_real_range(u, 1f32)).is_empty()
+                                .filter(|e| e.in_real_range(u, 1f32))
+                                .is_empty()
                     }),
             );
         }
@@ -265,14 +267,9 @@ impl ArmyManager {
 
         for unit in my_army.iter() {
             let decision = *self.allied_decision.get(&unit.tag()).unwrap();
-            let detectors = bot
-                .units
-                .enemy
-                .all
-                .filter(|u| {
-                    u.is_detector()
-                        && u.is_closer(u.detect_range() + BURROW_DETECTION_RANGE, unit)
-                });
+            let detectors = bot.units.enemy.all.filter(|u| {
+                u.is_detector() && u.is_closer(u.detect_range() + BURROW_DETECTION_RANGE, unit)
+            });
             if unit.type_id() == UnitTypeId::Roach
                 && unit.has_ability(AbilityId::BurrowDownRoach)
                 && unit.health_percentage().unwrap_or_default() < BURROW_HEALTH_PERCENTAGE
