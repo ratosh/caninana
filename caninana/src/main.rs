@@ -10,11 +10,11 @@ use std::str::FromStr;
 
 mod bot;
 
+use crate::bot::Caninana;
 use clap::ArgEnum;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use rust_sc2::prelude::*;
-use crate::bot::Caninana;
 
 use crate::clap::Parser;
 
@@ -103,7 +103,7 @@ enum Command {
         sc2_version: Option<String>,
         /// Replay file
         save_replay: Option<String>,
-    }
+    },
 }
 
 fn main() -> SC2Result<()> {
@@ -128,41 +128,58 @@ fn main() -> SC2Result<()> {
     let mut rng = thread_rng();
 
     match &app.command {
-        Some(Command::Local { map, race, difficulty, build, sc2_version, save_replay, realtime }) => {
-            run_vs_computer(&mut bot, Computer::new(
+        Some(Command::Local {
+            map,
+            race,
+            difficulty,
+            build,
+            sc2_version,
+            save_replay,
+            realtime,
+        }) => run_vs_computer(
+            &mut bot,
+            Computer::new(
                 race.unwrap_or(Race::Random),
                 difficulty.unwrap_or(Difficulty::CheatMoney),
-                build.clone(),
+                *build,
             ),
-                            map.clone().unwrap_or_else(|| LADDER_MAPS.choose(&mut rng).unwrap().to_string()).as_str(),
-                            LaunchOptions {
-                                sc2_version: sc2_version.as_deref(),
-                                realtime: realtime.unwrap_or_default(),
-                                save_replay_as: save_replay.as_deref(),
-                            })
-        }
-        Some(Command::Human { map, race, name, sc2_version, save_replay }) => {
-            run_vs_human(&mut bot,
-                         PlayerSettings {
-                             race: race.unwrap_or(Race::Random),
-                             name: name.as_deref(),
-                             ..Default::default()
-                         },
-                         map.clone().unwrap_or_else(|| LADDER_MAPS.choose(&mut rng).unwrap().to_string()).as_str(),
-                         LaunchOptions {
-                             sc2_version: sc2_version.as_deref(),
-                             realtime: true,
-                             save_replay_as: save_replay.as_deref(),
-                         })
-        }
-        _ => {
-            run_ladder_game(
-                &mut bot,
-                app.ladder_server.unwrap().as_str(),
-                app.game_port.unwrap().to_string().as_str(),
-                app.start_port.unwrap(),
-                app.opponent.as_deref(),
-            )
-        }
+            map.clone()
+                .unwrap_or_else(|| LADDER_MAPS.choose(&mut rng).unwrap().to_string())
+                .as_str(),
+            LaunchOptions {
+                sc2_version: sc2_version.as_deref(),
+                realtime: realtime.unwrap_or_default(),
+                save_replay_as: save_replay.as_deref(),
+            },
+        ),
+        Some(Command::Human {
+            map,
+            race,
+            name,
+            sc2_version,
+            save_replay,
+        }) => run_vs_human(
+            &mut bot,
+            PlayerSettings {
+                race: race.unwrap_or(Race::Random),
+                name: name.as_deref(),
+                ..Default::default()
+            },
+            map.clone()
+                .unwrap_or_else(|| LADDER_MAPS.choose(&mut rng).unwrap().to_string())
+                .as_str(),
+            LaunchOptions {
+                sc2_version: sc2_version.as_deref(),
+                realtime: true,
+                save_replay_as: save_replay.as_deref(),
+            },
+        ),
+        _ => run_ladder_game(
+            &mut bot,
+            app.ladder_server.unwrap().as_str(),
+            app.game_port.unwrap().to_string().as_str(),
+            app.start_port.unwrap(),
+            app.opponent.as_deref(),
+        ),
     }
 }
