@@ -2,6 +2,250 @@ use crate::UnwrapOrMax;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
+impl Strength for Units {
+    fn strength(&self, bot: &Bot) -> f32 {
+        self.iter()
+            .map(|u| u.strength(bot))
+            .sum()
+    }
+}
+
+pub trait Strength {
+    fn strength(&self, bot: &Bot) -> f32;
+}
+
+impl StrengthVs for Units {
+    fn strength_vs(&self, bot: &Bot, unit: &Unit) -> f32 {
+        self.iter()
+            .filter(|f| f.can_attack_unit(unit))
+            .map(|u| u.strength(bot))
+            .sum()
+    }
+}
+
+pub trait StrengthVs {
+    fn strength_vs(&self, bot: &Bot, unit: &Unit) -> f32;
+}
+
+//TODO: Give bonus for units better at one role.
+// e.g. thor anti air
+impl Strength for Unit {
+    fn strength(&self, _: &Bot) -> f32 {
+        let multiplier = if self.is_worker() {
+            0.1f32
+        } else if !self.can_attack() {
+            0.5f32
+        } else {
+            1f32
+        };
+        multiplier
+            * (self.cost().vespene + self.cost().minerals) as f32
+            * self.hits_percentage().unwrap_or(1f32)
+    }
+}
+
+pub trait CounteredBy {
+    fn countered_by(&self) -> Vec<UnitTypeId>;
+}
+
+impl CounteredBy for UnitTypeId {
+    fn countered_by(&self) -> Vec<UnitTypeId> {
+        match self {
+            // Race::Protoss
+            UnitTypeId::Zealot => vec![
+                UnitTypeId::Roach,
+                UnitTypeId::Ravager,
+                // UnitTypeId::Mutalisk,
+                // UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Sentry => vec![
+                // UnitTypeId::BroodLord,
+                UnitTypeId::Ultralisk,
+            ],
+            UnitTypeId::Stalker => vec![UnitTypeId::Zergling],
+            UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
+            UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
+            UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk],
+            UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
+            UnitTypeId::DarkTemplar => vec![
+                // UnitTypeId::Mutalisk,
+                // UnitTypeId::BroodLord
+            ],
+            UnitTypeId::Carrier => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
+            UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Oracle => vec![
+                UnitTypeId::Hydralisk,
+                // UnitTypeId::Mutalisk
+            ],
+            UnitTypeId::Tempest => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Adept => vec![UnitTypeId::Roach],
+            UnitTypeId::Disruptor => vec![UnitTypeId::Ultralisk],
+            // Race::Terran
+            UnitTypeId::Marine => vec![
+                // UnitTypeId::Baneling,
+                UnitTypeId::Roach,
+                UnitTypeId::Ravager,
+                UnitTypeId::Ultralisk,
+                // UnitTypeId::BroodLord,
+                // UnitTypeId::LurkerMP,
+            ],
+            UnitTypeId::Marauder => vec![
+                UnitTypeId::Zergling,
+                UnitTypeId::Hydralisk,
+                // UnitTypeId::Mutalisk,
+                // UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk],
+            UnitTypeId::Reaper => vec![UnitTypeId::Ravager],
+            UnitTypeId::Ghost => vec![UnitTypeId::Roach, UnitTypeId::Ultralisk],
+            UnitTypeId::Hellion => vec![
+                UnitTypeId::Roach,
+                // UnitTypeId::Mutalisk
+            ],
+            UnitTypeId::SiegeTank => vec![
+                // UnitTypeId::Mutalisk,
+                // UnitTypeId::BroodLord,
+                UnitTypeId::Ravager,
+            ],
+            UnitTypeId::SiegeTankSieged => vec![
+                // UnitTypeId::Mutalisk,
+                // UnitTypeId::BroodLord,
+                UnitTypeId::Ravager,
+            ],
+            UnitTypeId::Thor => vec![
+                UnitTypeId::Zergling,
+                UnitTypeId::Hydralisk,
+                // UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Banshee => vec![
+                UnitTypeId::Hydralisk,
+                // UnitTypeId::Mutalisk,
+                // UnitTypeId::Corruptor
+            ],
+            UnitTypeId::Viking => vec![UnitTypeId::Hydralisk],
+            UnitTypeId::Raven => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
+            UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
+            UnitTypeId::HellionTank => vec![UnitTypeId::Roach],
+            UnitTypeId::Liberator => vec![UnitTypeId::Corruptor],
+            // Race::Zerg
+            UnitTypeId::Zergling => vec![
+                UnitTypeId::Zealot,
+                UnitTypeId::Sentry,
+                UnitTypeId::Colossus,
+                UnitTypeId::Reaper,
+                UnitTypeId::Hellion,
+                UnitTypeId::HellionTank,
+                // UnitTypeId::Baneling,
+                UnitTypeId::Roach,
+                UnitTypeId::Ultralisk,
+            ],
+            UnitTypeId::Baneling => vec![
+                UnitTypeId::Colossus,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                // UnitTypeId::Mutalisk,
+                UnitTypeId::Roach,
+                UnitTypeId::Ultralisk,
+            ],
+            UnitTypeId::Roach => vec![
+                UnitTypeId::Immortal,
+                UnitTypeId::VoidRay,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Marauder,
+                // UnitTypeId::Mutalisk,
+                // UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Hydralisk => vec![
+                UnitTypeId::Sentry,
+                UnitTypeId::Colossus,
+                UnitTypeId::Hellion,
+                UnitTypeId::HellionTank,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Roach,
+                // UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Mutalisk => vec![
+                UnitTypeId::Sentry,
+                UnitTypeId::Phoenix,
+                UnitTypeId::Marine,
+                UnitTypeId::Thor,
+                UnitTypeId::Hydralisk,
+                UnitTypeId::Corruptor,
+            ],
+            UnitTypeId::Corruptor => vec![
+                UnitTypeId::Stalker,
+                UnitTypeId::Sentry,
+                UnitTypeId::Marine,
+                UnitTypeId::Thor,
+                UnitTypeId::Hydralisk,
+            ],
+            UnitTypeId::Infestor => vec![
+                UnitTypeId::Immortal,
+                UnitTypeId::Colossus,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Ghost,
+                // UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Ultralisk => vec![
+                UnitTypeId::Immortal,
+                UnitTypeId::VoidRay,
+                UnitTypeId::Banshee,
+                UnitTypeId::Hydralisk,
+                // UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::BroodLord => vec![
+                UnitTypeId::Stalker,
+                UnitTypeId::VoidRay,
+                UnitTypeId::Phoenix,
+                UnitTypeId::Viking,
+                UnitTypeId::Corruptor,
+            ],
+            UnitTypeId::Viper => vec![
+                UnitTypeId::Phoenix,
+                UnitTypeId::Viking,
+                UnitTypeId::Hydralisk,
+                // UnitTypeId::Mutalisk,
+                // UnitTypeId::Corruptor,
+            ],
+            UnitTypeId::Ravager => vec![
+                UnitTypeId::Immortal,
+                UnitTypeId::Marauder,
+                UnitTypeId::Ultralisk,
+            ],
+            UnitTypeId::LurkerMP => vec![
+                UnitTypeId::Disruptor,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Ultralisk,
+            ],
+            UnitTypeId::LurkerMPBurrowed => vec![
+                UnitTypeId::Disruptor,
+                UnitTypeId::SiegeTank,
+                UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Ultralisk,
+            ],
+            UnitTypeId::PhotonCannon => vec![UnitTypeId::Ravager],
+            UnitTypeId::Bunker => vec![UnitTypeId::Ravager],
+            _ => vec![],
+        }
+    }
+}
+
+trait RaceFinder {
+    fn race(&self, bot: &Bot) -> Race;
+}
+
+impl RaceFinder for UnitTypeId {
+    fn race(&self, bot: &Bot) -> Race {
+        bot.game_data.units[self].race
+    }
+}
+
 pub trait Supply {
     fn supply(&self) -> u32;
 }

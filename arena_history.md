@@ -1,5 +1,16 @@
 # Performance from ai_arena
 
+## v0.5.1 (388)
+33.18% win rate after 220 games
+
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| zUnkP              | -29 | 0    | 7      | 0    |
+| Tyckles            | -21 | 0    | 7      | 0    |
+| Roro               | -16 | 0    | 4      | 0    |
+| sludge-revived     | -14 | 0    | 3      | 0    |
+| buckshot           | -12 | 1    | 6      | 0    |
+
 ## v0.4.6 (386)
 44.56% win rate after 193 games
 
