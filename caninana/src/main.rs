@@ -5,106 +5,116 @@
 #[macro_use]
 extern crate clap;
 
-use rand::prelude::*;
-use rust_sc2::bot::Bot;
+use std::ops::RangeInclusive;
+use std::str::FromStr;
+
+mod bot;
+
+use crate::bot::Caninana;
+use clap::ArgEnum;
+use rand::prelude::SliceRandom;
+use rand::thread_rng;
 use rust_sc2::prelude::*;
 
-use caninana_core::managers::army_manager::ArmyManager;
-use caninana_core::managers::cache_manager::CacheManager;
-use caninana_core::managers::defense_manager::DefenseManager;
-use caninana_core::managers::production_manager::ProductionManager;
-use caninana_core::managers::resource_manager::ResourceManager;
-use caninana_core::managers::worker_manager::WorkerManager;
-use caninana_core::units::overlord_manager::OverlordManager;
-use caninana_core::units::queen_manager::QueenManager;
-use caninana_core::units::ravager_manager::RavagerManager;
-use caninana_core::*;
-use caninana_openings::zerg::pool14::Pool14;
-use caninana_openings::zerg::pool16::Pool16;
+use crate::clap::Parser;
+
+const PORT_RANGE: RangeInclusive<i32> = 1..=65535;
+
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+struct Cli {
+    #[clap(subcommand)]
+    command: Option<Command>,
+
+    #[clap(long = "LadderServer", parse(try_from_str))]
+    ladder_server: Option<String>,
+
+    #[clap(long = "GamePort", validator = port_in_range)]
+    game_port: Option<i32>,
+
+    #[clap(long = "OpponentId", parse(try_from_str))]
+    opponent: Option<String>,
+
+    #[clap(long = "StartPort", validator = port_in_range)]
+    start_port: Option<i32>,
+
+    #[clap(long, short, arg_enum)]
+    race: Option<GameRace>,
+
+    /// Set game step for bot
+    #[clap(short = 's', long = "step", default_value_t = 1)]
+    game_step: u32,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
+pub enum GameRace {
+    Terran,
+    Zerg,
+    Protoss,
+    Random,
+}
+
+impl From<GameRace> for Race {
+    fn from(race: GameRace) -> Self {
+        match race {
+            GameRace::Terran => Race::Terran,
+            GameRace::Zerg => Race::Zerg,
+            GameRace::Protoss => Race::Protoss,
+            GameRace::Random => Race::Random,
+        }
+    }
+}
+
+fn port_in_range(s: &str) -> Result<(), String> {
+    i32::from_str(s)
+        .map(|port| PORT_RANGE.contains(&port))
+        .map_err(|e| e.to_string())
+        .and_then(|result| match result {
+            true => Ok(()),
+            false => Err(format!(
+                "Port not in range {}-{}",
+                PORT_RANGE.start(),
+                PORT_RANGE.end()
+            )),
+        })
+}
+
+#[derive(Subcommand, Debug)]
+enum Command {
+    /// Bot versus in-game AI
+    Local {
+        map: Option<String>,
+        race: Option<Race>,
+        difficulty: Option<Difficulty>,
+        build: Option<AIBuild>,
+        sc2_version: Option<String>,
+        save_replay: Option<String>,
+        realtime: Option<bool>,
+    },
+    /// Bot versus Human
+    Human {
+        /// Specify a map
+        map: Option<String>,
+        /// Sets human race
+        race: Option<Race>,
+        /// Sets human name
+        name: Option<String>,
+        /// Sets sc2 version
+        sc2_version: Option<String>,
+        /// Replay file
+        save_replay: Option<String>,
+    },
+}
 
 fn main() -> SC2Result<()> {
     env_logger::init();
-    let app = clap_app!(DebugBot =>
-        (version: crate_version!())
-        (author: crate_authors!())
-        (@arg ladder_server: --LadderServer +takes_value)
-        (@arg opponent_id: --OpponentId +takes_value)
-        (@arg host_port: --GamePort +takes_value)
-        (@arg player_port: --StartPort +takes_value)
-        (@arg race: -r --race
-            +takes_value
-            "Sets race for debug bot"
-        )
-        (@arg game_step: -s --step
-            +takes_value
-            default_value("1")
-            "Sets game step for bot"
-        )
-        (@subcommand local =>
-            (about: "Runs local game vs Computer")
-            (@arg map: -m --map
-                +takes_value
-            )
-            (@arg race: -r --race
-                +takes_value
-                "Sets opponent race"
-            )
-            (@arg difficulty: -d --difficulty
-                +takes_value
-                "Sets opponent difficulty"
-            )
-            (@arg ai_build: --("ai-build")
-                +takes_value
-                "Sets opponent build"
-            )
-            (@arg sc2_version: --("sc2-version")
-                +takes_value
-                "Sets sc2 version"
-            )
-            (@arg save_replay: --("save-replay")
-                +takes_value
-                "Sets path to save replay"
-            )
-            (@arg realtime: --realtime "Enables realtime mode")
-        )
-        (@subcommand human =>
-            (about: "Runs game Human vs Bot")
-            (@arg map: -m --map
-                +takes_value
-            )
-            (@arg race: -r --race *
-                +takes_value
-                "Sets human race"
-            )
-            (@arg name: --name
-                +takes_value
-                "Sets human name"
-            )
-            (@arg sc2_version: --("sc2-version")
-                +takes_value
-                "Sets sc2 version"
-            )
-            (@arg save_replay: --("save-replay")
-                +takes_value
-                "Sets path to save replay"
-            )
-        )
-    )
-    .get_matches();
-
-    let game_step = match app.value_of("game_step") {
-        Some("0") => panic!("game_step must be X >= 1"),
-        Some(step) => step.parse::<u32>().expect("Can't parse game_step"),
-        None => unreachable!(),
-    };
+    let app = Cli::parse();
+    let game_step = app.game_step;
 
     let mut bot = Caninana::default();
     bot.set_game_step(game_step);
-    if let Some(race) = app
-        .value_of("race")
-        .map(|race| race.parse().expect("Can't parse bot race"))
-    {
-        bot.race = race;
+    if let Some(race) = app.race {
+        bot.race = race.into();
     }
 
     const LADDER_MAPS: &[&str] = &[
@@ -117,120 +127,59 @@ fn main() -> SC2Result<()> {
     ];
     let mut rng = thread_rng();
 
-    match app.subcommand() {
-        ("local", Some(sub)) => run_vs_computer(
+    match &app.command {
+        Some(Command::Local {
+            map,
+            race,
+            difficulty,
+            build,
+            sc2_version,
+            save_replay,
+            realtime,
+        }) => run_vs_computer(
             &mut bot,
             Computer::new(
-                sub.value_of("race").map_or(Race::Random, |race| {
-                    race.parse().expect("Can't parse computer race")
-                }),
-                sub.value_of("difficulty")
-                    .map_or(Difficulty::CheatMoney, |difficulty| {
-                        difficulty.parse().expect("Can't parse computer difficulty")
-                    }),
-                sub.value_of("ai_build")
-                    .map(|ai_build| ai_build.parse().expect("Can't parse computer build")),
+                race.unwrap_or(Race::Random),
+                difficulty.unwrap_or(Difficulty::CheatMoney),
+                *build,
             ),
-            sub.value_of("map")
-                .unwrap_or_else(|| LADDER_MAPS.choose(&mut rng).unwrap()),
+            map.clone()
+                .unwrap_or_else(|| LADDER_MAPS.choose(&mut rng).unwrap().to_string())
+                .as_str(),
             LaunchOptions {
-                sc2_version: sub.value_of("sc2_version"),
-                realtime: sub.is_present("realtime"),
-                save_replay_as: sub.value_of("save_replay"),
+                sc2_version: sc2_version.as_deref(),
+                realtime: realtime.unwrap_or_default(),
+                save_replay_as: save_replay.as_deref(),
             },
         ),
-        ("human", Some(sub)) => run_vs_human(
+        Some(Command::Human {
+            map,
+            race,
+            name,
+            sc2_version,
+            save_replay,
+        }) => run_vs_human(
             &mut bot,
             PlayerSettings {
-                race: sub
-                    .value_of("race")
-                    .unwrap()
-                    .parse()
-                    .expect("Can't parse human race"),
-                name: sub.value_of("name"),
+                race: race.unwrap_or(Race::Random),
+                name: name.as_deref(),
                 ..Default::default()
             },
-            sub.value_of("map")
-                .unwrap_or_else(|| LADDER_MAPS.choose(&mut rng).unwrap()),
+            map.clone()
+                .unwrap_or_else(|| LADDER_MAPS.choose(&mut rng).unwrap().to_string())
+                .as_str(),
             LaunchOptions {
-                sc2_version: sub.value_of("sc2_version"),
+                sc2_version: sc2_version.as_deref(),
                 realtime: true,
-                save_replay_as: sub.value_of("save_replay"),
+                save_replay_as: save_replay.as_deref(),
             },
         ),
         _ => run_ladder_game(
             &mut bot,
-            app.value_of("ladder_server").unwrap_or("127.0.0.1"),
-            app.value_of("host_port")
-                .expect("GamePort must be specified"),
-            app.value_of("player_port")
-                .expect("StartPort must be specified")
-                .parse()
-                .expect("Can't parse StartPort"),
-            app.value_of("opponent_id"),
+            app.ladder_server.unwrap().as_str(),
+            app.game_port.unwrap().to_string().as_str(),
+            app.start_port.unwrap(),
+            app.opponent.as_deref(),
         ),
-    }
-}
-
-#[bot]
-struct Caninana {
-    components: Vec<ProcessLimiter>,
-    bot_state: BotState,
-}
-
-impl Default for Caninana {
-    fn default() -> Self {
-        Self {
-            _bot: Bot::default(),
-            components: vec![
-                ProcessLimiter::new(0, Box::new(CacheManager::default())),
-                ProcessLimiter::new(5, Box::new(ArmyManager::default())),
-                ProcessLimiter::new(15, Box::new(DefenseManager::default())),
-                ProcessLimiter::new(10, Box::new(ProductionManager::default())),
-                ProcessLimiter::new(15, Box::new(ResourceManager::default())),
-                ProcessLimiter::new(5, Box::new(WorkerManager::default())),
-                ProcessLimiter::new(15, Box::new(OverlordManager::default())),
-                ProcessLimiter::new(15, Box::new(QueenManager::default())),
-                ProcessLimiter::new(15, Box::new(RavagerManager::default())),
-            ],
-            bot_state: Default::default(),
-        }
-    }
-}
-
-impl Player for Caninana {
-    fn get_player_settings(&self) -> PlayerSettings {
-        PlayerSettings::new(Race::Zerg).with_name("Caninana")
-    }
-
-    fn on_start(&mut self) -> SC2Result<()> {
-        let mut opening: Box<dyn Opening> = match self._bot.enemy_race {
-            Race::Zerg => Box::new(Pool14::default()),
-            _ => Box::new(Pool16::default()),
-        };
-        opening.opening(&self._bot, &mut self.bot_state);
-        self._bot
-            .chat_ally(format!("Tag:{}v{}", crate_name!(), crate_version!()).as_str());
-        Ok(())
-    }
-
-    fn on_step(&mut self, _iteration: usize) -> SC2Result<()> {
-        for component in self.components.iter_mut() {
-            component.process(&mut self._bot, &mut self.bot_state);
-        }
-        Ok(())
-    }
-
-    /// Called once on last step with a result for your bot.
-    fn on_end(&self, _result: GameResult) -> SC2Result<()> {
-        println!("Result {:?}", _result);
-        Ok(())
-    }
-
-    fn on_event(&mut self, event: Event) -> SC2Result<()> {
-        for component in self.components.iter_mut() {
-            component.on_event(&event, &mut self.bot_state);
-        }
-        Ok(())
     }
 }
