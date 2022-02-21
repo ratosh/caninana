@@ -9,9 +9,9 @@ use crate::{AIComponent, BotState};
 pub struct OverlordManager {}
 
 impl OverlordManager {
-    fn micro(&self, bot: &mut Bot, _: &mut BotState) {
+    fn micro(&self, bot: &mut Bot, bot_state: &mut BotState) {
         Self::overlord_micro(bot);
-        Self::overseer_micro(bot);
+        Self::overseer_micro(bot, bot_state);
     }
 
     // TODO: Hide them if enemy is going heavy on anti air.
@@ -78,17 +78,16 @@ impl OverlordManager {
         }
     }
 
-    fn overseer_micro(bot: &Bot) {
+    fn overseer_micro(bot: &Bot, bot_state: &BotState) {
         let overseers = bot
             .units
             .my
             .units
             .of_type(UnitTypeId::Overseer)
             .sorted(|f| f.tag());
-        let mut enemy_units = bot
-            .units
-            .enemy
-            .units
+        let mut enemy_units = bot_state
+            .enemy_cache
+            .units()
             .filter(|f| !f.is_worker() && f.can_attack());
         for overseer in overseers.iter() {
             let position = if let Some(closest_anti_air) = bot

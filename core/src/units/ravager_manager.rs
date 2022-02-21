@@ -28,7 +28,7 @@ impl RavagerManager {
         UnitTypeId::SporeCrawler,
     ];
 
-    fn cast_corrosive_bile(&self, bot: &mut Bot) {
+    fn cast_corrosive_bile(&self, bot: &mut Bot, bot_state: &BotState) {
         let ravagers = bot
             .units
             .my
@@ -36,15 +36,14 @@ impl RavagerManager {
             .filter(|f| f.has_ability(AbilityId::EffectCorrosiveBile));
 
         for ravager in ravagers {
-            if let Some(target) = bot
-                .units
-                .enemy
-                .all
-                .iter()
+            if let Some(target) = bot_state
+                .enemy_cache
+                .units()
                 .filter(|u| {
                     ravager.in_ability_cast_range(AbilityId::EffectCorrosiveBile, *u, 0.0f32)
                         && (Self::CORROSIVE_POSSIBLE_TARGETS.contains(&u.type_id()))
                 })
+                .iter()
                 .min_by_key(|t| t.hits())
             {
                 ravager.command(
@@ -58,7 +57,7 @@ impl RavagerManager {
 }
 
 impl AIComponent for RavagerManager {
-    fn process(&mut self, bot: &mut Bot, _: &mut BotState) {
-        self.cast_corrosive_bile(bot);
+    fn process(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
+        self.cast_corrosive_bile(bot, bot_state);
     }
 }
