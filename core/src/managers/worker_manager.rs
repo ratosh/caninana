@@ -140,7 +140,7 @@ impl WorkerManager {
             needed_fighters += cannons_close * 4
         }
         if weak_attackers > 0 {
-            needed_fighters += weak_attackers + 2
+            needed_fighters += weak_attackers + 1
         }
         debug!(
             "U[{:?}] W[{:?}] S[{:?}] F[{:?}] NF[{:?}]",
@@ -171,7 +171,7 @@ impl WorkerManager {
                 needed_fighters -= 1;
                 WorkerDecision::Fight
             } else if close_attackers
-                && (weak_attackers == units_attacking
+                && (weak_attackers > 1 && weak_attackers == units_attacking
                     || worker.hits_percentage().unwrap_or_default() <= 0.5)
             {
                 WorkerDecision::Run
@@ -358,21 +358,25 @@ impl WorkerManager {
                         .enemy
                         .all
                         .iter()
-                        .filter(|u| u.can_attack_unit(worker))
+                        .filter(|u| worker.can_attack_unit(u))
                         .closest(bot.start_location);
                     let close_attacker = bot
                         .units
                         .enemy
                         .all
                         .iter()
-                        .filter(|u| u.can_attack_unit(worker) && u.in_range(worker, 5f32))
+                        .filter(|u| worker.can_attack_unit(u) && worker.in_range(u, 3f32))
                         .closest(worker);
                     if worker.on_cooldown() {
-                        worker.gather(retreat_mineral.tag(), false);
+                        worker.order_gather(retreat_mineral.tag(), false);
                     } else if let Some(target) = close_targets.closest(worker) {
                         worker.order_attack(Target::Tag(target.tag()), false);
-                    } else if close_attacker.is_some() {
-                        worker.gather(advance_mineral.tag(), false);
+                    } else if let Some(closest_attacker) = close_attacker {
+                        if closest_attacker.distance(retreat_mineral) > worker.distance(retreat_mineral) {
+                            worker.order_gather(advance_mineral.tag(), false);
+                        } else {
+                            worker.order_gather(retreat_mineral.tag(), false);
+                        }
                     } else if let Some(attacker) = closest_to_base {
                         worker.order_attack(Target::Tag(attacker.tag()), false);
                     } else {

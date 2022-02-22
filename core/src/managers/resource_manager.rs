@@ -101,8 +101,7 @@ impl ResourceManager {
         let ideal_harvesters = bases.sum(|x| x.ideal_harvesters().unwrap_or(12));
         let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap_or_default())
             + bot.units.my.workers.idle().len() as u32;
-        if ideal_harvesters < 64
-            && (current_harvesters >= ideal_harvesters * 15 / 16 || bot.minerals > 1_000)
+        if ideal_harvesters < 64 && (ideal_harvesters.saturating_sub(current_harvesters) <= 1 || bot.minerals > 1_000)
         {
             bot_state.build_queue.push(
                 Command::new_unit(
