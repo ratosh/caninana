@@ -372,7 +372,9 @@ impl WorkerManager {
                     } else if let Some(target) = close_targets.closest(worker) {
                         worker.order_attack(Target::Tag(target.tag()), false);
                     } else if let Some(closest_attacker) = close_attacker {
-                        if closest_attacker.distance(retreat_mineral) > worker.distance(retreat_mineral) {
+                        if closest_attacker.distance(retreat_mineral)
+                            > worker.distance(retreat_mineral)
+                        {
                             worker.order_gather(advance_mineral.tag(), false);
                         } else {
                             worker.order_gather(retreat_mineral.tag(), false);
