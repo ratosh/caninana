@@ -126,19 +126,20 @@ impl ArmyManager {
         priority_targets.extend(bot_state.enemy_cache.units().filter(|u| {
             !u.is_flying()
                 && !u.is_hallucination()
-                && (u.can_attack() && u.can_be_attacked()
+                && (u.can_attack()
                     || (u.type_id() == UnitTypeId::WidowMine
                         || u.type_id() == UnitTypeId::Infestor
                         || u.type_id() == UnitTypeId::Disruptor
                         || u.type_id() == UnitTypeId::Medivac))
         }));
 
-        secondary_targets.extend(bot.units.enemy.all.ground().filter(|u| {
-            !u.is_flying()
-                && !u.can_attack()
-                && u.can_be_attacked()
-                && u.type_id() != UnitTypeId::Larva
-        }));
+        secondary_targets.extend(
+            bot.units
+                .enemy
+                .all
+                .ground()
+                .filter(|u| !u.is_flying() && !priority_targets.contains_tag(u.tag())),
+        );
 
         if !my_army.filter(|u| u.can_attack_air()).is_empty() {
             priority_targets.extend(
@@ -146,7 +147,7 @@ impl ArmyManager {
                     .enemy
                     .all
                     .flying()
-                    .filter(|u| u.is_flying() && u.can_attack() && u.can_be_attacked()),
+                    .filter(|u| u.is_flying() && u.can_attack()),
             );
 
             secondary_targets.extend(
@@ -154,7 +155,7 @@ impl ArmyManager {
                     .enemy
                     .all
                     .flying()
-                    .filter(|u| u.is_flying() && !u.can_attack() && u.can_be_attacked()),
+                    .filter(|u| u.is_flying() && !priority_targets.contains_tag(u.tag())),
             );
         }
 
@@ -253,6 +254,7 @@ impl ArmyManager {
             } else if (self.defending && our_strength > their_strength * 0.8f32)
                 || our_strength > their_strength * 1.6f32
                 || bot.minerals > 2_000
+                || their_strength <= 0.1f32
             {
                 UnitDecision::Advance
             } else if let Some(existing_decision) = previous_decision {
@@ -296,7 +298,11 @@ impl ArmyManager {
 
             let target_in_range = priority_targets
                 .iter()
-                .filter(|t| unit.can_attack_unit(t) && unit.in_real_range(t, 0.1f32))
+                .filter(|t| {
+                    unit.can_be_attacked()
+                        && unit.can_attack_unit(t)
+                        && unit.in_real_range(t, 0.1f32)
+                })
                 .min_by_key(|t| t.hits());
 
             let threats = priority_targets.iter().filter(|t| {
@@ -307,7 +313,8 @@ impl ArmyManager {
             let closest_attackable = priority_targets
                 .iter()
                 .filter(|t| {
-                    unit.can_attack_unit(t)
+                    unit.can_be_attacked()
+                        && unit.can_attack_unit(t)
                         && t.in_real_range(unit, t.speed() + unit.speed())
                         && (!unit.is_melee()
                             || bot
@@ -594,7 +601,7 @@ impl ArmyManager {
         if bot.counter().all().count(bot.race_values.worker) > UNLOCK_BURROW_WORKERS {
             bot_state
                 .build_queue
-                .push(Command::new_upgrade(UpgradeId::Burrow, true), false, 110);
+                .push(Command::new_upgrade(UpgradeId::Burrow, true), false, 150);
         }
         if bot.counter().all().count(bot.race_values.worker) > OVERLORD_SPEED_WORKERS {
             bot_state.build_queue.push(

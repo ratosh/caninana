@@ -5,7 +5,7 @@ pub const UNLOCK_ROACH_WORKERS: usize = 25;
 pub const UNLOCK_HYDRA_WORKERS: usize = 45;
 pub const UNLOCK_LATE_TECH_WORKERS: usize = 54;
 pub const UNLOCK_OVERSEER_WORKERS: usize = 29;
-pub const UNLOCK_BURROW_WORKERS: usize = 26;
+pub const UNLOCK_BURROW_WORKERS: usize = 24;
 pub const OVERLORD_SPEED_WORKERS: usize = 30;
 
 pub const CREEP_DISTANCE_TO_HALL: f32 = 5f32;
