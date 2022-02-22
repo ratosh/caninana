@@ -99,7 +99,7 @@ impl ResourceManager {
             bases.extend(bot.units.my.structures.of_type(*unit_type));
         }
         let ideal_harvesters = bases.sum(|x| x.ideal_harvesters().unwrap_or(12));
-        let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap())
+        let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap_or_default())
             + bot.units.my.workers.idle().len() as u32;
         if ideal_harvesters < 64
             && (current_harvesters >= ideal_harvesters * 15 / 16 || bot.minerals > 1_000)

@@ -24,10 +24,10 @@ impl QueenManager {
             if let Some(heal) = bot
                 .units
                 .my
-                .units
+                .all
                 .filter(|u| {
                     u.position().distance(queen.position()) < TRANSFUSION_MAX_RANGE
-                        && u.health_max().unwrap() - u.health().unwrap()
+                        && u.health_max().unwrap_or_default() - u.health().unwrap_or_default()
                             > TRANSFUSION_MISSING_HEALTH
                 })
                 .closest(queen)
@@ -109,6 +109,9 @@ impl QueenManager {
     }
 
     fn handle_injection(&mut self, bot: &mut Bot) {
+        if bot.units.my.larvas.len() > INJECTION_MAX_LARVA {
+            return;
+        }
         let mut queens = bot.units.my.units.of_type(UnitTypeId::Queen).filter(|u| {
             !u.is_using(AbilityId::EffectInjectLarva)
                 && u.has_ability(AbilityId::EffectInjectLarva)
