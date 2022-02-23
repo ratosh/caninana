@@ -374,7 +374,8 @@ impl WorkerManager {
                     } else if let Some(target) = closest_target {
                         if !target.is_worker() {
                             worker.order_attack(Target::Tag(target.tag()), false);
-                        } else if bot.pathing_distance(target.position(), retreat_mineral.position())
+                        } else if bot
+                            .pathing_distance(target.position(), retreat_mineral.position())
                             > bot.pathing_distance(worker.position(), retreat_mineral.position())
                         {
                             worker.order_gather(advance_mineral.tag(), false);
