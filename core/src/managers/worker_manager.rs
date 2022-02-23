@@ -8,7 +8,7 @@ use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
 use crate::params::MAX_WORKERS;
-use crate::utils::UnitOrderCheck;
+use crate::utils::{PathingDistance, UnitOrderCheck};
 use crate::*;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -360,7 +360,7 @@ impl WorkerManager {
                         .iter()
                         .filter(|u| worker.can_attack_unit(u))
                         .closest(bot.start_location);
-                    let close_attacker = bot
+                    let closest_target = bot
                         .units
                         .enemy
                         .all
@@ -371,16 +371,18 @@ impl WorkerManager {
                         worker.order_gather(retreat_mineral.tag(), false);
                     } else if let Some(target) = close_targets.closest(worker) {
                         worker.order_attack(Target::Tag(target.tag()), false);
-                    } else if let Some(closest_attacker) = close_attacker {
-                        if closest_attacker.distance(retreat_mineral)
-                            > worker.distance(retreat_mineral)
+                    } else if let Some(target) = closest_target {
+                        if !target.is_worker() {
+                            worker.order_attack(Target::Tag(target.tag()), false);
+                        } else if bot.pathing_distance(target.position(), retreat_mineral.position())
+                            > bot.pathing_distance(worker.position(), retreat_mineral.position())
                         {
                             worker.order_gather(advance_mineral.tag(), false);
                         } else {
                             worker.order_gather(retreat_mineral.tag(), false);
                         }
-                    } else if let Some(attacker) = closest_to_base {
-                        worker.order_attack(Target::Tag(attacker.tag()), false);
+                    } else if let Some(target) = closest_to_base {
+                        worker.order_attack(Target::Tag(target.tag()), false);
                     } else {
                         worker.order_gather(retreat_mineral.tag(), false);
                     }

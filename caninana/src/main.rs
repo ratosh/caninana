@@ -94,8 +94,10 @@ enum Command {
     /// Bot versus Human
     Human {
         /// Specify a map
+        #[clap(long("map"), short('m'))]
         map: Option<String>,
         /// Sets human race
+        #[clap(long("race"), short('r'))]
         race: Option<Race>,
         /// Sets human name
         name: Option<String>,
