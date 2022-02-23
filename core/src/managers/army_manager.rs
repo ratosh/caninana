@@ -249,7 +249,8 @@ impl ArmyManager {
                 && ((our_strength < their_strength * 0.3f32)
                     || (!self.defending && our_strength < their_strength * 0.8f32))
                 || run_from_units
-                || unit.type_id() == UnitTypeId::Roach && unit.health_percentage().unwrap_or_default() < BURROW_HEALTH_PERCENTAGE
+                || unit.type_id() == UnitTypeId::Roach
+                    && unit.health_percentage().unwrap_or_default() < BURROW_HEALTH_PERCENTAGE
             {
                 UnitDecision::Retreat
             } else if (self.defending && our_strength > their_strength * 0.8f32)
