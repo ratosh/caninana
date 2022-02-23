@@ -264,6 +264,9 @@ impl ProductionManager {
     }
 
     fn build_expansion(&self, bot: &mut Bot, _bot_state: &BotState, unit_type: UnitTypeId) {
+        if bot.counter().ordered().count(unit_type) > 0 {
+            return;
+        }
         if let Some(expansion_location) = bot
             .free_expansions()
             .filter(|e| bot.pathing_distance(bot.start_location, e.loc).is_some())

@@ -33,6 +33,8 @@ impl Strength for Unit {
             0.1f32
         } else if !self.can_attack() {
             0.5f32
+        } else if self.is_structure() {
+            1.5f32
         } else {
             1f32
         };
