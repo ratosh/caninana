@@ -434,7 +434,12 @@ impl ArmyManager {
     }
 
     fn queue_units(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        let min_queens = 8.min(bot.units.my.townhalls.len() + 2);
+        let extra_queens = match bot_state.spending_focus {
+            SpendingFocus::Economy => 1,
+            SpendingFocus::Balance => 3,
+            SpendingFocus::Army => 6,
+        };
+        let min_queens = 8.min(bot.units.my.townhalls.len() + extra_queens);
         bot_state.build_queue.push(
             Command::new_unit(UnitTypeId::Queen, min_queens, true),
             false,
