@@ -271,13 +271,11 @@ impl ArmyManager {
 
         for unit in my_army.iter() {
             let decision = *self.allied_decision.get(&unit.tag()).unwrap();
-            let detectors = bot.units.enemy.all.filter(|u| {
-                u.is_detector() && u.is_closer(u.detect_range() + BURROW_DETECTION_RANGE, unit)
-            });
+            let detectors = bot.detection_close_by(unit, BURROW_DETECTION_RANGE);
             if unit.type_id() == UnitTypeId::Roach
                 && unit.has_ability(AbilityId::BurrowDownRoach)
                 && unit.health_percentage().unwrap_or_default() < BURROW_HEALTH_PERCENTAGE
-                && detectors.is_empty()
+                && !detectors
             {
                 unit.use_ability(AbilityId::BurrowDownRoach, false);
                 continue;
@@ -286,7 +284,7 @@ impl ArmyManager {
                     && (decision == UnitDecision::Advance
                         && unit.health_percentage().unwrap_or_default()
                             >= UNBURROW_HEALTH_PERCENTAGE
-                        || !detectors.is_empty()
+                        || detectors
                         || unit.is_revealed())
                 {
                     unit.use_ability(AbilityId::BurrowUpRoach, false);

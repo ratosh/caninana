@@ -466,3 +466,39 @@ impl CanAffordVespeneUpgrade for Bot {
         self.vespene >= cost.vespene
     }
 }
+
+pub trait DetectionCloseBy {
+    fn detection_close_by(&self, unit: &Unit, range: f32) -> bool;
+}
+
+impl DetectionCloseBy for Bot {
+    fn detection_close_by(&self, unit: &Unit, range: f32) -> bool {
+        if !self
+            .units
+            .enemy
+            .all
+            .filter(|u| u.is_detector() && u.is_closer(u.detect_range() + range, unit))
+            .is_empty()
+        {
+            return true;
+        }
+
+        let scans = self
+            .state
+            .observation
+            .raw
+            .effects
+            .iter()
+            .filter(|e| e.id == EffectId::ScannerSweep && e.alliance != unit.alliance())
+            .collect::<Vec<_>>();
+
+        for scan in scans {
+            for p in &scan.positions {
+                if unit.is_closer(range + scan.radius, *p) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
