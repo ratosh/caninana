@@ -455,3 +455,14 @@ impl BuildingRequirement for UpgradeId {
         }
     }
 }
+
+pub trait CanAffordVespeneUpgrade {
+    fn can_afford_vespene_upgrade(&self, upgrade: UpgradeId) -> bool;
+}
+
+impl CanAffordVespeneUpgrade for Bot {
+    fn can_afford_vespene_upgrade(&self, upgrade: UpgradeId) -> bool {
+        let cost = self.get_upgrade_cost(upgrade);
+        self.vespene >= cost.vespene
+    }
+}

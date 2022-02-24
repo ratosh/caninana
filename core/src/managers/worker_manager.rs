@@ -266,7 +266,7 @@ impl WorkerManager {
                         minerals.push_back(mineral);
                     }
                     Some(assigned) => {
-                        if assigned.len() < Self::MINERAL_WORKERS {
+                        for _ in assigned.len()..Self::MINERAL_WORKERS {
                             minerals.push_back(mineral);
                         }
                     }
