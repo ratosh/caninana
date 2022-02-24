@@ -1,5 +1,16 @@
 # Performance from ai_arena
 
+## v0.6.6 (390)
+60.87% win rate after 184 games
+
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| Snowbot            | -45 | 1    | 9      | 0    |
+| SF4G               | -33 | 2    | 8      | 0    |
+| zUnkP              | -31 | 1    | 8      | 0    |
+| Jensiiibot         | -28 | 1    | 8      | 0    |
+| Roro               | -27 | 2    | 7      | 0    |
+
 ## v0.5.6 (390)
 35.59% win rate after 236 games
 

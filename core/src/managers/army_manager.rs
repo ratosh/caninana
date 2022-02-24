@@ -576,13 +576,7 @@ impl ArmyManager {
 
     fn queue_upgrades(&self, bot: &mut Bot, bot_state: &mut BotState) {
         if bot.counter().all().count(UnitTypeId::Zergling) > 0
-            && bot.vespene
-                > bot
-                    .game_data
-                    .upgrades
-                    .get(&UpgradeId::Zerglingmovementspeed)
-                    .unwrap()
-                    .vespene_cost
+            && bot.can_afford_vespene_upgrade(UpgradeId::Zerglingmovementspeed)
         {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingmovementspeed, true),
