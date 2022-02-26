@@ -10,7 +10,7 @@ use crate::{AIComponent, BotState};
 #[derive(Default)]
 pub struct UnitsCache {
     cache: HashMap<u64, CacheEntry>,
-    pub units: Units
+    pub units: Units,
 }
 
 impl UnitsCache {
