@@ -56,10 +56,10 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Roach,
                 UnitTypeId::Ravager,
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Sentry => vec![
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
                 UnitTypeId::Ultralisk,
             ],
             UnitTypeId::Stalker => vec![UnitTypeId::Zergling],
@@ -70,7 +70,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
             UnitTypeId::DarkTemplar => vec![
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord
+                UnitTypeId::BroodLord
             ],
             UnitTypeId::Carrier => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
@@ -87,14 +87,14 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Roach,
                 UnitTypeId::Ravager,
                 UnitTypeId::Ultralisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
                 // UnitTypeId::LurkerMP,
             ],
             UnitTypeId::Marauder => vec![
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Reaper => vec![UnitTypeId::Ravager],
@@ -105,18 +105,18 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::SiegeTank => vec![
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
                 UnitTypeId::Ravager,
             ],
             UnitTypeId::SiegeTankSieged => vec![
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
                 UnitTypeId::Ravager,
             ],
             UnitTypeId::Thor => vec![
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Banshee => vec![
                 UnitTypeId::Hydralisk,
@@ -155,7 +155,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::SiegeTankSieged,
                 UnitTypeId::Marauder,
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Hydralisk => vec![
                 UnitTypeId::Sentry,
@@ -166,7 +166,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::SiegeTank,
                 UnitTypeId::SiegeTankSieged,
                 UnitTypeId::Roach,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Mutalisk => vec![
                 UnitTypeId::Sentry,
@@ -189,14 +189,13 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::SiegeTank,
                 UnitTypeId::SiegeTankSieged,
                 UnitTypeId::Ghost,
-                // UnitTypeId::BroodLord,
             ],
             UnitTypeId::Ultralisk => vec![
                 UnitTypeId::Immortal,
                 UnitTypeId::VoidRay,
                 UnitTypeId::Banshee,
                 UnitTypeId::Hydralisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::BroodLord => vec![
                 UnitTypeId::Stalker,
@@ -362,6 +361,7 @@ impl ProducedOn for UnitTypeId {
             UnitTypeId::Hive => UnitTypeId::Lair,
             UnitTypeId::Baneling => UnitTypeId::Zergling,
             UnitTypeId::Ravager => UnitTypeId::Roach,
+            UnitTypeId::BroodLord => UnitTypeId::Corruptor,
             UnitTypeId::Overseer => UnitTypeId::Overlord,
             _ => UnitTypeId::Larva,
         }
@@ -376,6 +376,7 @@ impl MorphUpgrade for UnitTypeId {
             UnitTypeId::Baneling => Some(AbilityId::MorphZerglingToBanelingBaneling),
             UnitTypeId::Ravager => Some(AbilityId::MorphToRavagerRavager),
             UnitTypeId::Overseer => Some(AbilityId::MorphOverseer),
+            UnitTypeId::BroodLord => Some(AbilityId::MorphToBroodLordBroodLord),
             _ => None,
         }
     }
@@ -396,6 +397,7 @@ impl BuildingRequirement for UnitTypeId {
             UnitTypeId::Overseer => Some(UnitTypeId::Lair),
             UnitTypeId::Ultralisk => Some(UnitTypeId::UltraliskCavern),
             UnitTypeId::Corruptor => Some(UnitTypeId::Spire),
+            UnitTypeId::BroodLord => Some(UnitTypeId::GreaterSpire),
 
             // Buildings
             UnitTypeId::Lair => Some(UnitTypeId::SpawningPool),
