@@ -59,10 +59,14 @@ pub struct CommandQueue {
 }
 
 impl CommandQueue {
-    pub fn print_queue(&self) {
-        println!("----------------------------------");
-        for command in self.queue.iter() {
-            println!("Pending command {:?}", command);
+    pub fn print_queue(&self, bot: &mut Bot) {
+        for (index, command) in self.queue.iter().enumerate() {
+            bot.debug.draw_text_screen(
+                format!("{:?}", command).as_str(),
+                Some((10f32 * index as f32, 0f32)),
+                Some((255, 255, 255)),
+                Some(14),
+            );
         }
     }
 

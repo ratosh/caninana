@@ -499,31 +499,12 @@ impl ArmyManager {
         let mut unit_distribution = HashMap::new();
 
         for unit_type in self.allowed_tech.iter() {
-            if let Some(requirement) = unit_type.building_requirement() {
-                if !bot.units.my.all.ready().of_type(requirement).is_empty() {
-                    unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
-                } else if let Some(another_requirement) = requirement.building_requirement() {
-                    if !bot
-                        .units
-                        .my
-                        .all
-                        .ready()
-                        .of_type(another_requirement)
-                        .is_empty()
-                    {
-                        bot_state.build_queue.push(
-                            Command::new_unit(requirement, 1, true),
-                            false,
-                            100,
-                        );
-                    }
-                } else {
-                    bot_state
-                        .build_queue
-                        .push(Command::new_unit(requirement, 1, true), false, 100);
-                }
-            } else {
+            if unit_type.has_requirement(bot) {
                 unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
+            } else {
+                bot_state
+                    .build_queue
+                    .push(Command::new_unit(*unit_type, 1, true), false, 100);
             }
         }
         let mut result = HashMap::new();
