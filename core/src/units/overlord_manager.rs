@@ -87,7 +87,7 @@ impl OverlordManager {
             .sorted(|f| f.tag());
         let mut enemy_units = bot_state
             .enemy_cache
-            .units()
+            .units
             .filter(|f| !f.is_worker() && f.can_attack() || f.is_cloaked());
         for overseer in overseers.iter() {
             let position = if let Some(closest_anti_air) = bot

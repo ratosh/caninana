@@ -25,7 +25,7 @@ impl ResourceManager {
             .is_empty();
         let advanced_enemy_units = !bot_state
             .enemy_cache
-            .units()
+            .units
             .filter(|unit| {
                 unit.can_attack()
                     && unit
@@ -35,7 +35,7 @@ impl ResourceManager {
             .is_empty();
         let their_supply = bot_state
             .enemy_cache
-            .units()
+            .units
             .filter(|unit| !unit.is_worker() && unit.can_attack())
             .supply();
         let our_supply = bot

@@ -9,25 +9,19 @@ use crate::{AIComponent, BotState};
 
 #[derive(Default)]
 pub struct UnitsCache {
-    pub cache: HashMap<u64, CacheEntry>,
+    cache: HashMap<u64, CacheEntry>,
+    pub units: Units
 }
 
 impl UnitsCache {
     const FOG_AREA_CACHE_TIME: f32 = 120f32;
     const VISIBLE_AREA_CACHE_TIME: f32 = 10f32;
 
-    pub fn units(&self) -> Units {
-        let mut result = Units::new();
-        for unit in self.cache.values() {
-            result.push(unit.clone().unit);
-        }
-        result
-    }
-
     pub fn destroy_unit(&mut self, tag: u64) {
         if self.cache.contains_key(&tag) {
             debug!("Unit [{tag:?}] destroyed")
         }
+        self.units.remove(tag);
         self.cache.remove(&tag);
     }
 
@@ -48,6 +42,10 @@ impl UnitsCache {
                 value.last_seen + Self::FOG_AREA_CACHE_TIME > bot.time
             }
         });
+        self.units.clear();
+        for unit in self.cache.values() {
+            self.units.push(unit.unit.clone());
+        }
     }
 }
 
