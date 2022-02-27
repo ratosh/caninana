@@ -501,7 +501,7 @@ impl ArmyManager {
 
         for unit_type in self.allowed_tech.iter() {
             if unit_type.has_requirement(bot) {
-                unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
+                unit_distribution.insert(*unit_type, Self::unit_value(bot_state, *unit_type));
             } else {
                 bot_state
                     .build_queue
