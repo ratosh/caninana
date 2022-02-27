@@ -69,17 +69,8 @@ impl ProductionManager {
             }
             return;
         }
-        if let Some(requirement) = unit_type.building_requirement() {
-            if bot.counter().all().count(requirement) == 0 {
-                bot_state.build_queue.push(
-                    Command::new_unit(requirement, 1, save_resources),
-                    false,
-                    Self::REQUIREMENT_QUEUE_PRIORITY,
-                );
-                return;
-            } else if bot.counter().ordered().count(requirement) > 0 {
-                return;
-            }
+        if self.missing_unit_requirements(bot, bot_state, unit_type) {
+            return;
         }
         let upgrade_ability = unit_type.morph_ability();
         if upgrade_ability.is_some() {
@@ -97,6 +88,50 @@ impl ProductionManager {
         }
     }
 
+    fn missing_unit_requirements(
+        &self,
+        bot: &Bot,
+        bot_state: &mut BotState,
+        unit_type: UnitTypeId,
+    ) -> bool {
+        let has_requirement = unit_type.has_requirement(bot);
+        if has_requirement {
+            return false;
+        }
+
+        if let Some(requirement) = unit_type.building_requirements().first() {
+            if !self.missing_unit_requirements(bot, bot_state, *requirement) {
+                bot_state.build_queue.push(
+                    Command::new_unit(*requirement, 1, true),
+                    false,
+                    Self::REQUIREMENT_QUEUE_PRIORITY,
+                );
+            }
+        }
+        true
+    }
+
+    fn missing_upgrade_requirements(
+        &self,
+        bot: &Bot,
+        bot_state: &mut BotState,
+        upgrade_id: UpgradeId,
+    ) -> bool {
+        let has_requirement = upgrade_id.has_requirement(bot);
+        if has_requirement {
+            return false;
+        }
+
+        if let Some(requirement) = upgrade_id.building_requirements().first() {
+            if !self.missing_unit_requirements(bot, bot_state, *requirement) {
+                bot_state
+                    .build_queue
+                    .push(Command::new_unit(*requirement, 1, true), false, 100);
+            }
+        }
+        true
+    }
+
     // TODO: Queens can be produced on multiple structures (Different types of hatcheries)
     fn produce_unit(
         &self,
@@ -106,7 +141,7 @@ impl ProductionManager {
         save_resources: bool,
     ) {
         let produced_on = unit_type.produced_on();
-        if produced_on == UnitTypeId::Larva {
+        if produced_on.contains(&UnitTypeId::Larva) {
             if let Some(larva) = bot.units.my.larvas.pop() {
                 debug!("training a {:?} at {:?}", unit_type, produced_on);
                 larva.train(unit_type, false);
@@ -117,19 +152,17 @@ impl ProductionManager {
             .my
             .structures
             .ready()
-            .of_type(produced_on)
+            .of_types(&produced_on)
             .idle()
             .first()
         {
             debug!("training a {:?} at {:?}", unit_type, produced_on);
             train_at.train(unit_type, false);
             bot.subtract_resources(unit_type, true);
-        } else if produced_on.is_structure()
-            && bot.units.my.structures.of_type(produced_on).is_empty()
-        {
+        } else {
             debug!("No building to create, pushing one to the queue");
             bot_state.build_queue.push(
-                Command::new_unit(produced_on, 1, save_resources),
+                Command::new_unit(*produced_on.first().unwrap(), 1, save_resources),
                 false,
                 Self::REQUIREMENT_QUEUE_PRIORITY,
             );
@@ -148,28 +181,25 @@ impl ProductionManager {
             return;
         }
         if bot.can_afford_upgrade(upgrade) {
-            if let Some(requirement) = upgrade.building_requirement() {
-                if bot.counter().count(requirement) == 0 {
-                    bot_state.build_queue.push(
-                        Command::new_unit(requirement, 1, save_resources),
-                        false,
-                        Self::REQUIREMENT_QUEUE_PRIORITY,
-                    );
-                    return;
-                }
+            if self.missing_upgrade_requirements(bot, bot_state, upgrade) {
+                return;
             }
-            if produced_on.is_structure() {
-                if let Some(building) = bot.units.my.structures.of_type(produced_on).idle().first()
-                {
-                    building.research(upgrade, false);
-                    bot.subtract_upgrade_cost(upgrade);
-                } else {
-                    bot_state.build_queue.push(
-                        Command::new_unit(produced_on, 1, save_resources),
-                        false,
-                        Self::REQUIREMENT_QUEUE_PRIORITY,
-                    );
-                }
+            if let Some(building) = bot
+                .units
+                .my
+                .structures
+                .of_types(&produced_on)
+                .idle()
+                .first()
+            {
+                building.research(upgrade, false);
+                bot.subtract_upgrade_cost(upgrade);
+            } else {
+                bot_state.build_queue.push(
+                    Command::new_unit(*produced_on.first().unwrap(), 1, save_resources),
+                    false,
+                    Self::REQUIREMENT_QUEUE_PRIORITY,
+                );
             }
         } else if save_resources {
             bot.subtract_upgrade_cost(upgrade);
@@ -196,14 +226,14 @@ impl ProductionManager {
             .units
             .my
             .all
-            .of_type(produced_on)
+            .of_types(&produced_on)
             .closest(bot.start_location)
         {
             unit.use_ability(upgrade_ability.unwrap(), false);
             bot.subtract_resources(unit_type, false);
         } else {
             bot_state.build_queue.push(
-                Command::new_unit(produced_on, 1, save_resources),
+                Command::new_unit(*produced_on.first().unwrap(), 1, save_resources),
                 false,
                 Self::REQUIREMENT_QUEUE_PRIORITY,
             );
@@ -291,30 +321,29 @@ impl ProductionManager {
     }
 
     fn build_static_defense(&self, bot: &mut Bot, unit_type: UnitTypeId) {
-        let defenses = bot
-            .units
-            .my
-            .all
-            .filter(|unit| unit.type_id().is_static_defense());
-        let defenseless_halls = bot
-            .units
-            .my
-            .townhalls
-            .filter(|u| defenses.in_range(u, 11f32).is_empty());
-        let defense_towards = bot.units.cached.units.center().unwrap_or(bot.enemy_start);
-        if let Some(townhall) = defenseless_halls.iter().closest(defense_towards) {
-            let placement_position = townhall.position().towards(defense_towards, 7f32);
-            if let Some(builder) = self.get_builder(bot, placement_position) {
-                let options = PlacementOptions {
-                    max_distance: 5,
-                    step: 1,
-                    random: false,
-                    addon: false,
-                };
-                if let Some(placement) = bot.find_placement(unit_type, placement_position, options)
-                {
-                    builder.build(unit_type, placement, false);
-                    bot.subtract_resources(unit_type, false);
+        let closest_to_enemy_hall = bot.owned_expansions().last();
+        if let Some(expansion) = closest_to_enemy_hall {
+            if let Some(tag) = expansion.base {
+                if let Some(hall) = bot.units.my.all.get(tag) {
+                    if !bot.units.enemy.units.in_range(hall, 21f32).is_empty() {
+                        return;
+                    }
+                    let placement_position =
+                        hall.position().towards(bot.enemy_start, hall.radius());
+                    if let Some(builder) = self.get_builder(bot, placement_position) {
+                        let options = PlacementOptions {
+                            max_distance: 5,
+                            step: 1,
+                            random: false,
+                            addon: false,
+                        };
+                        if let Some(placement) =
+                            bot.find_placement(unit_type, placement_position, options)
+                        {
+                            builder.build(unit_type, placement, false);
+                            bot.subtract_resources(unit_type, false);
+                        }
+                    }
                 }
             }
         } else {

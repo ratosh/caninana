@@ -436,10 +436,17 @@ impl WorkerManager {
             .map(|e| e.ideal_harvesters().unwrap_or_default())
             .sum::<u32>();
 
-        let wanted_workers = (ideal_miners + ideal_geysers).min(MAX_WORKERS as u32);
+        let min_workers = MAX_WORKERS.min(ideal_miners as usize);
+        let ideal_workers = MAX_WORKERS.min((ideal_miners + ideal_geysers) as usize);
 
         bot_state.build_queue.push(
-            Command::new_unit(UnitTypeId::Drone, wanted_workers as usize, false),
+            Command::new_unit(UnitTypeId::Drone, min_workers, false),
+            false,
+            150,
+        );
+
+        bot_state.build_queue.push(
+            Command::new_unit(UnitTypeId::Drone, ideal_workers, false),
             false,
             25,
         );

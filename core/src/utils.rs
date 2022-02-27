@@ -32,7 +32,7 @@ impl Strength for Unit {
         let multiplier = if self.is_worker() {
             0.1f32
         } else if !self.can_attack() {
-            0.5f32
+            0.25f32
         } else if self.is_structure() {
             1.5f32
         } else {
@@ -56,12 +56,9 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Roach,
                 UnitTypeId::Ravager,
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Sentry => vec![
-                // UnitTypeId::BroodLord,
-                UnitTypeId::Ultralisk,
-            ],
+            UnitTypeId::Sentry => vec![UnitTypeId::BroodLord, UnitTypeId::Ultralisk],
             UnitTypeId::Stalker => vec![UnitTypeId::Zergling],
             UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
             UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
@@ -70,7 +67,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
             UnitTypeId::DarkTemplar => vec![
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Carrier => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
@@ -87,14 +84,14 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Roach,
                 UnitTypeId::Ravager,
                 UnitTypeId::Ultralisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
                 // UnitTypeId::LurkerMP,
             ],
             UnitTypeId::Marauder => vec![
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Reaper => vec![UnitTypeId::Ravager],
@@ -105,18 +102,18 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::SiegeTank => vec![
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
                 UnitTypeId::Ravager,
             ],
             UnitTypeId::SiegeTankSieged => vec![
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
                 UnitTypeId::Ravager,
             ],
             UnitTypeId::Thor => vec![
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Banshee => vec![
                 UnitTypeId::Hydralisk,
@@ -155,7 +152,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::SiegeTankSieged,
                 UnitTypeId::Marauder,
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Hydralisk => vec![
                 UnitTypeId::Sentry,
@@ -166,7 +163,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::SiegeTank,
                 UnitTypeId::SiegeTankSieged,
                 UnitTypeId::Roach,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Mutalisk => vec![
                 UnitTypeId::Sentry,
@@ -189,14 +186,13 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::SiegeTank,
                 UnitTypeId::SiegeTankSieged,
                 UnitTypeId::Ghost,
-                // UnitTypeId::BroodLord,
             ],
             UnitTypeId::Ultralisk => vec![
                 UnitTypeId::Immortal,
                 UnitTypeId::VoidRay,
                 UnitTypeId::Banshee,
                 UnitTypeId::Hydralisk,
-                // UnitTypeId::BroodLord,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::BroodLord => vec![
                 UnitTypeId::Stalker,
@@ -328,7 +324,7 @@ fn should_send_order(unit: &Unit, target: Target, range: f32, queue: bool) -> bo
 
 // TODO: Check if all this info could prob be retrieved from game_info.
 pub trait ProducedOn {
-    fn produced_on(&self) -> UnitTypeId;
+    fn produced_on(&self) -> Vec<UnitTypeId>;
 }
 
 pub trait IsStaticDefense {
@@ -352,18 +348,20 @@ pub trait MorphUpgrade {
 }
 
 pub trait BuildingRequirement {
-    fn building_requirement(&self) -> Option<UnitTypeId>;
+    fn building_requirements(&self) -> Vec<UnitTypeId>;
 }
 
 impl ProducedOn for UnitTypeId {
-    fn produced_on(&self) -> UnitTypeId {
+    fn produced_on(&self) -> Vec<UnitTypeId> {
         match *self {
-            UnitTypeId::Queen | UnitTypeId::Lair => UnitTypeId::Hatchery,
-            UnitTypeId::Hive => UnitTypeId::Lair,
-            UnitTypeId::Baneling => UnitTypeId::Zergling,
-            UnitTypeId::Ravager => UnitTypeId::Roach,
-            UnitTypeId::Overseer => UnitTypeId::Overlord,
-            _ => UnitTypeId::Larva,
+            UnitTypeId::Queen => vec![UnitTypeId::Hatchery, UnitTypeId::Lair, UnitTypeId::Hive],
+            UnitTypeId::Lair => vec![UnitTypeId::Hatchery],
+            UnitTypeId::Hive => vec![UnitTypeId::Lair],
+            UnitTypeId::Baneling => vec![UnitTypeId::Zergling],
+            UnitTypeId::Ravager => vec![UnitTypeId::Roach],
+            UnitTypeId::BroodLord => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Overseer => vec![UnitTypeId::Overlord],
+            _ => vec![UnitTypeId::Larva],
         }
     }
 }
@@ -376,54 +374,58 @@ impl MorphUpgrade for UnitTypeId {
             UnitTypeId::Baneling => Some(AbilityId::MorphZerglingToBanelingBaneling),
             UnitTypeId::Ravager => Some(AbilityId::MorphToRavagerRavager),
             UnitTypeId::Overseer => Some(AbilityId::MorphOverseer),
+            UnitTypeId::BroodLord => Some(AbilityId::MorphToBroodLordBroodLord),
             _ => None,
         }
     }
 }
 
 impl BuildingRequirement for UnitTypeId {
-    fn building_requirement(&self) -> Option<UnitTypeId> {
+    fn building_requirements(&self) -> Vec<UnitTypeId> {
         match *self {
             // Units
-            UnitTypeId::Queen => Some(UnitTypeId::SpawningPool),
-            UnitTypeId::Zergling => Some(UnitTypeId::SpawningPool),
-            UnitTypeId::Baneling => Some(UnitTypeId::BanelingNest),
-            UnitTypeId::Roach => Some(UnitTypeId::RoachWarren),
-            UnitTypeId::Ravager => Some(UnitTypeId::RoachWarren),
-            UnitTypeId::Hydralisk => Some(UnitTypeId::HydraliskDen),
-            UnitTypeId::HydraliskDen => Some(UnitTypeId::Lair),
-            UnitTypeId::Mutalisk => Some(UnitTypeId::Spire),
-            UnitTypeId::Overseer => Some(UnitTypeId::Lair),
-            UnitTypeId::Ultralisk => Some(UnitTypeId::UltraliskCavern),
-            UnitTypeId::Corruptor => Some(UnitTypeId::Spire),
+            UnitTypeId::Queen => vec![UnitTypeId::SpawningPool],
+            UnitTypeId::Zergling => vec![UnitTypeId::SpawningPool],
+            UnitTypeId::Baneling => vec![UnitTypeId::BanelingNest],
+            UnitTypeId::Roach => vec![UnitTypeId::RoachWarren],
+            UnitTypeId::Ravager => vec![UnitTypeId::RoachWarren],
+            UnitTypeId::Hydralisk => vec![UnitTypeId::HydraliskDen],
+            UnitTypeId::Mutalisk => vec![UnitTypeId::Spire],
+            UnitTypeId::Overseer => vec![UnitTypeId::Lair, UnitTypeId::Hive],
+            UnitTypeId::Ultralisk => vec![UnitTypeId::UltraliskCavern],
+            UnitTypeId::Corruptor => vec![UnitTypeId::Spire, UnitTypeId::GreaterSpire],
+            UnitTypeId::BroodLord => vec![UnitTypeId::GreaterSpire],
 
             // Buildings
-            UnitTypeId::Lair => Some(UnitTypeId::SpawningPool),
-            UnitTypeId::Hive => Some(UnitTypeId::InfestationPit),
-            UnitTypeId::Spire => Some(UnitTypeId::Lair),
-            UnitTypeId::UltraliskCavern => Some(UnitTypeId::Hive),
-            UnitTypeId::SpineCrawler | UnitTypeId::SporeCrawler => Some(UnitTypeId::SpawningPool),
-            _ => None,
+            UnitTypeId::Lair => vec![UnitTypeId::SpawningPool],
+            UnitTypeId::Hive => vec![UnitTypeId::InfestationPit],
+            UnitTypeId::HydraliskDen => vec![UnitTypeId::Lair, UnitTypeId::Hive],
+            UnitTypeId::Spire => vec![UnitTypeId::Lair, UnitTypeId::Hive],
+            UnitTypeId::UltraliskCavern => vec![UnitTypeId::Hive],
+            UnitTypeId::SpineCrawler | UnitTypeId::SporeCrawler => vec![UnitTypeId::SpawningPool],
+            _ => vec![],
         }
     }
 }
 
 impl ProducedOn for UpgradeId {
-    fn produced_on(&self) -> UnitTypeId {
+    fn produced_on(&self) -> Vec<UnitTypeId> {
         match *self {
-            UpgradeId::Burrow => UnitTypeId::Hatchery,
+            UpgradeId::Burrow => vec![UnitTypeId::Hatchery],
             UpgradeId::Zerglingattackspeed | UpgradeId::Zerglingmovementspeed => {
-                UnitTypeId::SpawningPool
+                vec![UnitTypeId::SpawningPool]
             }
-            UpgradeId::CentrificalHooks => UnitTypeId::BanelingNest,
-            UpgradeId::GlialReconstitution => UnitTypeId::RoachWarren,
+            UpgradeId::CentrificalHooks => vec![UnitTypeId::BanelingNest],
+            UpgradeId::GlialReconstitution => vec![UnitTypeId::RoachWarren],
             UpgradeId::EvolveGroovedSpines | UpgradeId::EvolveMuscularAugments => {
-                UnitTypeId::HydraliskDen
+                vec![UnitTypeId::HydraliskDen]
             }
             UpgradeId::ChitinousPlating | UpgradeId::AnabolicSynthesis => {
-                UnitTypeId::UltraliskCavern
+                vec![UnitTypeId::UltraliskCavern]
             }
-            UpgradeId::Overlordspeed => UnitTypeId::Hatchery,
+            UpgradeId::Overlordspeed => {
+                vec![UnitTypeId::Hatchery, UnitTypeId::Lair, UnitTypeId::Hive]
+            }
             UpgradeId::ZergGroundArmorsLevel1
             | UpgradeId::ZergGroundArmorsLevel2
             | UpgradeId::ZergGroundArmorsLevel3
@@ -432,7 +434,7 @@ impl ProducedOn for UpgradeId {
             | UpgradeId::ZergMissileWeaponsLevel3
             | UpgradeId::ZergMeleeWeaponsLevel1
             | UpgradeId::ZergMeleeWeaponsLevel2
-            | UpgradeId::ZergMeleeWeaponsLevel3 => UnitTypeId::EvolutionChamber,
+            | UpgradeId::ZergMeleeWeaponsLevel3 => vec![UnitTypeId::EvolutionChamber],
             _ => {
                 panic!("Idk where to produce {:?}", self);
             }
@@ -441,17 +443,17 @@ impl ProducedOn for UpgradeId {
 }
 
 impl BuildingRequirement for UpgradeId {
-    fn building_requirement(&self) -> Option<UnitTypeId> {
+    fn building_requirements(&self) -> Vec<UnitTypeId> {
         match *self {
             UpgradeId::CentrificalHooks
             | UpgradeId::ZergGroundArmorsLevel2
             | UpgradeId::ZergMissileWeaponsLevel2
-            | UpgradeId::ZergMeleeWeaponsLevel2 => Some(UnitTypeId::Lair),
+            | UpgradeId::ZergMeleeWeaponsLevel2 => vec![UnitTypeId::Lair, UnitTypeId::Hive],
             UpgradeId::Zerglingattackspeed
             | UpgradeId::ZergGroundArmorsLevel3
             | UpgradeId::ZergMissileWeaponsLevel3
-            | UpgradeId::ZergMeleeWeaponsLevel3 => Some(UnitTypeId::Hive),
-            _ => None,
+            | UpgradeId::ZergMeleeWeaponsLevel3 => vec![UnitTypeId::Hive],
+            _ => vec![],
         }
     }
 }
@@ -500,5 +502,31 @@ impl DetectionCloseBy for Bot {
             }
         }
         false
+    }
+}
+
+pub trait HasRequirement {
+    fn has_requirement(&self, bot: &Bot) -> bool;
+}
+
+impl HasRequirement for UnitTypeId {
+    fn has_requirement(&self, bot: &Bot) -> bool {
+        for requirement in self.building_requirements() {
+            if !bot.units.my.all.ready().of_type(requirement).is_empty() {
+                return true;
+            }
+        }
+        self.building_requirements().is_empty()
+    }
+}
+
+impl HasRequirement for UpgradeId {
+    fn has_requirement(&self, bot: &Bot) -> bool {
+        for requirement in self.building_requirements() {
+            if !bot.units.my.all.ready().of_type(requirement).is_empty() {
+                return true;
+            }
+        }
+        self.building_requirements().is_empty()
     }
 }
