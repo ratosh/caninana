@@ -439,9 +439,9 @@ impl ArmyManager {
         };
         let min_queens = 8.min(bot.units.my.townhalls.len() + extra_queens);
         bot_state.build_queue.push(
-            Command::new_unit(UnitTypeId::Queen, min_queens, true),
+            Command::new_unit(UnitTypeId::Queen, min_queens, false),
             false,
-            50,
+            90,
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone);

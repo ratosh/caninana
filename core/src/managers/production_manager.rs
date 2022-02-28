@@ -321,29 +321,32 @@ impl ProductionManager {
     }
 
     fn build_static_defense(&self, bot: &mut Bot, unit_type: UnitTypeId) {
-        let closest_to_enemy_hall = bot.owned_expansions().last();
-        if let Some(expansion) = closest_to_enemy_hall {
-            if let Some(tag) = expansion.base {
-                if let Some(hall) = bot.units.my.all.get(tag) {
-                    if !bot.units.enemy.units.in_range(hall, 21f32).is_empty() {
-                        return;
-                    }
-                    let placement_position =
-                        hall.position().towards(bot.enemy_start, hall.radius());
-                    if let Some(builder) = self.get_builder(bot, placement_position) {
-                        let options = PlacementOptions {
-                            max_distance: 5,
-                            step: 1,
-                            random: false,
-                            addon: false,
-                        };
-                        if let Some(placement) =
-                            bot.find_placement(unit_type, placement_position, options)
-                        {
-                            builder.build(unit_type, placement, false);
-                            bot.subtract_resources(unit_type, false);
-                        }
-                    }
+        let defenses = bot
+            .units
+            .my
+            .all
+            .filter(|unit| unit.type_id().is_static_defense());
+        let defenseless_halls = bot
+            .units
+            .my
+            .townhalls
+            .filter(|u| defenses.in_range(u, 11f32).is_empty());
+        let defense_towards = bot.start_center;
+        if let Some(townhall) = defenseless_halls.iter().closest(defense_towards) {
+            let placement_position = townhall
+                .position()
+                .towards(defense_towards, townhall.radius() + 1f32);
+            if let Some(builder) = self.get_builder(bot, placement_position) {
+                let options = PlacementOptions {
+                    max_distance: 3,
+                    step: 1,
+                    random: false,
+                    addon: false,
+                };
+                if let Some(placement) = bot.find_placement(unit_type, placement_position, options)
+                {
+                    builder.build(unit_type, placement, false);
+                    bot.subtract_resources(unit_type, false);
                 }
             }
         } else {

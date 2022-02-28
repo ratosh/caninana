@@ -11,19 +11,14 @@ impl DefenseManager {
     }
 
     pub fn queue_defense(&self, _bot: &mut Bot, _bot_state: &mut BotState) {
-        // let advanced_enemy = !bot
+        // let enemy_supply = bot
         //     .units
         //     .enemy
         //     .units
-        //     .filter(|unit| {
-        //         !unit.is_worker()
-        //             && unit.can_attack()
-        //             && unit.position().distance(bot.enemy_start) * 2f32
-        //                 > unit.position().distance(bot.start_location)
-        //     })
-        //     .is_empty();
-        // if advanced_enemy {
-        //     let crawlers = bot.units.my.townhalls.len() - 1;
+        //     .filter(|unit| !unit.is_worker() && unit.can_attack())
+        //     .supply();
+        // if enemy_supply > bot.supply_army {
+        //     let crawlers = bot.units.my.townhalls.len();
         //     bot_state.build_queue.push(
         //         Command::new_unit(UnitTypeId::SpineCrawler, crawlers, true),
         //         false,
