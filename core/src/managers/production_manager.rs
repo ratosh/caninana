@@ -322,10 +322,10 @@ impl ProductionManager {
 
     fn build_static_defense(&self, bot: &mut Bot, unit_type: UnitTypeId) {
         let defenses = bot
-        .units
-        .my
-        .all
-        .filter(|unit| unit.type_id().is_static_defense());
+            .units
+            .my
+            .all
+            .filter(|unit| unit.type_id().is_static_defense());
         let defenseless_halls = bot
             .units
             .my
@@ -333,7 +333,9 @@ impl ProductionManager {
             .filter(|u| defenses.in_range(u, 11f32).is_empty());
         let defense_towards = bot.start_center;
         if let Some(townhall) = defenseless_halls.iter().closest(defense_towards) {
-            let placement_position = townhall.position().towards(defense_towards, townhall.radius() + 1f32);
+            let placement_position = townhall
+                .position()
+                .towards(defense_towards, townhall.radius() + 1f32);
             if let Some(builder) = self.get_builder(bot, placement_position) {
                 let options = PlacementOptions {
                     max_distance: 3,
