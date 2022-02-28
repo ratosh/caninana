@@ -108,7 +108,6 @@ impl ArmyManager {
 
         let enemy_attack_force = bot_state.enemy_cache.units.filter(|e| {
             e.can_attack()
-                && e.can_be_attacked()
                 && bot
                     .units
                     .my
@@ -574,7 +573,7 @@ impl ArmyManager {
         }
         if bot.counter().all().count(UnitTypeId::Zergling) > 20 {
             bot_state.build_queue.push(
-                Command::new_upgrade(UpgradeId::Zerglingattackspeed, true),
+                Command::new_upgrade(UpgradeId::Zerglingattackspeed, false),
                 false,
                 50,
             );
@@ -630,7 +629,8 @@ impl ArmyManager {
             .units
             .filter(|u| u.is_melee() && !u.is_worker())
             .len();
-        if melee_number > 0 && bot.can_afford_vespene_upgrade(UpgradeId::ZergMeleeWeaponsLevel1) {
+        if melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS
+            && bot.can_afford_vespene_upgrade(UpgradeId::ZergMeleeWeaponsLevel1) {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergMeleeWeaponsLevel1,
@@ -666,7 +666,8 @@ impl ArmyManager {
             .units
             .filter(|u| !u.is_flying() && !u.is_worker())
             .len();
-        if ground_number > 0 && bot.can_afford_vespene_upgrade(UpgradeId::ZergGroundArmorsLevel1) {
+        if ground_number > SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS
+            && bot.can_afford_vespene_upgrade(UpgradeId::ZergGroundArmorsLevel1) {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergGroundArmorsLevel1,
@@ -696,27 +697,14 @@ impl ArmyManager {
                 70,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Roach) > 0
-            && bot.can_afford_vespene_upgrade(UpgradeId::ZergGroundArmorsLevel1)
-        {
-            bot_state.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, false),
-                false,
-                90,
-            );
-            bot_state.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, false),
-                false,
-                80,
-            );
-        }
         let ranged_number = bot
             .units
             .my
             .units
             .filter(|u| !u.is_melee() && !u.is_worker())
             .len();
-        if ranged_number > 0 && bot.can_afford_vespene_upgrade(UpgradeId::ZergMissileWeaponsLevel1)
+        if ranged_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS
+            && bot.can_afford_vespene_upgrade(UpgradeId::ZergMissileWeaponsLevel1)
         {
             bot_state.build_queue.push(
                 Command::new_upgrade(

@@ -8,8 +8,8 @@ pub const UNLOCK_OVERSEER_WORKERS: usize = 29;
 pub const UNLOCK_BURROW_WORKERS: usize = 24;
 pub const OVERLORD_SPEED_WORKERS: usize = 30;
 
-pub const SAVE_FOR_ATTACK_UPGRADES_ON_UNITS: usize = 10;
-pub const SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS: usize = 20;
+pub const SAVE_FOR_ATTACK_UPGRADES_ON_UNITS: usize = 5;
+pub const SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS: usize = 10;
 
 pub const CREEP_DISTANCE_TO_HALL: f32 = 4.5f32;
 pub const CREEP_SPREAD_MAP_DISTANCE: usize = 4;
