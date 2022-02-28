@@ -44,6 +44,8 @@ impl ResourceManager {
             .all
             .filter(|unit| !unit.is_worker() && unit.can_attack())
             .supply();
+        let our_expansions = bot.owned_expansions().count();
+        let their_expansions = bot.enemy_expansions().count();
         let mut conditions = 0;
         if !advanced_units {
             conditions += 1;
@@ -52,6 +54,9 @@ impl ResourceManager {
             conditions += 1;
         }
         if our_supply < their_supply {
+            conditions += 1;
+        }
+        if our_expansions < their_expansions {
             conditions += 1;
         }
 
