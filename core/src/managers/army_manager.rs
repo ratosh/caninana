@@ -74,10 +74,32 @@ impl ArmyManager {
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Mutalisk));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Ultralisk));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::BroodLord));
+        my_army.extend(
+            bot.units
+                .my
+                .units
+                .ready()
+                .of_type(UnitTypeId::Queen)
+                .filter(|u| {
+                    !bot
+                        .units
+                        .enemy
+                        .all
+                        .filter(|e| u.in_real_range(e, 1f32))
+                        .is_empty()
+                        || !bot
+                        .units
+                        .enemy
+                        .all
+                        .filter(|e| e.in_real_range(u, 1f32))
+                        .is_empty()
+                }),
+        );
         my_army.sort(|u| u.tag());
 
         // Defend our townhalls
         let defense_range = if self.defending { 20f32 } else { 10f32 };
+
         if self.defending {
             my_army.extend(
                 bot.units
@@ -87,18 +109,6 @@ impl ArmyManager {
                     .of_type(UnitTypeId::Queen)
                     .filter(|u| {
                         !u.is_using(AbilityId::EffectInjectLarva)
-                            || !bot
-                                .units
-                                .enemy
-                                .all
-                                .filter(|e| u.in_real_range(e, 1f32))
-                                .is_empty()
-                            || !bot
-                                .units
-                                .enemy
-                                .all
-                                .filter(|e| e.in_real_range(u, 1f32))
-                                .is_empty()
                     }),
             );
         }
@@ -634,7 +644,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergMeleeWeaponsLevel1,
-                    melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS,
+                    false,
                 ),
                 false,
                 70,
@@ -644,7 +654,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergMeleeWeaponsLevel2,
-                    melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS,
+                    false,
                 ),
                 false,
                 60,
@@ -654,7 +664,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergMeleeWeaponsLevel3,
-                    melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS,
+                    false,
                 ),
                 false,
                 60,
@@ -671,7 +681,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergGroundArmorsLevel1,
-                    ground_number > SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS,
+                    false,
                 ),
                 false,
                 80,
@@ -681,7 +691,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergGroundArmorsLevel2,
-                    ground_number > SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS,
+                    false,
                 ),
                 false,
                 70,
@@ -691,7 +701,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergGroundArmorsLevel3,
-                    ground_number > SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS,
+                    false,
                 ),
                 false,
                 70,
@@ -709,7 +719,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergMissileWeaponsLevel1,
-                    melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS,
+                    false,
                 ),
                 false,
                 70,
@@ -719,7 +729,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergMissileWeaponsLevel2,
-                    melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS,
+                    false,
                 ),
                 false,
                 60,
@@ -729,7 +739,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::ZergMissileWeaponsLevel3,
-                    melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS,
+                    false,
                 ),
                 false,
                 60,

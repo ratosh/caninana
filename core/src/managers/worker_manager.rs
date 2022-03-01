@@ -311,7 +311,8 @@ impl WorkerManager {
                         .units
                         .mineral_fields
                         .iter()
-                        .filter(|m| !self.resources.contains_key(&m.tag()))
+                        .filter(|m| !self.resources.contains_key(&m.tag())
+                            && bot.pathing_distance(unit.position(), m.position()).is_some())
                         .closest(unit.position())
                     {
                         self.assign_worker(worker, long_mineral.tag());
