@@ -81,18 +81,17 @@ impl ArmyManager {
                 .ready()
                 .of_type(UnitTypeId::Queen)
                 .filter(|u| {
-                    !bot
-                        .units
+                    !bot.units
                         .enemy
                         .all
                         .filter(|e| u.in_real_range(e, 1f32))
                         .is_empty()
                         || !bot
-                        .units
-                        .enemy
-                        .all
-                        .filter(|e| e.in_real_range(u, 1f32))
-                        .is_empty()
+                            .units
+                            .enemy
+                            .all
+                            .filter(|e| e.in_real_range(u, 1f32))
+                            .is_empty()
                 }),
         );
         my_army.sort(|u| u.tag());
@@ -107,9 +106,7 @@ impl ArmyManager {
                     .units
                     .ready()
                     .of_type(UnitTypeId::Queen)
-                    .filter(|u| {
-                        !u.is_using(AbilityId::EffectInjectLarva)
-                    }),
+                    .filter(|u| !u.is_using(AbilityId::EffectInjectLarva)),
             );
         }
         if my_army.is_empty() {
@@ -640,32 +637,24 @@ impl ArmyManager {
             .filter(|u| u.is_melee() && !u.is_worker())
             .len();
         if melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS
-            && bot.can_afford_vespene_upgrade(UpgradeId::ZergMeleeWeaponsLevel1) {
+            && bot.can_afford_vespene_upgrade(UpgradeId::ZergMeleeWeaponsLevel1)
+        {
             bot_state.build_queue.push(
-                Command::new_upgrade(
-                    UpgradeId::ZergMeleeWeaponsLevel1,
-                    false,
-                ),
+                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1, false),
                 false,
                 70,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergMeleeWeaponsLevel1) {
             bot_state.build_queue.push(
-                Command::new_upgrade(
-                    UpgradeId::ZergMeleeWeaponsLevel2,
-                    false,
-                ),
+                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel2, false),
                 false,
                 60,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergMeleeWeaponsLevel2) {
             bot_state.build_queue.push(
-                Command::new_upgrade(
-                    UpgradeId::ZergMeleeWeaponsLevel3,
-                    false,
-                ),
+                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel3, false),
                 false,
                 60,
             );
@@ -677,32 +666,24 @@ impl ArmyManager {
             .filter(|u| !u.is_flying() && !u.is_worker())
             .len();
         if ground_number > SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS
-            && bot.can_afford_vespene_upgrade(UpgradeId::ZergGroundArmorsLevel1) {
+            && bot.can_afford_vespene_upgrade(UpgradeId::ZergGroundArmorsLevel1)
+        {
             bot_state.build_queue.push(
-                Command::new_upgrade(
-                    UpgradeId::ZergGroundArmorsLevel1,
-                    false,
-                ),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, false),
                 false,
                 80,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergGroundArmorsLevel1) {
             bot_state.build_queue.push(
-                Command::new_upgrade(
-                    UpgradeId::ZergGroundArmorsLevel2,
-                    false,
-                ),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, false),
                 false,
                 70,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergGroundArmorsLevel2) {
             bot_state.build_queue.push(
-                Command::new_upgrade(
-                    UpgradeId::ZergGroundArmorsLevel3,
-                    false,
-                ),
+                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel3, false),
                 false,
                 70,
             );
@@ -717,30 +698,21 @@ impl ArmyManager {
             && bot.can_afford_vespene_upgrade(UpgradeId::ZergMissileWeaponsLevel1)
         {
             bot_state.build_queue.push(
-                Command::new_upgrade(
-                    UpgradeId::ZergMissileWeaponsLevel1,
-                    false,
-                ),
+                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, false),
                 false,
                 70,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergMissileWeaponsLevel1) {
             bot_state.build_queue.push(
-                Command::new_upgrade(
-                    UpgradeId::ZergMissileWeaponsLevel2,
-                    false,
-                ),
+                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2, false),
                 false,
                 60,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergMissileWeaponsLevel2) {
             bot_state.build_queue.push(
-                Command::new_upgrade(
-                    UpgradeId::ZergMissileWeaponsLevel3,
-                    false,
-                ),
+                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel3, false),
                 false,
                 60,
             );
