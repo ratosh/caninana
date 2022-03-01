@@ -38,7 +38,7 @@ impl RavagerManager {
         for ravager in ravagers {
             if let Some(target) = bot_state
                 .enemy_cache
-                .units()
+                .units
                 .filter(|u| {
                     ravager.in_ability_cast_range(AbilityId::EffectCorrosiveBile, *u, 0.0f32)
                         && (Self::CORROSIVE_POSSIBLE_TARGETS.contains(&u.type_id()))

@@ -44,7 +44,7 @@ impl ArmyManager {
             self.allowed_tech.insert(UnitTypeId::Roach);
             // self.allowed_tech.insert(UnitTypeId::Ravager);
         }
-        if workers >= UNLOCK_HYDRA_WORKERS || !bot.units.enemy.all.flying().is_empty() {
+        if workers >= UNLOCK_HYDRA_WORKERS || !bot_state.enemy_cache.units.flying().is_empty() {
             self.allowed_tech.insert(UnitTypeId::Hydralisk);
         }
         if workers >= UNLOCK_LATE_TECH_WORKERS {
@@ -74,10 +74,31 @@ impl ArmyManager {
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Mutalisk));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::Ultralisk));
         my_army.extend(bot.units.my.units.ready().of_type(UnitTypeId::BroodLord));
+        my_army.extend(
+            bot.units
+                .my
+                .units
+                .ready()
+                .of_type(UnitTypeId::Queen)
+                .filter(|u| {
+                    !bot.units
+                        .enemy
+                        .all
+                        .filter(|e| u.in_real_range(e, 1f32))
+                        .is_empty()
+                        || !bot
+                            .units
+                            .enemy
+                            .all
+                            .filter(|e| e.in_real_range(u, 1f32))
+                            .is_empty()
+                }),
+        );
         my_army.sort(|u| u.tag());
 
         // Defend our townhalls
         let defense_range = if self.defending { 20f32 } else { 10f32 };
+
         if self.defending {
             my_army.extend(
                 bot.units
@@ -85,28 +106,14 @@ impl ArmyManager {
                     .units
                     .ready()
                     .of_type(UnitTypeId::Queen)
-                    .filter(|u| {
-                        !u.is_using(AbilityId::EffectInjectLarva)
-                            || !bot
-                                .units
-                                .enemy
-                                .all
-                                .filter(|e| u.in_real_range(e, 1f32))
-                                .is_empty()
-                            || !bot
-                                .units
-                                .enemy
-                                .all
-                                .filter(|e| e.in_real_range(u, 1f32))
-                                .is_empty()
-                    }),
+                    .filter(|u| !u.is_using(AbilityId::EffectInjectLarva)),
             );
         }
         if my_army.is_empty() {
             return;
         }
 
-        let enemy_attack_force = bot.units.enemy.all.visible().filter(|e| {
+        let enemy_attack_force = bot_state.enemy_cache.units.filter(|e| {
             e.can_attack()
                 && bot
                     .units
@@ -123,7 +130,7 @@ impl ArmyManager {
 
         // Retreat when aggression is small
         // Attack when we build enough numbers again
-        priority_targets.extend(bot_state.enemy_cache.units().filter(|u| {
+        priority_targets.extend(bot_state.enemy_cache.units.filter(|u| {
             !u.is_flying()
                 && !u.is_hallucination()
                 && (u.can_attack()
@@ -408,7 +415,7 @@ impl ArmyManager {
             .units
             .enemy
             .all
-            .filter(|t| unit.distance(t.position()) < 16f32)
+            .filter(|t| t.can_attack_unit(unit) && unit.distance(t.position()) < 16f32)
             .center()
         {
             let position = {
@@ -500,7 +507,7 @@ impl ArmyManager {
 
         for unit_type in self.allowed_tech.iter() {
             if unit_type.has_requirement(bot) {
-                unit_distribution.insert(*unit_type, Self::unit_value(bot, *unit_type));
+                unit_distribution.insert(*unit_type, Self::unit_value(bot_state, *unit_type));
             } else {
                 bot_state
                     .build_queue
@@ -534,7 +541,7 @@ impl ArmyManager {
         result
     }
 
-    fn unit_value(bot: &Bot, unit_type: UnitTypeId) -> (isize, usize) {
+    fn unit_value(bot_state: &BotState, unit_type: UnitTypeId) -> (isize, usize) {
         let mut value = match unit_type {
             UnitTypeId::Zergling => 10f32,
             UnitTypeId::Roach => 50f32,
@@ -546,7 +553,7 @@ impl ArmyManager {
             _ => 50f32,
         };
         let mut priority = 35;
-        for unit in bot.units.enemy.all.iter() {
+        for unit in bot_state.enemy_cache.units.iter() {
             if unit.type_id().countered_by().contains(&unit_type) {
                 value += unit.supply_cost();
                 priority += 1;
@@ -616,20 +623,6 @@ impl ArmyManager {
                 80,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Zergling) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel1)
-        {
-            bot_state.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1, false),
-                false,
-                70,
-            );
-            bot_state.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, false),
-                false,
-                80,
-            );
-        }
         if bot.counter().all().count(bot.race_values.worker) > DOUBLE_EVOLUTION_WORKERS {
             bot_state.build_queue.push(
                 Command::new_unit(UnitTypeId::EvolutionChamber, 2, false),
@@ -637,63 +630,91 @@ impl ArmyManager {
                 50,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Zergling) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel2)
+        let melee_number = bot
+            .units
+            .my
+            .units
+            .filter(|u| u.is_melee() && !u.is_worker())
+            .len();
+        if melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS
+            && bot.can_afford_vespene_upgrade(UpgradeId::ZergMeleeWeaponsLevel1)
         {
+            bot_state.build_queue.push(
+                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1, false),
+                false,
+                70,
+            );
+        }
+        if bot.has_upgrade(UpgradeId::ZergMeleeWeaponsLevel1) {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel2, false),
                 false,
                 60,
             );
+        }
+        if bot.has_upgrade(UpgradeId::ZergMeleeWeaponsLevel2) {
             bot_state.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, false),
+                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel3, false),
                 false,
-                70,
+                60,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Roach) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel1)
+        let ground_number = bot
+            .units
+            .my
+            .units
+            .filter(|u| !u.is_flying() && !u.is_worker())
+            .len();
+        if ground_number > SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS
+            && bot.can_afford_vespene_upgrade(UpgradeId::ZergGroundArmorsLevel1)
         {
-            bot_state.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, false),
-                false,
-                90,
-            );
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, false),
                 false,
                 80,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Roach) > 0
-            && bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel2)
-        {
-            bot_state.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2, false),
-                false,
-                80,
-            );
+        if bot.has_upgrade(UpgradeId::ZergGroundArmorsLevel1) {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, false),
                 false,
                 70,
             );
         }
-        if bot.can_afford_upgrade(UpgradeId::ZergGroundArmorsLevel3) {
+        if bot.has_upgrade(UpgradeId::ZergGroundArmorsLevel2) {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel3, false),
                 false,
+                70,
+            );
+        }
+        let ranged_number = bot
+            .units
+            .my
+            .units
+            .filter(|u| !u.is_melee() && !u.is_worker())
+            .len();
+        if ranged_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS
+            && bot.can_afford_vespene_upgrade(UpgradeId::ZergMissileWeaponsLevel1)
+        {
+            bot_state.build_queue.push(
+                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, false),
+                false,
+                70,
+            );
+        }
+        if bot.has_upgrade(UpgradeId::ZergMissileWeaponsLevel1) {
+            bot_state.build_queue.push(
+                Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2, false),
+                false,
                 60,
             );
-            bot_state.build_queue.push(
-                Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel3, false),
-                false,
-                50,
-            );
+        }
+        if bot.has_upgrade(UpgradeId::ZergMissileWeaponsLevel2) {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel3, false),
                 false,
-                70,
+                60,
             );
         }
         if bot.counter().all().count(UnitTypeId::Ultralisk) > 0 {
