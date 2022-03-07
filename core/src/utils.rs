@@ -4,7 +4,7 @@ use rust_sc2::prelude::*;
 
 impl Strength for Units {
     fn strength(&self, bot: &Bot) -> f32 {
-        self.iter().map(|u| u.strength(bot)).sum()
+        self.iter().map(|u| u.strength(bot)).sum::<f32>() * (1f32 + (self.len() as f32).log(20f32))
     }
 }
 
