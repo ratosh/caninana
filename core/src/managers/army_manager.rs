@@ -187,10 +187,6 @@ impl ArmyManager {
         self.strength_engaging = (self.strength_engaging
             && our_global_strength >= their_global_strength * 1.2f32)
             || our_global_strength >= their_global_strength * 1.6f32;
-        println!(
-            "ME[{:?}] SE[{:?}]",
-            self.money_engaging, self.strength_engaging
-        );
 
         let engaging = self.money_engaging || self.strength_engaging;
 
@@ -276,7 +272,8 @@ impl ArmyManager {
 
         for unit in my_army.iter() {
             let decision = *self.allied_decision.get(&unit.tag()).unwrap();
-            let avoid_burrow = bot.detection_close_by(unit, BURROW_DETECTION_RANGE)
+            let avoid_burrow = (bot.detection_close_by(unit, BURROW_DETECTION_RANGE)
+                || unit.is_revealed())
                 && !bot.has_upgrade(UpgradeId::TunnelingClaws);
             if unit.type_id() == UnitTypeId::Roach
                 && unit.has_ability(AbilityId::BurrowDownRoach)
@@ -290,8 +287,7 @@ impl ArmyManager {
                     && (decision == UnitDecision::Advance
                         && unit.health_percentage().unwrap_or_default()
                             >= UNBURROW_HEALTH_PERCENTAGE
-                        || avoid_burrow
-                        || unit.is_revealed())
+                        || avoid_burrow)
                 {
                     unit.use_ability(AbilityId::BurrowUpRoach, false);
                     continue;
@@ -370,12 +366,12 @@ impl ArmyManager {
                 } else if let Some(target) = extended_enemy {
                     unit.order_attack(Target::Pos(target.position()), false);
                 } else if let Some(target) = secondary_target {
-                    unit.order_attack(Target::Pos(target.position()), false);
+                    unit.order_attack(Target::Tag(target.tag()), false);
                 } else {
                     unit.order_attack(Target::Pos(bot.enemy_start), false);
                 }
             } else if decision == UnitDecision::Retreat || decision == UnitDecision::Undefined {
-                if threats.count() > 0 && unit.is_revealed() {
+                if threats.count() > 0 && !unit.is_burrowed() {
                     Self::move_towards(bot, unit, -2f32);
                 } else if let Some(allied) = bot.units.my.townhalls.closest(bot.start_location) {
                     unit.order_move_to(
@@ -599,7 +595,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::TunnelingClaws, true),
                 false,
-                80,
+                150,
             );
         }
         if workers >= OVERLORD_SPEED_WORKERS {
