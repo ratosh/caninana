@@ -35,6 +35,8 @@ impl Strength for Unit {
             0.1f32
         } else if !self.can_attack() {
             0.25f32
+        } else if self.type_id() == UnitTypeId::Ghost {
+            0.6f32
         } else if self.is_structure() {
             1.5f32
         } else {
@@ -97,7 +99,7 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Reaper => vec![UnitTypeId::Ravager],
-            UnitTypeId::Ghost => vec![UnitTypeId::Roach, UnitTypeId::Ultralisk],
+            UnitTypeId::Ghost => vec![UnitTypeId::Zergling],
             UnitTypeId::Hellion => vec![
                 UnitTypeId::Roach,
                 // UnitTypeId::Mutalisk
@@ -152,8 +154,8 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::SiegeTank,
                 UnitTypeId::SiegeTankSieged,
                 UnitTypeId::Marauder,
+                UnitTypeId::Ultralisk,
                 // UnitTypeId::Mutalisk,
-                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Hydralisk => vec![
                 UnitTypeId::Sentry,
