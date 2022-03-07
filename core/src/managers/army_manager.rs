@@ -176,27 +176,21 @@ impl ArmyManager {
                 })
                 .strength(bot);
             their_strength_per_enemy_unit.insert(unit.tag(), their_strength);
-            let our_strength = bot
-                .units
-                .my
-                .all
-                .filter(|e| {
-                    e.can_attack_unit(unit)
-                        && e.in_real_range(
-                            unit,
-                            unit.speed() + e.speed() + unit.real_ground_range(),
-                        )
-                })
-                .strength(bot);
+            let our_strength = bot_state
+                .squads
+                .find_squads_close_by(unit)
+                .iter()
+                .map(|s| s.squad.strength(bot))
+                .sum();
             our_strength_per_unit.insert(unit.tag(), our_strength);
         }
 
         for unit in my_army.iter() {
-            let our_local_strength = bot
-                .units
-                .my
-                .all
-                .filter(|e| e.in_real_range(unit, unit.speed() + e.speed() + 1f32))
+            let squad_strength = bot_state
+                .squads
+                .find_unit_squad(unit)
+                .unwrap()
+                .squad
                 .strength(bot);
 
             let their_strength = priority_targets
@@ -215,7 +209,7 @@ impl ArmyManager {
                 .max_value(|u| *our_strength_per_unit.get(&u.tag()).unwrap())
                 .unwrap_or_default();
 
-            let our_strength = our_local_strength.max(our_surrounding_strength);
+            let our_strength = squad_strength.max(our_surrounding_strength);
             our_strength_per_unit.insert(unit.tag(), our_strength);
 
             let run_range = 3f32 + unit.real_speed();
@@ -246,7 +240,7 @@ impl ArmyManager {
                 unit.tag(),
                 unit.type_id(),
                 our_strength,
-                our_local_strength,
+                squad_strength,
                 our_surrounding_strength,
                 their_strength
             );

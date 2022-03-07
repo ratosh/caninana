@@ -6,6 +6,7 @@ use caninana_core::managers::cache_manager::CacheManager;
 use caninana_core::managers::defense_manager::DefenseManager;
 use caninana_core::managers::production_manager::ProductionManager;
 use caninana_core::managers::resource_manager::ResourceManager;
+use caninana_core::managers::squad_manager::SquadManager;
 use caninana_core::managers::worker_manager::WorkerManager;
 use caninana_core::units::overlord_manager::OverlordManager;
 use caninana_core::units::queen_manager::QueenManager;
@@ -26,6 +27,7 @@ impl Default for Caninana {
             _bot: Bot::default(),
             components: vec![
                 ProcessLimiter::new(0, Box::new(CacheManager::default())),
+                ProcessLimiter::new(0, Box::new(SquadManager::default())),
                 ProcessLimiter::new(5, Box::new(ArmyManager::default())),
                 ProcessLimiter::new(15, Box::new(DefenseManager::default())),
                 ProcessLimiter::new(10, Box::new(ProductionManager::default())),

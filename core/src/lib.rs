@@ -6,6 +6,7 @@ pub mod utils;
 
 use crate::command_queue::CommandQueue;
 use crate::managers::cache_manager::UnitsCache;
+use crate::managers::squad_manager::Squads;
 use rust_sc2::bot::Bot;
 use rust_sc2::Event;
 
@@ -67,6 +68,7 @@ impl Default for SpendingFocus {
 
 #[derive(Default)]
 pub struct BotState {
+    pub squads: Squads,
     pub build_queue: CommandQueue,
     pub enemy_cache: UnitsCache,
     pub spending_focus: SpendingFocus,
