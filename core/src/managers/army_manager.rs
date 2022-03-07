@@ -44,7 +44,13 @@ impl ArmyManager {
             self.allowed_tech.insert(UnitTypeId::Roach);
             // self.allowed_tech.insert(UnitTypeId::Ravager);
         }
-        if workers >= UNLOCK_HYDRA_WORKERS || !bot_state.enemy_cache.units.flying().is_empty() {
+        if workers >= UNLOCK_HYDRA_WORKERS
+            || !bot_state
+                .enemy_cache
+                .units
+                .filter(|u| u.is_flying() && u.can_attack())
+                .is_empty()
+        {
             self.allowed_tech.insert(UnitTypeId::Hydralisk);
         }
         if workers >= UNLOCK_LATE_TECH_WORKERS {
@@ -252,6 +258,8 @@ impl ArmyManager {
                 || run_from_units
                 || unit.type_id() == UnitTypeId::Roach
                     && unit.health_percentage().unwrap_or_default() < BURROW_HEALTH_PERCENTAGE
+                || (!unit.can_attack()
+                    && unit.health_percentage().unwrap_or_default() < UNBURROW_HEALTH_PERCENTAGE)
             {
                 UnitDecision::Retreat
             } else if (self.defending && our_strength > their_strength * 0.8f32)
@@ -370,7 +378,7 @@ impl ArmyManager {
                     unit.order_attack(Target::Pos(bot.enemy_start), false);
                 }
             } else if decision == UnitDecision::Retreat || decision == UnitDecision::Undefined {
-                if threats.count() > 0 {
+                if threats.count() > 0 && unit.is_revealed() {
                     Self::move_towards(bot, unit, -2f32);
                 } else if let Some(allied) = bot.units.my.townhalls.closest(bot.start_location) {
                     unit.order_move_to(
@@ -581,6 +589,13 @@ impl ArmyManager {
             bot_state
                 .build_queue
                 .push(Command::new_upgrade(UpgradeId::Burrow, true), false, 150);
+        }
+        if bot.counter().all().count(bot.race_values.worker) >= UNLOCK_TUNNELING_CLAWS_WORKERS {
+            bot_state.build_queue.push(
+                Command::new_upgrade(UpgradeId::TunnelingClaws, true),
+                false,
+                80,
+            );
         }
         if bot.counter().all().count(bot.race_values.worker) > OVERLORD_SPEED_WORKERS {
             bot_state.build_queue.push(

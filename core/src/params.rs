@@ -7,6 +7,7 @@ pub const UNLOCK_LATE_TECH_WORKERS: usize = 54;
 pub const UNLOCK_OVERSEER_WORKERS: usize = 29;
 pub const UNLOCK_BURROW_WORKERS: usize = 24;
 pub const OVERLORD_SPEED_WORKERS: usize = 30;
+pub const UNLOCK_TUNNELING_CLAWS_WORKERS: usize = 35;
 
 pub const SAVE_FOR_ATTACK_UPGRADES_ON_UNITS: usize = 5;
 pub const SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS: usize = 10;
