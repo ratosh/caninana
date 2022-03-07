@@ -249,7 +249,15 @@ impl WorkerManager {
             .units
             .my
             .townhalls
-            .sorted(|t| t.distance(bot.start_location))
+            .sorted(|t| {
+                if t.is_ready() {
+                    t.ideal_harvesters()
+                        .unwrap_or(12)
+                        .saturating_sub(t.assigned_harvesters().unwrap_or_default())
+                } else {
+                    12
+                }
+            })
             .iter()
         {
             let mut minerals = VecDeque::new();
@@ -395,17 +403,17 @@ impl WorkerManager {
                 }
                 WorkerDecision::Gather => {
                     let assignment = self.assignment.get(&worker.tag());
-                    if worker.is_carrying_resource() && !worker.is_returning() {
-                        worker.return_resource(false);
-                    } else if !worker.is_carrying_resource() || worker.is_idle() {
-                        if let Some(worker_assignment) = worker.target_tag() {
-                            if let Some(current_assignment) = assignment {
+                    if let Some(current_assignment) = assignment {
+                        if worker.is_carrying_resource() && !worker.is_returning() {
+                            worker.return_resource(false);
+                        } else if !worker.is_carrying_resource() || worker.is_idle() {
+                            if let Some(worker_assignment) = worker.target_tag() {
                                 if worker_assignment != *current_assignment {
                                     worker.order_gather(*current_assignment, false);
                                 }
+                            } else {
+                                worker.order_gather(*current_assignment, false);
                             }
-                        } else {
-                            worker.order_gather(*assignment.unwrap(), false);
                         }
                     }
                 }
@@ -444,27 +452,16 @@ impl WorkerManager {
             .sum::<u32>();
 
         let ideal_workers = MAX_WORKERS.min((ideal_miners + ideal_geysers) as usize);
-        if bot_state.spending_focus != SpendingFocus::Army {
-            let min_workers = ideal_workers.saturating_sub(8);
-
-            bot_state.build_queue.push(
-                Command::new_unit(bot.race_values.worker, min_workers, false),
-                true,
-                150,
-            );
+        let priority = if bot_state.spending_focus == SpendingFocus::Economy {
+            150
         } else {
-            let workers = MAX_WORKERS.min(bot.units.my.workers.len());
-            bot_state.build_queue.push(
-                Command::new_unit(bot.race_values.worker, workers, false),
-                true,
-                150,
-            );
-        }
+            25
+        };
 
         bot_state.build_queue.push(
             Command::new_unit(bot.race_values.worker, ideal_workers, false),
             false,
-            25,
+            priority,
         );
     }
 }
