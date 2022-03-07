@@ -1,6 +1,7 @@
 use log::debug;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
+use std::collections::HashSet;
 
 use crate::command_queue::Command;
 use crate::command_queue::Command::*;
@@ -8,7 +9,9 @@ use crate::utils::*;
 use crate::*;
 
 #[derive(Default)]
-pub struct ProductionManager {}
+pub struct ProductionManager {
+    producing: HashSet<u64>,
+}
 
 impl ProductionManager {
     const REQUIREMENT_QUEUE_PRIORITY: usize = 100_000;
@@ -29,8 +32,9 @@ impl ProductionManager {
         }
     }
 
-    fn produce_units(&self, bot: &mut Bot, bot_state: &mut BotState) {
+    fn produce_units(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
         bot_state.build_queue.check_completion(bot);
+        self.producing.clear();
         for command in bot_state.build_queue.into_iter() {
             match command {
                 UnitCommand {
@@ -64,8 +68,7 @@ impl ProductionManager {
             return;
         } else if !bot.can_afford(unit_type, true) {
             if save_resources {
-                bot.subtract_resources(unit_type, true);
-                bot.units.my.larvas.pop();
+                self.save_unit_resources(bot, bot_state, unit_type, true, true);
             }
             return;
         }
@@ -81,6 +84,7 @@ impl ProductionManager {
             let current_amount = bot.counter().all().count(unit_type);
             for _ in current_amount..wanted_amount {
                 if !bot.can_afford(unit_type, true) {
+                    self.save_unit_resources(bot, bot_state, unit_type, true, true);
                     break;
                 }
                 self.produce_unit(bot, bot_state, unit_type, save_resources);
@@ -132,7 +136,6 @@ impl ProductionManager {
         true
     }
 
-    // TODO: Queens can be produced on multiple structures (Different types of hatcheries)
     fn produce_unit(
         &self,
         bot: &mut Bot,
@@ -140,10 +143,16 @@ impl ProductionManager {
         unit_type: UnitTypeId,
         save_resources: bool,
     ) {
+        let producing_point = if unit_type.is_worker() {
+            bot.start_center
+        } else {
+            bot.start_location
+        };
         let produced_on = unit_type.produced_on();
         if produced_on.contains(&UnitTypeId::Larva) {
-            if let Some(larva) = bot.units.my.larvas.pop() {
+            if let Some(larva) = bot.units.my.larvas.closest(producing_point).cloned() {
                 debug!("training a {:?} at {:?}", unit_type, produced_on);
+                bot.units.my.larvas.remove(larva.tag());
                 larva.train(unit_type, false);
                 bot.subtract_resources(unit_type, true);
             }
@@ -156,9 +165,15 @@ impl ProductionManager {
             .idle()
             .first()
         {
-            debug!("training a {:?} at {:?}", unit_type, produced_on);
-            train_at.train(unit_type, false);
-            bot.subtract_resources(unit_type, true);
+            if self.producing.contains(&train_at.tag()) {
+                if save_resources {
+                    self.save_unit_resources(bot, bot_state, unit_type, true, true);
+                }
+            } else {
+                debug!("training a {:?} at {:?}", unit_type, produced_on);
+                train_at.train(unit_type, false);
+                bot.subtract_resources(unit_type, true);
+            }
         } else {
             debug!("No building to create, pushing one to the queue");
             bot_state.build_queue.push(
@@ -170,7 +185,7 @@ impl ProductionManager {
     }
 
     fn upgrade(
-        &self,
+        &mut self,
         bot: &mut Bot,
         bot_state: &mut BotState,
         upgrade: UpgradeId,
@@ -192,7 +207,10 @@ impl ProductionManager {
                 .idle()
                 .first()
             {
-                building.research(upgrade, false);
+                if !self.producing.contains(&building.tag()) {
+                    building.research(upgrade, false);
+                }
+                self.producing.insert(building.tag());
                 bot.subtract_upgrade_cost(upgrade);
             } else {
                 bot_state.build_queue.push(
@@ -202,7 +220,7 @@ impl ProductionManager {
                 );
             }
         } else if save_resources {
-            bot.subtract_upgrade_cost(upgrade);
+            self.save_upgrade_cost(bot, bot_state, upgrade);
         }
     }
 
@@ -311,7 +329,7 @@ impl ProductionManager {
         {
             if let Some(builder) = self.get_builder(bot, expansion_location) {
                 builder.build(unit_type, expansion_location, false);
-                bot.subtract_resources(bot.race_values.gas, false);
+                bot.subtract_resources(unit_type, false);
             } else {
                 debug!("No builder");
             }
@@ -367,6 +385,30 @@ impl ProductionManager {
                 bot.subtract_resources(bot.race_values.gas, false);
             }
         }
+    }
+
+    fn save_unit_resources(
+        &self,
+        bot: &mut Bot,
+        bot_state: &BotState,
+        unit_type: UnitTypeId,
+        use_supply: bool,
+        save_larva: bool,
+    ) {
+        if bot_state.spending_focus == SpendingFocus::Army && unit_type.is_structure() {
+            return;
+        }
+        bot.subtract_resources(unit_type, use_supply);
+        if save_larva {
+            bot.units.my.larvas.pop();
+        }
+    }
+
+    fn save_upgrade_cost(&self, bot: &mut Bot, bot_state: &BotState, upgrade_id: UpgradeId) {
+        if bot_state.spending_focus == SpendingFocus::Army {
+            return;
+        }
+        bot.subtract_upgrade_cost(upgrade_id);
     }
 }
 
