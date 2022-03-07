@@ -4,59 +4,68 @@ use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
 use crate::params::DOUBLE_GAS_PER_BASE_WORKERS;
-use crate::utils::Supply;
-use crate::{AIComponent, BotState, SpendingFocus};
+use crate::utils::*;
+use crate::*;
 
 #[derive(Default)]
 pub struct ResourceManager {}
 
 impl ResourceManager {
-    fn spending_decision(&mut self, bot: &Bot, bot_state: &mut BotState) {
-        let advanced_units = !bot
-            .units
-            .my
-            .units
-            .filter(|unit| {
-                unit.can_attack()
-                    && unit
-                        .position()
-                        .is_closer(unit.distance(bot.start_location) / 2f32, bot.enemy_start)
-            })
-            .is_empty();
-        let advanced_enemy_units = !bot_state
+    fn spending_decision(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
+        let advanced_enemy_units = bot_state
             .enemy_cache
             .units
             .filter(|unit| {
                 unit.can_attack()
-                    && unit
-                        .position()
-                        .is_closer(unit.distance(bot.enemy_start) * 2f32, bot.start_location)
+                    && !unit.is_worker()
+                    && bot
+                        .units
+                        .enemy
+                        .townhalls
+                        .closest_distance(unit.position())
+                        .unwrap_or_max()
+                        > 21f32
             })
-            .is_empty();
-        let their_supply = bot_state
+            .strength(bot);
+        let close_enemy_units = bot_state
+            .enemy_cache
+            .units
+            .filter(|unit| {
+                unit.can_attack()
+                    && !unit.is_worker()
+                    && bot
+                        .units
+                        .my
+                        .townhalls
+                        .closest_distance(unit.position())
+                        .unwrap_or_default()
+                        < 30f32
+            })
+            .strength(bot);
+        let their_strength = bot_state
             .enemy_cache
             .units
             .filter(|unit| !unit.is_worker() && unit.can_attack())
-            .supply();
-        let our_supply = bot
+            .strength(bot);
+        let our_strength = bot
             .units
             .my
-            .all
-            .filter(|unit| !unit.is_worker() && unit.can_attack())
-            .supply();
-        let our_expansions = bot.owned_expansions().count();
-        let their_expansions = bot.enemy_expansions().count();
-        let mut conditions = 0;
-        if !advanced_units {
+            .units
+            .filter(|unit| {
+                !unit.is_worker() && unit.can_attack() && unit.type_id() != UnitTypeId::Queen
+            })
+            .strength(bot);
+        let mut conditions: u8 = 0;
+        if close_enemy_units > our_strength {
             conditions += 1;
         }
-        if advanced_enemy_units {
+        if advanced_enemy_units * 0.6f32 > our_strength {
             conditions += 1;
         }
-        if our_supply < their_supply {
+        if their_strength * 0.3f32 > our_strength {
             conditions += 1;
         }
-        if our_expansions < their_expansions {
+        if their_strength > our_strength {
             conditions += 1;
         }
 
@@ -68,10 +77,10 @@ impl ResourceManager {
         debug!(
             "Decision {:?} > {:?} {:?} {:?}|{:?}",
             bot_state.spending_focus,
-            advanced_units,
             advanced_enemy_units,
-            our_supply,
-            their_supply
+            close_enemy_units,
+            our_strength,
+            their_strength
         );
     }
 
@@ -107,8 +116,7 @@ impl ResourceManager {
         let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap_or_default())
             + bot.units.my.workers.idle().len() as u32;
         if ideal_harvesters < 64
-            && (ideal_harvesters.saturating_sub(current_harvesters) <= bases.len() as u32
-                || bot.minerals > 1_000)
+            && (ideal_harvesters.saturating_sub(current_harvesters) <= 4 || bot.minerals > 1_000)
         {
             bot_state.build_queue.push(
                 Command::new_unit(
