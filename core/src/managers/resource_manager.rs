@@ -24,7 +24,7 @@ impl ResourceManager {
                         .townhalls
                         .closest_distance(unit.position())
                         .unwrap_or_max()
-                        > 21f32
+                        > 25f32
             })
             .strength(bot);
         let close_enemy_units = bot_state
@@ -59,10 +59,10 @@ impl ResourceManager {
         if close_enemy_units > our_strength {
             conditions += 1;
         }
-        if advanced_enemy_units * 0.6f32 > our_strength {
+        if advanced_enemy_units * 0.8f32 > our_strength {
             conditions += 1;
         }
-        if their_strength * 0.3f32 > our_strength {
+        if their_strength * 0.4f32 > our_strength {
             conditions += 1;
         }
         if their_strength > our_strength {

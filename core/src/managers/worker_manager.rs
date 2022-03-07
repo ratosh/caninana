@@ -167,7 +167,9 @@ impl WorkerManager {
                     f.can_attack_unit(worker) && f.in_range(worker, f.speed() + worker.speed())
                 })
                 .is_empty();
-            let decision = if needed_fighters > 0 {
+            let decision = if worker.is_constructing() {
+                WorkerDecision::Build
+            } else if needed_fighters > 0 {
                 needed_fighters -= 1;
                 WorkerDecision::Fight
             } else if close_attackers
@@ -175,8 +177,6 @@ impl WorkerManager {
                     || worker.hits_percentage().unwrap_or_default() <= 0.5)
             {
                 WorkerDecision::Run
-            } else if worker.is_constructing() {
-                WorkerDecision::Build
             } else {
                 WorkerDecision::Gather
             };
