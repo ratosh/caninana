@@ -416,7 +416,9 @@ impl ProducedOn for UpgradeId {
                 vec![UnitTypeId::SpawningPool]
             }
             UpgradeId::CentrificalHooks => vec![UnitTypeId::BanelingNest],
-            UpgradeId::GlialReconstitution => vec![UnitTypeId::RoachWarren],
+            UpgradeId::GlialReconstitution | UpgradeId::TunnelingClaws => {
+                vec![UnitTypeId::RoachWarren]
+            }
             UpgradeId::EvolveGroovedSpines | UpgradeId::EvolveMuscularAugments => {
                 vec![UnitTypeId::HydraliskDen]
             }
