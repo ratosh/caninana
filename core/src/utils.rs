@@ -29,7 +29,9 @@ pub trait StrengthVs {
 // e.g. thor anti air
 impl Strength for Unit {
     fn strength(&self, _: &Bot) -> f32 {
-        let multiplier = if self.is_worker() {
+        let multiplier = if !self.is_almost_ready() {
+            0.0f32
+        } else if self.is_worker() {
             0.1f32
         } else if !self.can_attack() {
             0.25f32
@@ -59,8 +61,8 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::BroodLord,
             ],
             UnitTypeId::Sentry => vec![UnitTypeId::BroodLord, UnitTypeId::Ultralisk],
-            UnitTypeId::Stalker => vec![UnitTypeId::Zergling],
-            UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
+            UnitTypeId::Stalker => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
+            UnitTypeId::Immortal => vec![UnitTypeId::Zergling],
             UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
             UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
             UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk],
@@ -129,7 +131,6 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Zergling => vec![
                 UnitTypeId::Zealot,
                 UnitTypeId::Sentry,
-                UnitTypeId::Colossus,
                 UnitTypeId::Reaper,
                 UnitTypeId::Hellion,
                 UnitTypeId::HellionTank,
@@ -156,12 +157,12 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::Hydralisk => vec![
                 UnitTypeId::Sentry,
-                UnitTypeId::Colossus,
                 UnitTypeId::Hellion,
                 UnitTypeId::HellionTank,
                 UnitTypeId::SiegeTank,
                 UnitTypeId::SiegeTank,
                 UnitTypeId::SiegeTankSieged,
+                UnitTypeId::Zergling,
                 UnitTypeId::Roach,
                 UnitTypeId::BroodLord,
             ],
@@ -174,11 +175,10 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Corruptor,
             ],
             UnitTypeId::Corruptor => vec![
-                UnitTypeId::Stalker,
-                UnitTypeId::Sentry,
+                UnitTypeId::Phoenix,
                 UnitTypeId::Marine,
+                UnitTypeId::Viking,
                 UnitTypeId::Thor,
-                UnitTypeId::Hydralisk,
             ],
             UnitTypeId::Infestor => vec![
                 UnitTypeId::Immortal,
@@ -361,6 +361,7 @@ impl ProducedOn for UnitTypeId {
             UnitTypeId::Ravager => vec![UnitTypeId::Roach],
             UnitTypeId::BroodLord => vec![UnitTypeId::Corruptor],
             UnitTypeId::Overseer => vec![UnitTypeId::Overlord],
+            UnitTypeId::GreaterSpire => vec![UnitTypeId::Spire],
             _ => vec![UnitTypeId::Larva],
         }
     }
@@ -375,6 +376,7 @@ impl MorphUpgrade for UnitTypeId {
             UnitTypeId::Ravager => Some(AbilityId::MorphToRavagerRavager),
             UnitTypeId::Overseer => Some(AbilityId::MorphOverseer),
             UnitTypeId::BroodLord => Some(AbilityId::MorphToBroodLordBroodLord),
+            UnitTypeId::GreaterSpire => Some(AbilityId::UpgradeToGreaterSpireGreaterSpire),
             _ => None,
         }
     }
@@ -401,6 +403,7 @@ impl BuildingRequirement for UnitTypeId {
             UnitTypeId::Hive => vec![UnitTypeId::InfestationPit],
             UnitTypeId::HydraliskDen => vec![UnitTypeId::Lair, UnitTypeId::Hive],
             UnitTypeId::Spire => vec![UnitTypeId::Lair, UnitTypeId::Hive],
+            UnitTypeId::GreaterSpire => vec![UnitTypeId::Hive],
             UnitTypeId::UltraliskCavern => vec![UnitTypeId::Hive],
             UnitTypeId::SpineCrawler | UnitTypeId::SporeCrawler => vec![UnitTypeId::SpawningPool],
             _ => vec![],
