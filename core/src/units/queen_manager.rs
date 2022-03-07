@@ -127,7 +127,7 @@ impl QueenManager {
             for base in bot.units.my.townhalls.iter().filter(|h| {
                 !h.has_buff(BuffId::QueenSpawnLarvaTimer)
                     && injecting_queens
-                        .filter(|q| q.target_tag().unwrap() == h.tag())
+                        .filter(|q| q.target_tag() == Some(h.tag()))
                         .is_empty()
             }) {
                 debug!("Need to inject in base {}", base.tag());
@@ -197,12 +197,12 @@ impl CreepPlacement for Bot {
                             ]
                         })
                         .filter(|p| {
-                            self.expansions
-                                .iter()
-                                .map(|e| e.loc)
-                                .closest_distance(p)
-                                .unwrap_or_default()
-                                > CREEP_DISTANCE_TO_HALL
+                            if let Some(exp) = self.expansions.iter().map(|e| e.loc).closest(p) {
+                                (exp.x - p.x).abs() > CREEP_DISTANCE_TO_HALL
+                                    && (exp.y - p.y).abs() > CREEP_DISTANCE_TO_HALL
+                            } else {
+                                false
+                            }
                         })
                         .collect::<Vec<Point2>>();
                     if let Ok(results) = self.query_placement(
