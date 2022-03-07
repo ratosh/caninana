@@ -306,9 +306,7 @@ impl ArmyManager {
             let target_in_range = priority_targets
                 .iter()
                 .filter(|t| {
-                    unit.can_be_attacked()
-                        && unit.can_attack_unit(t)
-                        && unit.in_real_range(t, 0.1f32)
+                    unit.can_attack() && unit.can_attack_unit(t) && unit.in_real_range(t, 0.1f32)
                 })
                 .min_by_key(|t| t.hits());
 
