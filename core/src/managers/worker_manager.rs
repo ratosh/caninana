@@ -399,8 +399,10 @@ impl WorkerManager {
                         worker.return_resource(false);
                     } else if !worker.is_carrying_resource() || worker.is_idle() {
                         if let Some(worker_assignment) = worker.target_tag() {
-                            if worker_assignment != *assignment.unwrap() {
-                                worker.order_gather(*assignment.unwrap(), false);
+                            if let Some(current_assignment) = assignment {
+                                if worker_assignment != *current_assignment {
+                                    worker.order_gather(*current_assignment, false);
+                                }
                             }
                         } else {
                             worker.order_gather(*assignment.unwrap(), false);
