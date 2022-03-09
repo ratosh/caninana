@@ -152,13 +152,12 @@ impl WorkerManager {
         );
         needed_fighters = needed_fighters.saturating_sub(army_supply);
 
-        for worker in bot
-            .units
-            .my
-            .workers
-            .iter()
-            .sorted_by(|a, b| b.hits().cmp(&a.hits()).then(a.tag().cmp(&b.tag())))
-        {
+        for worker in bot.units.my.workers.iter().sorted_by(|a, b| {
+            b.hits()
+                .unwrap_or_default()
+                .cmp(&a.hits().unwrap_or_default())
+                .then(a.tag().cmp(&b.tag()))
+        }) {
             let close_attackers = !bot
                 .units
                 .enemy
