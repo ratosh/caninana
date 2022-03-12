@@ -185,8 +185,8 @@ impl ArmyManager {
         let defending = self.defending;
         self.money_engaging = (self.money_engaging && bot.minerals > 200) || bot.minerals > 1_000;
         self.strength_engaging = (self.strength_engaging
-            && our_global_strength >= their_global_strength * 1.2f32)
-            || our_global_strength >= their_global_strength * 1.6f32;
+            && our_global_strength >= their_global_strength * 0.9f32)
+            || our_global_strength >= their_global_strength * 1.4f32;
 
         let engaging = self.money_engaging || self.strength_engaging;
 
@@ -552,17 +552,17 @@ impl ArmyManager {
             UnitTypeId::Ultralisk => 5f32,
             _ => 50f32,
         };
-        let mut priority = 35;
+        let mut priority = 35f32;
         for unit in bot_state.enemy_cache.units.iter() {
             if unit.type_id().countered_by().contains(&unit_type) {
                 value += unit.supply_cost();
-                priority += 1;
+                priority += unit.supply_cost();
             }
             if unit_type.countered_by().contains(&unit.type_id()) {
                 value -= unit.supply_cost();
             }
         }
-        (value as isize, priority)
+        (value.max(1f32) as isize, priority as usize)
     }
 
     fn queue_upgrades(&self, bot: &mut Bot, bot_state: &mut BotState) {
