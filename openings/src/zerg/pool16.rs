@@ -28,7 +28,7 @@ impl Pool16 {
             .push(Command::new_unit(UnitTypeId::Drone, 17, true), true, 960);
         bot_state
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Zergling, 3, false), true, 955);
+            .push(Command::new_unit(UnitTypeId::Zergling, 2, false), true, 955);
         bot_state
             .build_queue
             .push(Command::new_unit(UnitTypeId::Hatchery, 2, true), true, 950);
@@ -43,7 +43,7 @@ impl Pool16 {
             .push(Command::new_unit(UnitTypeId::Queen, 1, true), true, 920);
         bot_state
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Zergling, 3, true), true, 910);
+            .push(Command::new_unit(UnitTypeId::Zergling, 2, true), true, 910);
     }
 }
 
