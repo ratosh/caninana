@@ -62,9 +62,10 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Ravager,
                 // UnitTypeId::Mutalisk,
                 UnitTypeId::BroodLord,
+                UnitTypeId::Ultralisk,
             ],
-            UnitTypeId::Sentry => vec![UnitTypeId::BroodLord, UnitTypeId::Ultralisk],
-            UnitTypeId::Stalker => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
+            UnitTypeId::Sentry => vec![UnitTypeId::BroodLord],
+            UnitTypeId::Stalker => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Immortal => vec![UnitTypeId::Zergling],
             UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
             UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
@@ -137,7 +138,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Reaper,
                 UnitTypeId::Hellion,
                 UnitTypeId::HellionTank,
-                // UnitTypeId::Baneling,
+                UnitTypeId::Baneling,
                 UnitTypeId::Roach,
                 UnitTypeId::Ultralisk,
             ],
@@ -193,6 +194,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Ultralisk => vec![
                 UnitTypeId::Immortal,
                 UnitTypeId::VoidRay,
+                UnitTypeId::Ghost,
                 UnitTypeId::Banshee,
                 UnitTypeId::Hydralisk,
                 UnitTypeId::BroodLord,
@@ -365,7 +367,13 @@ impl ProducedOn for UnitTypeId {
             UnitTypeId::BroodLord => vec![UnitTypeId::Corruptor],
             UnitTypeId::Overseer => vec![UnitTypeId::Overlord],
             UnitTypeId::GreaterSpire => vec![UnitTypeId::Spire],
-            _ => vec![UnitTypeId::Larva],
+            _ => {
+                if self.is_structure() {
+                    vec![UnitTypeId::Drone]
+                } else {
+                    vec![UnitTypeId::Larva]
+                }
+            }
         }
     }
 }

@@ -67,9 +67,7 @@ impl ProductionManager {
         if bot.counter().all().count(unit_type) >= wanted_amount {
             return;
         } else if !bot.can_afford(unit_type, true) {
-            if save_resources {
-                self.save_unit_resources(bot, bot_state, unit_type, true, true);
-            }
+            self.save_unit_resources(bot, bot_state, unit_type, save_resources, true, true);
             return;
         }
         if self.missing_unit_requirements(bot, bot_state, unit_type) {
@@ -84,7 +82,7 @@ impl ProductionManager {
             let current_amount = bot.counter().all().count(unit_type);
             for _ in current_amount..wanted_amount {
                 if !bot.can_afford(unit_type, true) {
-                    self.save_unit_resources(bot, bot_state, unit_type, true, true);
+                    self.save_unit_resources(bot, bot_state, unit_type, save_resources, true, true);
                     break;
                 }
                 self.produce_unit(bot, bot_state, unit_type, save_resources);
@@ -166,9 +164,7 @@ impl ProductionManager {
             .first()
         {
             if self.producing.contains(&train_at.tag()) {
-                if save_resources {
-                    self.save_unit_resources(bot, bot_state, unit_type, true, true);
-                }
+                self.save_unit_resources(bot, bot_state, unit_type, save_resources, true, true);
             } else {
                 debug!("training a {:?} at {:?}", unit_type, produced_on);
                 train_at.train(unit_type, false);
@@ -392,14 +388,18 @@ impl ProductionManager {
         bot: &mut Bot,
         bot_state: &BotState,
         unit_type: UnitTypeId,
+        save_resources: bool,
         use_supply: bool,
         save_larva: bool,
     ) {
+        if !save_resources {
+            return;
+        }
         if bot_state.spending_focus == SpendingFocus::Army && unit_type.is_structure() {
             return;
         }
         bot.subtract_resources(unit_type, use_supply);
-        if save_larva {
+        if unit_type.produced_on().contains(&UnitTypeId::Larva) && save_larva {
             bot.units.my.larvas.pop();
         }
     }
