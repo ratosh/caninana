@@ -125,7 +125,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Banshee => vec![
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::Mutalisk,
-                UnitTypeId::Corruptor
+                UnitTypeId::Corruptor,
             ],
             UnitTypeId::Viking => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Raven => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
