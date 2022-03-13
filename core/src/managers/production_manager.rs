@@ -335,33 +335,36 @@ impl ProductionManager {
     }
 
     fn build_static_defense(&self, bot: &mut Bot, unit_type: UnitTypeId) {
-        let defenses = bot
-            .units
-            .my
-            .all
-            .filter(|unit| unit.type_id().is_static_defense());
+        let defenses = bot.units.my.all.filter(|unit| unit.type_id() == unit_type);
         let defenseless_halls = bot
             .units
             .my
             .townhalls
-            .filter(|u| defenses.in_range(u, 11f32).is_empty());
-        let defense_towards = bot.start_center;
-        if let Some(townhall) = defenseless_halls.iter().closest(defense_towards) {
-            let placement_position = townhall
-                .position()
-                .towards(defense_towards, townhall.radius() + 1f32);
-            if let Some(builder) = self.get_builder(bot, placement_position) {
-                let options = PlacementOptions {
-                    max_distance: 3,
-                    step: 1,
-                    random: false,
-                    addon: false,
-                };
-                if let Some(placement) = bot.find_placement(unit_type, placement_position, options)
-                {
-                    builder.build(unit_type, placement, false);
-                    bot.subtract_resources(unit_type, false);
+            .filter(|u| u.is_ready() && defenses.closer(11f32, u.position()).is_empty());
+        if let Some(townhall) = defenseless_halls.iter().closest(bot.start_center) {
+            let resources = bot.units.resources.closer(9f32, townhall.position());
+            if let Some(defense_center) = resources.center() {
+                let placement_position = townhall
+                    .position()
+                    .towards(defense_center, townhall.radius() + 1f32);
+                if let Some(builder) = self.get_builder(bot, placement_position) {
+                    let options = PlacementOptions {
+                        max_distance: 3,
+                        step: 1,
+                        random: false,
+                        addon: false,
+                    };
+                    if let Some(placement) =
+                        bot.find_placement(unit_type, placement_position, options)
+                    {
+                        builder.build(unit_type, placement, false);
+                        bot.subtract_resources(unit_type, false);
+                    }
+                } else {
+                    println!("No builder");
                 }
+            } else {
+                println!("No defense center");
             }
         } else {
             debug!("No defenseless townhall");

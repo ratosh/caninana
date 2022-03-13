@@ -65,11 +65,11 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Ultralisk,
             ],
             UnitTypeId::Sentry => vec![UnitTypeId::BroodLord],
-            UnitTypeId::Stalker => vec![UnitTypeId::Hydralisk],
-            UnitTypeId::Immortal => vec![UnitTypeId::Zergling],
+            UnitTypeId::Stalker => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
+            UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::BroodLord],
             UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
             UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
-            UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk],
+            UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
             UnitTypeId::DarkTemplar => vec![
                 // UnitTypeId::Mutalisk,
@@ -80,9 +80,10 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Oracle => vec![
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::Mutalisk
+                UnitTypeId::Corruptor,
             ],
-            UnitTypeId::Tempest => vec![UnitTypeId::Corruptor],
-            UnitTypeId::Adept => vec![UnitTypeId::Roach],
+            UnitTypeId::Tempest => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
+            UnitTypeId::Adept => vec![UnitTypeId::Roach, UnitTypeId::BroodLord],
             UnitTypeId::Disruptor => vec![UnitTypeId::Ultralisk],
             // Race::Terran
             UnitTypeId::Marine => vec![
@@ -99,7 +100,7 @@ impl CounteredBy for UnitTypeId {
                 // UnitTypeId::Mutalisk,
                 UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk],
+            UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Reaper => vec![UnitTypeId::Ravager],
             UnitTypeId::Ghost => vec![UnitTypeId::Zergling],
             UnitTypeId::Hellion => vec![
@@ -124,7 +125,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Banshee => vec![
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::Corruptor
+                UnitTypeId::Corruptor
             ],
             UnitTypeId::Viking => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Raven => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],

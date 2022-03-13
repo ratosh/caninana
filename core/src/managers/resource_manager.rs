@@ -59,13 +59,13 @@ impl ResourceManager {
         if close_enemy_units > our_strength {
             conditions += 1;
         }
-        if advanced_enemy_units * 0.6f32 > our_strength {
+        if advanced_enemy_units * 0.8f32 > our_strength {
             conditions += 1;
         }
         if their_strength * 0.4f32 > our_strength {
             conditions += 1;
         }
-        if their_strength * 0.8f32 > our_strength {
+        if their_strength * 0.6f32 > our_strength {
             conditions += 1;
         }
 
