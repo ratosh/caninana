@@ -1,21 +1,24 @@
-use std::cmp::Ordering;
+use itertools::Itertools;
 use rand::prelude::*;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 use rust_sc2::units::Container;
-use std::collections::{HashMap};
+use rust_sc2::Event::UnitDestroyed;
+use std::cmp::Ordering;
+use std::collections::HashMap;
 
 use crate::command_queue::Command;
 use crate::params::*;
-use crate::utils::{Supply, UnitOrderCheck};
+use crate::utils::{*};
 use crate::{AIComponent, BotState};
 
 #[derive(Default)]
 pub struct OverlordManager {
+    scout_lord: Option<u64>,
     placement_map: Vec<Point2>,
     placement_occupation: HashMap<Point2, u64>,
     overlord_assignment: HashMap<u64, Point2>,
-    defensive_scouting: bool,
+    random_scouting: bool,
 }
 
 impl OverlordManager {
@@ -47,35 +50,63 @@ impl OverlordManager {
         }
     }
 
-    pub fn build_placement_map(&mut self, bot: &mut Bot) {
+    pub fn build_placement_map(&mut self, bot: &Bot) {
         if !self.placement_map.is_empty() {
+            self.placement_map
+                .retain(|p| bot.free_expansions().map(|e| e.loc).contains(p));
             return;
         }
-        let ramps = bot.ramps.all.iter().map(|r| {
-            r.points
-                .iter()
-                .map(|p| Point2::new(p.0 as f32, p.1 as f32))
-                .center()
-        });
+        // let enemy_ramp = bot.ramps.enemy.points.iter().map(|p| Point2::from(*p)).center();
+        //
+        // if let Some(ramp) = enemy_ramp {
+        //     self.placement_map.push(ramp);
+        // }
+        // let ramps = bot.ramps.all.iter().map(|r| {
+        //     r.points
+        //         .iter()
+        //         .map(|p| Point2::new(p.0 as f32, p.1 as f32))
+        //         .center()
+        // });
+        //
+        // for ramp in ramps.flatten() {
+        //     self.placement_map.push(ramp);
+        // }
+        let expansions = bot.expansions.iter().map(|e| e.loc);
 
-        for ramp in ramps.flatten() {
-            self.placement_map.push(ramp);
+        for expansion in expansions {
+            self.placement_map.push(expansion);
         }
-        self.placement_map.sort_by(|p1, p2| p1.distance(bot.enemy_start).partial_cmp(&p2.distance(bot.enemy_start)).unwrap_or(Ordering::Equal));
+        self.placement_map.sort_by(|p1, p2| {
+            p1.distance(bot.enemy_start)
+                .partial_cmp(&p2.distance(bot.enemy_start))
+                .unwrap_or(Ordering::Equal)
+        });
     }
 
-    fn overlord_assignment(&mut self, bot: &mut Bot) {
-        let mut overlords = bot.units.my.all.filter(|u| {
-            u.type_id() == UnitTypeId::Overlord && !self.overlord_assignment.contains_key(&u.tag())
+    fn overlord_assignment(&mut self, bot: &Bot) {
+        let mut overlords = bot.units.my.all.of_type(UnitTypeId::Overlord);
+        for overlord in overlords
+            .iter()
+            .filter(|u| u.hits_percentage().unwrap_or_default() < 0.9f32)
+        {
+            self.clear_assignment_overlord(overlord.tag());
+        }
+        overlords = overlords.filter(|u| {
+            u.hits_percentage().unwrap_or_default() >= 0.9f32
+                && !self.overlord_assignment.contains_key(&u.tag())
         });
-        for overlord in overlords.iter().filter(|u| u.hits_percentage().unwrap_or_default() < 0.9f32) {
-            let removed_point = self.overlord_assignment.remove(&overlord.tag());
-            if let Some(point) = removed_point {
-                self.placement_occupation.remove(&point);
+        if self.scout_lord.is_none() {
+            if bot.counter().all().count(UnitTypeId::Overseer) == 0 {
+                if let Some(unit) = overlords.pop() {
+                    self.scout_lord = Some(unit.tag());
+                }
             }
         }
-        overlords = overlords.filter(|u| u.hits_percentage().unwrap_or_default() >= 0.9f32
-            && !self.overlord_assignment.contains_key(&u.tag()));
+        for e in bot.expansions.iter() {
+            if e.alliance != Alliance::Neutral {
+                self.clear_assignment_point(&e.loc);
+            }
+        }
         for point in self.placement_map.iter() {
             if self.placement_occupation.contains(point) {
                 continue;
@@ -90,7 +121,7 @@ impl OverlordManager {
     }
 
     fn check_decision(&mut self, _: &mut Bot, bot_state: &mut BotState) {
-        self.defensive_scouting = bot_state
+        self.random_scouting = bot_state
             .enemy_cache
             .units
             .filter(|u| Self::RETREAT_ON.contains(&u.type_id()))
@@ -98,41 +129,55 @@ impl OverlordManager {
     }
 
     fn micro(&self, bot: &mut Bot, bot_state: &mut BotState) {
-        self.overlord_micro(bot);
+        self.overlord_micro(bot, bot_state);
         Self::overseer_micro(bot, bot_state);
     }
 
     // TODO: Hide them if enemy is going heavy on anti air.
-    fn overlord_micro(&self, bot: &Bot) {
-        let overlords = bot
-            .units
-            .my
-            .units
-            .of_type(UnitTypeId::Overlord);
+    fn overlord_micro(&self, bot: &Bot, bot_state: &BotState) {
+        let overlords = bot.units.my.units.of_type(UnitTypeId::Overlord);
         for unit in overlords.iter() {
             let position = if let Some(closest_anti_air) = bot
                 .units
                 .enemy
                 .all
-                .filter(|f| {
-                    f.can_attack_air() && f.in_real_range(unit, f.speed() + unit.speed())
-                })
+                .filter(|u| u.can_attack_air() && u.in_real_range(unit, u.speed() + unit.speed()))
                 .iter()
                 .closest(unit)
             {
-                unit
-                    .position()
-                    .towards(closest_anti_air.position(),
-                             -closest_anti_air.real_range_vs(unit))
+                unit.position().towards(
+                    closest_anti_air.position(),
+                    -closest_anti_air.real_range_vs(unit),
+                )
+            } else if Some(unit.tag()) == self.scout_lord {
+                if let Some(closest_enemy) = bot_state
+                    .enemy_cache
+                    .units
+                    .filter(|f| !f.is_worker() && f.is_dangerous())
+                    .closest(bot.start_location)
+                {
+                    closest_enemy.position()
+                } else {
+                    bot.enemy_start
+                }
             } else if let Some(assignment) = self.overlord_assignment.get(&unit.tag()) {
                 *assignment
-            } else if self.defensive_scouting {
-                bot.units.my.townhalls.closest(bot.start_location).map(|u| u.position()).unwrap_or(bot.start_location)
+            } else if self.random_scouting && unit.hits_percentage().unwrap_or_default() > 0.9f32 {
+                if unit.is_idle() {
+                    let mut rng = thread_rng();
+                    let random_x = (rng.next_u64() % bot.game_info.map_size.x as u64) as f32;
+                    let random_y = (rng.next_u64() % bot.game_info.map_size.y as u64) as f32;
+                    Point2::new(random_x, random_y)
+                } else {
+                    unit.target_pos().unwrap()
+                }
             } else {
-                let mut rng = thread_rng();
-                let random_x = (rng.next_u64() % bot.game_info.map_size.x as u64) as f32;
-                let random_y = (rng.next_u64() % bot.game_info.map_size.y as u64) as f32;
-                Point2::new(random_x, random_y)
+                bot.units
+                    .my
+                    .townhalls
+                    .closest(bot.start_location)
+                    .map(|u| u.position())
+                    .unwrap_or(bot.start_location)
             };
             unit.order_move_to(Target::Pos(position), 1.0f32, false);
         }
@@ -148,22 +193,20 @@ impl OverlordManager {
         let mut enemy_units = bot_state
             .enemy_cache
             .units
-            .filter(|f| !f.is_worker() && f.can_attack() || f.is_cloaked());
+            .filter(|f| !f.is_worker() && f.is_dangerous() || f.is_cloaked());
         for unit in overseers.iter() {
             let position = if let Some(closest_anti_air) = bot
                 .units
                 .enemy
                 .all
-                .filter(|f| {
-                    f.can_attack_air() && f.in_real_range(unit, f.speed() + unit.speed())
-                })
+                .filter(|f| f.can_attack_air() && f.in_real_range(unit, f.speed() + unit.speed()))
                 .iter()
                 .closest(unit)
             {
-                unit
-                    .position()
-                    .towards(closest_anti_air.position(),
-                             -closest_anti_air.real_range_vs(unit))
+                unit.position().towards(
+                    closest_anti_air.position(),
+                    -closest_anti_air.real_range_vs(unit),
+                )
             } else if let Some(unit) = enemy_units
                 .clone()
                 .filter(|f| f.is_cloaked())
@@ -180,6 +223,20 @@ impl OverlordManager {
             unit.order_move_to(Target::Pos(position), 1.0f32, false);
         }
     }
+
+    fn clear_assignment_overlord(&mut self, tag: u64) {
+        let removed_point = self.overlord_assignment.remove(&tag);
+        if let Some(point) = removed_point {
+            self.placement_occupation.remove(&point);
+        }
+    }
+
+    fn clear_assignment_point(&mut self, point: &Point2) {
+        let removed_tag = self.placement_occupation.remove(point);
+        if let Some(tag) = removed_tag {
+            self.overlord_assignment.remove(&tag);
+        }
+    }
 }
 
 impl AIComponent for OverlordManager {
@@ -189,5 +246,14 @@ impl AIComponent for OverlordManager {
         self.overlord_assignment(bot);
         self.micro(bot, bot_state);
         self.queue_overseers(bot, bot_state);
+    }
+
+    fn on_event(&mut self, event: &Event, _: &mut BotState) {
+        if let UnitDestroyed(tag, _) = event {
+            self.clear_assignment_overlord(*tag);
+            if self.scout_lord == Some(*tag) {
+                self.scout_lord = None;
+            }
+        }
     }
 }
