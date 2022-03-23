@@ -7,8 +7,8 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
-use crate::params::MAX_WORKERS;
-use crate::utils::{PathingDistance, UnitOrderCheck};
+use crate::params::*;
+use crate::utils::*;
 use crate::*;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -452,16 +452,34 @@ impl WorkerManager {
             .sum::<u32>();
 
         let ideal_workers = MAX_WORKERS.min((ideal_miners + ideal_geysers) as usize);
-        let priority = if bot_state.spending_focus == SpendingFocus::Economy {
+        let min_extra_workers = match bot_state.spending_focus {
+            SpendingFocus::Economy => 4,
+            SpendingFocus::Balance => 1,
+            SpendingFocus::Army => 0,
+        };
+        let min_workers = if bot.counter().ordered().count(bot.race_values.worker)
+            < min_extra_workers
+        {
+            ideal_workers.min(bot.counter().all().count(bot.race_values.worker) + min_extra_workers)
+        } else {
+            ideal_workers.min(bot.counter().all().count(bot.race_values.worker))
+        };
+
+        bot_state.build_queue.push(
+            Command::new_unit(bot.race_values.worker, min_workers, false),
+            true,
+            250,
+        );
+        let ideal_priority = if bot_state.spending_focus == SpendingFocus::Economy {
             150
         } else {
-            25
+            15
         };
 
         bot_state.build_queue.push(
             Command::new_unit(bot.race_values.worker, ideal_workers, false),
             false,
-            priority,
+            ideal_priority,
         );
     }
 }

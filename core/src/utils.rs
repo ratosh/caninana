@@ -1,11 +1,12 @@
-use crate::UnwrapOrMax;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
+
+use crate::UnwrapOrMax;
 
 impl Strength for Units {
     fn strength(&self, bot: &Bot) -> f32 {
         self.iter().map(|u| u.strength(bot)).sum::<f32>()
-            * (1f32 + (self.len() as f32 + 1f32).log(20f32))
+            * (1f32 + (self.len() as f32 + 1f32).log(10f32))
     }
 }
 
@@ -13,31 +14,38 @@ pub trait Strength {
     fn strength(&self, bot: &Bot) -> f32;
 }
 
-impl StrengthVs for Units {
-    fn strength_vs(&self, bot: &Bot, unit: &Unit) -> f32 {
-        self.iter()
-            .filter(|f| f.can_attack_unit(unit))
-            .map(|u| u.strength(bot))
-            .sum()
+pub trait IsDangerous {
+    fn is_dangerous(&self) -> bool;
+}
+
+impl IsDangerous for Unit {
+    fn is_dangerous(&self) -> bool {
+        self.can_attack() || SPECIAL_ATTACKERS.contains(&self.type_id())
     }
 }
 
-pub trait StrengthVs {
-    fn strength_vs(&self, bot: &Bot, unit: &Unit) -> f32;
-}
+const SPECIAL_ATTACKERS: [UnitTypeId; 7] = [
+    UnitTypeId::WidowMine,
+    UnitTypeId::Infestor,
+    UnitTypeId::InfestorBurrowed,
+    UnitTypeId::LurkerMP,
+    UnitTypeId::LurkerMPBurrowed,
+    UnitTypeId::Disruptor,
+    UnitTypeId::Medivac,
+];
 
 //TODO: Give bonus for units better at one role.
 // e.g. thor anti air
 impl Strength for Unit {
     fn strength(&self, _: &Bot) -> f32 {
-        let multiplier = if !self.is_almost_ready() {
+        let multiplier = if !self.is_almost_ready() || self.is_hallucination() {
             0.0f32
         } else if self.is_worker() {
             0.1f32
+        } else if SPECIAL_ATTACKERS.contains(&self.type_id()) {
+            1.0f32
         } else if !self.can_attack() {
-            0.25f32
-        } else if self.type_id() == UnitTypeId::Ghost {
-            0.6f32
+            0.0f32
         } else if self.is_structure() {
             1.5f32
         } else {
@@ -65,7 +73,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Ultralisk,
             ],
             UnitTypeId::Sentry => vec![UnitTypeId::BroodLord],
-            UnitTypeId::Stalker => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
+            UnitTypeId::Stalker => vec![UnitTypeId::Zergling],
             UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::BroodLord],
             UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
             UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],

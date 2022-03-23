@@ -1,5 +1,16 @@
 # Performance from ai_arena
 
+## v0.7.3 (390)
+52.60% win rate after 519 games
+
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| Roro               | -61 | 4    | 15     | 0    |
+| zUnkP              | -60 | 2    | 15     | 0    |
+| SF4G               | -58 | 1    | 11     | 0    |
+| BenBotBC           | -36 | 1    | 12     | 0    |
+| Dysnomia           | -30 | 0    | 11     | 0    |
+
 ## v0.6.6 (390)
 60.87% win rate after 184 games
 
