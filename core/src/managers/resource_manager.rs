@@ -55,7 +55,9 @@ impl ResourceManager {
             .units
             .my
             .all
-            .filter(|unit| !unit.is_worker() && !unit.is_structure() && unit.type_id() != UnitTypeId::Queen)
+            .filter(|unit| {
+                !unit.is_worker() && !unit.is_structure() && unit.type_id() != UnitTypeId::Queen
+            })
             .strength(bot);
 
         let mut conditions: u8 = 0;
