@@ -19,6 +19,9 @@ impl Pool14 {
         );
         bot_state
             .build_queue
+            .push(Command::new_unit(UnitTypeId::Zergling, 4, false), true, 985);
+        bot_state
+            .build_queue
             .push(Command::new_unit(UnitTypeId::Overlord, 2, true), true, 980);
         bot_state
             .build_queue
@@ -28,13 +31,16 @@ impl Pool14 {
             .push(Command::new_unit(UnitTypeId::Hatchery, 2, true), true, 950);
         bot_state
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Extractor, 1, true), true, 930);
+            .push(Command::new_unit(UnitTypeId::Extractor, 1, true), true, 940);
+        bot_state
+            .build_queue
+            .push(Command::new_unit(UnitTypeId::Overlord, 3, true), true, 930);
         bot_state
             .build_queue
             .push(Command::new_unit(UnitTypeId::Queen, 1, true), true, 920);
         bot_state
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Zergling, 3, true), true, 910);
+            .push(Command::new_unit(UnitTypeId::Zergling, 2, true), true, 910);
     }
 }
 

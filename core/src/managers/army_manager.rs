@@ -453,16 +453,7 @@ impl ArmyManager {
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone) as isize;
-        let enemy_supply = bot_state.enemy_cache.units.supply() as isize;
-        let wanted_army_supply = if (drones as usize) < MAX_WORKERS {
-            match bot_state.spending_focus {
-                SpendingFocus::Economy => (drones / 6),
-                SpendingFocus::Balance => (drones / 4),
-                SpendingFocus::Army => (drones * 12 / 6).max(enemy_supply + 2),
-            }
-        } else {
-            (bot.supply_army + bot.supply_left) as isize
-        };
+        let wanted_army_supply = (bot.supply_army + bot.supply_left) as isize;
         debug!("Wanted army supply {:?}", wanted_army_supply);
 
         if wanted_army_supply <= 0 {
