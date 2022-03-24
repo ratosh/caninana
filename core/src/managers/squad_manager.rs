@@ -3,6 +3,7 @@ use rust_sc2::geometry::Point3;
 use rust_sc2::prelude::*;
 use rust_sc2::Event::UnitDestroyed;
 
+use crate::utils::IsDangerous;
 use crate::{AIComponent, BotState};
 
 #[derive(Default, Clone)]
@@ -17,8 +18,7 @@ pub struct Squads {
 
 impl Squad {
     fn influence_range(&self) -> f32 {
-        let log_influence = 1f32 + (self.squad.len() as f32).log10();
-        self.squad.max_value(|f| f.real_speed()).unwrap_or_default() + log_influence
+        3f32 + (self.squad.len() as f32).log10()
     }
 
     fn center(&self) -> Point2 {
@@ -45,7 +45,7 @@ impl Squads {
             .units
             .my
             .units
-            .filter(|f| !f.is_worker() && f.can_attack())
+            .filter(|f| !f.is_worker() && f.is_dangerous())
             .iter()
         {
             self.recalculate_unit_squad(unit);

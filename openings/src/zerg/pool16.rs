@@ -40,10 +40,13 @@ impl Pool16 {
             .push(Command::new_unit(UnitTypeId::Extractor, 1, true), true, 930);
         bot_state
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Queen, 1, true), true, 920);
+            .push(Command::new_unit(UnitTypeId::Overlord, 3, true), true, 920);
         bot_state
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Zergling, 2, true), true, 910);
+            .push(Command::new_unit(UnitTypeId::Queen, 1, true), true, 910);
+        bot_state
+            .build_queue
+            .push(Command::new_unit(UnitTypeId::Zergling, 2, true), true, 900);
     }
 }
 

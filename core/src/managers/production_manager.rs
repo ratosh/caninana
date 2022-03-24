@@ -141,7 +141,7 @@ impl ProductionManager {
         unit_type: UnitTypeId,
         save_resources: bool,
     ) {
-        let producing_point = if unit_type.is_worker() {
+        let producing_point = if unit_type.is_worker() || !unit_type.is_melee() {
             bot.start_center
         } else {
             bot.start_location
@@ -272,6 +272,9 @@ impl ProductionManager {
         unit_type: UnitTypeId,
         wanted_amount: usize,
     ) {
+        if bot_state.spending_focus == SpendingFocus::Army {
+            return;
+        }
         debug!("Trying to build {:?} {:?}", unit_type, wanted_amount);
         if unit_type.is_structure() {
             if bot.race_values.gas == unit_type || bot.race_values.rich_gas == unit_type {
@@ -344,9 +347,14 @@ impl ProductionManager {
         if let Some(townhall) = defenseless_halls.iter().closest(bot.start_center) {
             let resources = bot.units.resources.closer(9f32, townhall.position());
             if let Some(defense_center) = resources.center() {
+                let multiplier = if unit_type == UnitTypeId::SpineCrawler {
+                    -1f32
+                } else {
+                    1f32
+                };
                 let placement_position = townhall
                     .position()
-                    .towards(defense_center, townhall.radius() + 1f32);
+                    .towards(defense_center, (townhall.radius() + 1f32) * multiplier);
                 if let Some(builder) = self.get_builder(bot, placement_position) {
                     let options = PlacementOptions {
                         max_distance: 3,

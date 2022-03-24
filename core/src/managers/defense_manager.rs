@@ -2,7 +2,7 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
-use crate::{AIComponent, BotState};
+use crate::*;
 
 #[derive(Default)]
 pub struct DefenseManager {}
@@ -18,16 +18,22 @@ impl DefenseManager {
     ];
 
     pub fn queue_defense(&self, bot: &mut Bot, bot_state: &mut BotState) {
-        // let enemy_supply = bot
-        //     .units
-        //     .enemy
+        // let enemy_strength = bot_state
+        //     .enemy_cache
         //     .units
         //     .filter(|unit| !unit.is_worker() && unit.can_attack())
-        //     .supply();
-        // if enemy_supply > bot.supply_army {
-        //     let crawlers = bot.units.my.townhalls.len();
+        //     .strength(bot);
+        // let our_strength = bot
+        //     .units
+        //     .my
+        //     .units
+        //     .filter(|unit| !unit.is_worker() && unit.can_attack())
+        //     .strength(bot);
+        // if enemy_strength >= our_strength * 0.8f32
+        //     && bot_state.spending_focus != SpendingFocus::Army {
+        //     let spines = bot.units.my.townhalls.len();
         //     bot_state.build_queue.push(
-        //         Command::new_unit(UnitTypeId::SpineCrawler, crawlers, true),
+        //         Command::new_unit(UnitTypeId::SpineCrawler, spines, true),
         //         false,
         //         210,
         //     );
@@ -38,13 +44,13 @@ impl DefenseManager {
             .filter(|u| Self::SPORE_UNITS.contains(&u.type_id()))
             .is_empty()
         {
-            let halls = bot.units.my.townhalls.ready().len();
+            let spores = bot.units.my.townhalls.len();
             bot_state.build_queue.push(
-                Command::new_unit(UnitTypeId::SporeCrawler, halls, true),
+                Command::new_unit(UnitTypeId::SporeCrawler, spores, true),
                 false,
                 210,
             );
-        }
+        };
     }
 }
 

@@ -16,8 +16,7 @@ impl ResourceManager {
             .enemy_cache
             .units
             .filter(|unit| {
-                unit.can_attack()
-                    && !unit.is_worker()
+                !unit.is_worker()
                     && bot
                         .units
                         .enemy
@@ -31,8 +30,7 @@ impl ResourceManager {
             .enemy_cache
             .units
             .filter(|unit| {
-                unit.can_attack()
-                    && !unit.is_worker()
+                !unit.is_worker()
                     && bot
                         .units
                         .my
@@ -45,28 +43,38 @@ impl ResourceManager {
         let their_strength = bot_state
             .enemy_cache
             .units
-            .filter(|unit| !unit.is_worker() && unit.can_attack())
+            .filter(|unit| !unit.is_worker())
             .strength(bot);
         let our_strength = bot
             .units
             .my
+            .all
+            .filter(|unit| !unit.is_worker() && !unit.is_structure())
+            .strength(bot);
+        let our_offensive_strength = bot
             .units
+            .my
+            .all
             .filter(|unit| {
-                !unit.is_worker() && unit.can_attack() && unit.type_id() != UnitTypeId::Queen
+                !unit.is_worker() && !unit.is_structure() && unit.type_id() != UnitTypeId::Queen
             })
             .strength(bot);
+
         let mut conditions: u8 = 0;
-        if close_enemy_units > our_strength {
+        if close_enemy_units > our_offensive_strength {
             conditions += 1;
         }
-        if advanced_enemy_units * 0.8f32 > our_strength {
-            conditions += 1;
-        }
-        if their_strength * 0.4f32 > our_strength {
+        if advanced_enemy_units > our_offensive_strength {
             conditions += 1;
         }
         if their_strength * 0.6f32 > our_strength {
             conditions += 1;
+        }
+        if bot.minerals > 1_000 {
+            conditions += 1;
+        }
+        if their_strength * 5f32 < our_offensive_strength {
+            conditions = conditions.saturating_sub(2);
         }
 
         bot_state.spending_focus = match conditions {
@@ -120,29 +128,23 @@ impl ResourceManager {
         let ideal_harvesters = bases.sum(|x| x.ideal_harvesters().unwrap_or(12));
         let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap_or_default())
             + bot.units.my.workers.idle().len() as u32;
-        if ideal_harvesters < 64
-            && (ideal_harvesters.saturating_sub(current_harvesters) <= 4 || bot.minerals > 1_000)
+        let halls = if bot_state.spending_focus != SpendingFocus::Army
+            && ideal_harvesters < 66
+            && (ideal_harvesters.saturating_sub(current_harvesters) < 8 || bot.minerals > 1_000)
         {
-            bot_state.build_queue.push(
-                Command::new_unit(
-                    bot.race_values.start_townhall,
-                    bot.counter().count(bot.race_values.start_townhall) + 1,
-                    bot_state.spending_focus != SpendingFocus::Army,
-                ),
-                false,
-                200,
-            );
+            bot.counter().count(bot.race_values.start_townhall) + 1
         } else {
-            bot_state.build_queue.push(
-                Command::new_unit(
-                    bot.race_values.start_townhall,
-                    bot.counter().all().count(bot.race_values.start_townhall),
-                    bot_state.spending_focus != SpendingFocus::Army,
-                ),
-                false,
-                200,
-            );
-        }
+            bot.counter().all().count(bot.race_values.start_townhall)
+        };
+        bot_state.build_queue.push(
+            Command::new_unit(
+                bot.race_values.start_townhall,
+                halls,
+                bot_state.spending_focus != SpendingFocus::Army,
+            ),
+            false,
+            400,
+        );
     }
 
     fn order_geysers(&self, bot: &mut Bot, bot_state: &mut BotState) {
@@ -151,12 +153,12 @@ impl ResourceManager {
         let wanted_extractors = if drones < DOUBLE_GAS_PER_BASE_WORKERS {
             1.max(bot.counter().all().count(UnitTypeId::Drone) / 16)
         } else {
-            bot.owned_expansions().count() * 2
+            bot.owned_expansions().count().saturating_sub(1) * 2
         };
         bot_state.build_queue.push(
             Command::new_unit(extractor, wanted_extractors, false),
             false,
-            5,
+            160,
         );
     }
 }

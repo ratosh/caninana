@@ -50,7 +50,7 @@ impl ArmyManager {
             || !bot_state
                 .enemy_cache
                 .units
-                .filter(|u| u.is_flying() && u.can_attack())
+                .filter(|u| u.is_flying() && u.is_dangerous())
                 .is_empty()
         {
             self.allowed_tech.insert(UnitTypeId::Hydralisk);
@@ -126,7 +126,7 @@ impl ArmyManager {
         }
 
         let enemy_attack_force = bot_state.enemy_cache.units.filter(|e| {
-            e.can_attack()
+            e.is_dangerous()
                 && bot
                     .units
                     .my
@@ -140,15 +140,12 @@ impl ArmyManager {
 
         // Retreat when aggression is small
         // Attack when we build enough numbers again
-        priority_targets.extend(bot_state.enemy_cache.units.filter(|u| {
-            !u.is_flying()
-                && !u.is_hallucination()
-                && (u.can_attack()
-                    || (u.type_id() == UnitTypeId::WidowMine
-                        || u.type_id() == UnitTypeId::Infestor
-                        || u.type_id() == UnitTypeId::Disruptor
-                        || u.type_id() == UnitTypeId::Medivac))
-        }));
+        priority_targets.extend(
+            bot_state
+                .enemy_cache
+                .units
+                .filter(|u| !u.is_flying() && !u.is_hallucination() && u.is_dangerous()),
+        );
 
         secondary_targets.extend(
             bot.units
@@ -164,7 +161,7 @@ impl ArmyManager {
                     .enemy
                     .all
                     .flying()
-                    .filter(|u| u.is_flying() && u.can_attack()),
+                    .filter(|u| u.is_flying() && !u.is_hallucination() && u.is_dangerous()),
             );
 
             secondary_targets.extend(
@@ -186,7 +183,7 @@ impl ArmyManager {
         self.money_engaging = (self.money_engaging && bot.minerals > 200) || bot.minerals > 1_000;
         self.strength_engaging = (self.strength_engaging
             && our_global_strength >= their_global_strength * 0.9f32)
-            || our_global_strength >= their_global_strength * 1.4f32;
+            || our_global_strength >= their_global_strength * 1.3f32;
 
         let engaging = self.money_engaging || self.strength_engaging;
 
@@ -249,13 +246,13 @@ impl ArmyManager {
                     && unit.health_percentage().unwrap_or_default() < UNBURROW_HEALTH_PERCENTAGE);
 
             let strength_multiplier = if bot.minerals > 5000 {
-                0.4f32
+                0.5f32
             } else if defending {
-                0.6f32
+                0.7f32
             } else if engaging {
-                0.8f32
+                0.9f32
             } else {
-                1.0f32
+                1.1f32
             };
             let decision = if fallback {
                 UnitDecision::Retreat
@@ -355,6 +352,8 @@ impl ArmyManager {
                     && unit.weapon_cooldown().unwrap_or_default() > 10f32
                 {
                     Self::move_towards(bot, unit, 0.5f32);
+                } else if target.is_revealed() {
+                    unit.order_attack(Target::Pos(target.position()), false);
                 } else {
                     unit.order_attack(Target::Tag(target.tag()), false);
                 }
@@ -366,7 +365,7 @@ impl ArmyManager {
                 } else if let Some(target) = extended_enemy {
                     unit.order_attack(Target::Pos(target.position()), false);
                 } else if let Some(target) = secondary_target {
-                    unit.order_attack(Target::Tag(target.tag()), false);
+                    unit.order_attack(Target::Pos(target.position()), false);
                 } else {
                     unit.order_attack(Target::Pos(bot.enemy_start), false);
                 }
@@ -446,7 +445,7 @@ impl ArmyManager {
             SpendingFocus::Balance => 3,
             SpendingFocus::Army => 6,
         };
-        let min_queens = 8.min(bot.units.my.townhalls.len() + extra_queens);
+        let min_queens = MAX_QUEENS.min(bot.units.my.townhalls.len() + extra_queens);
         bot_state.build_queue.push(
             Command::new_unit(UnitTypeId::Queen, min_queens, false),
             false,
@@ -454,16 +453,7 @@ impl ArmyManager {
         );
 
         let drones = bot.counter().all().count(UnitTypeId::Drone) as isize;
-        let enemy_supply = bot_state.enemy_cache.units.supply() as isize;
-        let wanted_army_supply = if (drones as usize) < MAX_WORKERS {
-            match bot_state.spending_focus {
-                SpendingFocus::Economy => (drones / 6),
-                SpendingFocus::Balance => (drones / 4),
-                SpendingFocus::Army => (drones * 12 / 6).max(enemy_supply + 2),
-            }
-        } else {
-            (bot.supply_army + bot.supply_left) as isize
-        };
+        let wanted_army_supply = (bot.supply_army + bot.supply_left) as isize;
         debug!("Wanted army supply {:?}", wanted_army_supply);
 
         if wanted_army_supply <= 0 {
@@ -543,14 +533,10 @@ impl ArmyManager {
 
     fn unit_value(bot_state: &BotState, unit_type: UnitTypeId) -> (isize, usize) {
         let mut value = match unit_type {
-            UnitTypeId::Zergling => 10f32,
-            UnitTypeId::Roach => 50f32,
-            UnitTypeId::Ravager => 50f32,
-            UnitTypeId::Hydralisk => 50f32,
-            UnitTypeId::Corruptor => 5f32,
-            UnitTypeId::Mutalisk => 5f32,
-            UnitTypeId::Ultralisk => 5f32,
-            _ => 50f32,
+            UnitTypeId::Corruptor => 2f32,
+            UnitTypeId::Mutalisk => 1f32,
+            UnitTypeId::Ultralisk => 1f32,
+            _ => 10f32,
         };
         let mut priority = 35f32;
         for unit in bot_state.enemy_cache.units.iter() {
