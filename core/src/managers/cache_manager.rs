@@ -16,6 +16,7 @@ pub struct UnitsCache {
 impl UnitsCache {
     const FOG_AREA_CACHE_TIME: f32 = 120f32;
     const VISIBLE_AREA_CACHE_TIME: f32 = 10f32;
+    const TACTICAL_JUMP_CACHE_TIME: f32 = 4f32;
 
     pub fn destroy_unit(&mut self, tag: u64) {
         if self.cache.contains_key(&tag) {
@@ -27,16 +28,20 @@ impl UnitsCache {
 
     fn check_unit_cache(&mut self, bot: &Bot) {
         for unit in bot.units.enemy.all.iter() {
-            if let Some(cached) = bot.units.cached.all.get(unit.tag()) {
-                self.cache
-                    .insert(unit.tag(), CacheEntry::new(cached.clone(), bot.time));
+            let to_be_cached = if let Some(cached) = bot.units.cached.all.get(unit.tag()) {
+                cached.clone()
             } else {
-                self.cache
-                    .insert(unit.tag(), CacheEntry::new(unit.clone(), bot.time));
-            }
+                unit.clone()
+            };
+            self.cache
+                .insert(unit.tag(), CacheEntry::new(to_be_cached, bot.time));
         }
         self.cache.retain(|_, value| {
-            if bot.is_visible(value.unit.position()) && !value.unit.is_burrowed() {
+            if bot.is_visible(value.unit.position())
+                && value.unit.is_using(AbilityId::EffectTacticalJump)
+            {
+                value.last_seen + Self::TACTICAL_JUMP_CACHE_TIME > bot.time
+            } else if bot.is_visible(value.unit.position()) && !value.unit.is_burrowed() {
                 value.last_seen + Self::VISIBLE_AREA_CACHE_TIME > bot.time
             } else {
                 value.last_seen + Self::FOG_AREA_CACHE_TIME > bot.time
