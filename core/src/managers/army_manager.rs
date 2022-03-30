@@ -134,8 +134,7 @@ impl ArmyManager {
         if let Some(next_expansion) = bot
             .expansions
             .iter()
-            .filter(|e| e.alliance.is_neutral())
-            .next()
+            .find(|e| e.alliance.is_neutral())
             .map(|e| e.loc)
         {
             defense_points.push(next_expansion);
