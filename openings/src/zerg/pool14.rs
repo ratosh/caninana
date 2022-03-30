@@ -19,9 +19,6 @@ impl Pool14 {
         );
         bot_state
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Zergling, 4, false), true, 985);
-        bot_state
-            .build_queue
             .push(Command::new_unit(UnitTypeId::Overlord, 2, true), true, 980);
         bot_state
             .build_queue

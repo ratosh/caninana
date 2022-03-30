@@ -1,4 +1,7 @@
+![Caninana](assets/caninana.png)
+
 # Caninana
+
 Caninana is a StarCraft 2 AI. Our goal is to make a strong bot to play versus humans. 
 - Initial support for Zerg (Later support for all races);
 - Scout and try to respond what enemy actions;

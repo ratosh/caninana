@@ -2,18 +2,22 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 #[derive(Debug, Clone)]
-struct InnerQueue {
-    pub command: Command,
+struct BlockedElement {
+    pub element: PriorityElement,
     pub blocked: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PriorityElement {
+    pub command: Command,
     pub priority: usize,
 }
 
-impl InnerQueue {
+impl BlockedElement {
     fn new(command: Command, blocked: bool, priority: usize) -> Self {
         Self {
-            command,
+            element: PriorityElement { command, priority },
             blocked,
-            priority,
         }
     }
 }
@@ -49,13 +53,13 @@ impl Command {
 }
 
 pub struct CommandQueueIter {
-    queue: Vec<InnerQueue>,
+    queue: Vec<BlockedElement>,
     index: usize,
 }
 
 #[derive(Debug, Default)]
 pub struct CommandQueue {
-    queue: Vec<InnerQueue>,
+    queue: Vec<BlockedElement>,
 }
 
 impl CommandQueue {
@@ -67,7 +71,7 @@ impl CommandQueue {
     }
 
     pub fn check_completion(&mut self, bot: &Bot) {
-        self.queue.retain(|x| match x.command {
+        self.queue.retain(|x| match x.element.command {
             Command::UnitCommand {
                 unit_type,
                 wanted_amount,
@@ -81,7 +85,7 @@ impl CommandQueue {
     }
 
     pub fn push(&mut self, command: Command, blocked: bool, priority: usize) {
-        let replace_previous_command = self.queue.iter().position(|i| match &i.command {
+        let replace_previous_command = self.queue.iter().position(|i| match &i.element.command {
             Command::UnitCommand {
                 unit_type,
                 wanted_amount: _,
@@ -91,7 +95,7 @@ impl CommandQueue {
                     unit_type: new_type,
                     wanted_amount: _,
                     save_resources: _,
-                } => (!i.blocked || i.priority == priority) && *unit_type == new_type,
+                } => (!i.blocked || i.element.priority == priority) && *unit_type == new_type,
                 _ => false,
             },
             Command::UpgradeCommand {
@@ -108,8 +112,11 @@ impl CommandQueue {
         if let Some(previous_command_index) = replace_previous_command {
             self.queue.remove(previous_command_index);
         }
-        let index = self.queue.iter().position(|i| i.priority < priority);
-        let item = InnerQueue::new(command, blocked, priority);
+        let index = self
+            .queue
+            .iter()
+            .position(|i| i.element.priority < priority);
+        let item = BlockedElement::new(command, blocked, priority);
         if let Some(found_index) = index {
             self.queue.insert(found_index, item);
         } else {
@@ -119,7 +126,7 @@ impl CommandQueue {
 }
 
 impl IntoIterator for &CommandQueue {
-    type Item = Command;
+    type Item = PriorityElement;
     type IntoIter = CommandQueueIter;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -131,13 +138,13 @@ impl IntoIterator for &CommandQueue {
 }
 
 impl Iterator for CommandQueueIter {
-    type Item = Command;
+    type Item = PriorityElement;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.queue.len() {
             let item = self.queue[self.index].clone();
             self.index += 1;
-            return Some(item.command);
+            return Some(item.element);
         }
         None
     }
@@ -176,7 +183,7 @@ mod tests {
         let mut iter = queue.into_iter();
         let next = iter.next();
         let expected = command2;
-        assert_eq!(next.unwrap(), expected);
+        assert_eq!(next.unwrap().command, expected);
         let next2 = iter.next();
         assert_eq!(next2.is_some(), false);
     }
@@ -194,7 +201,7 @@ mod tests {
         let mut iter = queue.into_iter();
         let next = iter.next();
         let expected = command2;
-        assert_eq!(next.unwrap(), expected);
+        assert_eq!(next.unwrap().command, expected);
         let next2 = iter.next();
         assert_eq!(next2.is_some(), false);
     }
@@ -209,7 +216,7 @@ mod tests {
         let next = queue.into_iter().next();
         let expected = command2;
         assert_eq!(next.is_some(), true);
-        assert_eq!(next.clone().unwrap(), expected);
+        assert_eq!(next.clone().unwrap().command, expected);
     }
 
     #[test]

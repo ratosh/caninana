@@ -440,6 +440,12 @@ impl ArmyManager {
     }
 
     fn queue_units(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
+        let min_lings = 4;
+        bot_state.build_queue.push(
+            Command::new_unit(UnitTypeId::Zergling, min_lings, false),
+            true,
+            9999,
+        );
         let extra_queens = match bot_state.spending_focus {
             SpendingFocus::Economy => 1,
             SpendingFocus::Balance => 3,
@@ -497,11 +503,11 @@ impl ArmyManager {
 
         for unit_type in self.allowed_tech.iter() {
             if unit_type.has_requirement(bot) {
-                unit_distribution.insert(*unit_type, Self::unit_value(bot_state, *unit_type));
+                unit_distribution.insert(*unit_type, Self::unit_value(bot, bot_state, *unit_type));
             } else {
                 bot_state
                     .build_queue
-                    .push(Command::new_unit(*unit_type, 1, true), false, 100);
+                    .push(Command::new_unit(*unit_type, 1, true), false, 200);
             }
         }
         let mut result = HashMap::new();
@@ -531,9 +537,10 @@ impl ArmyManager {
         result
     }
 
-    fn unit_value(bot_state: &BotState, unit_type: UnitTypeId) -> (isize, usize) {
+    fn unit_value(bot: &Bot, bot_state: &BotState, unit_type: UnitTypeId) -> (isize, usize) {
         let mut value = match unit_type {
-            UnitTypeId::Corruptor => 2f32,
+            UnitTypeId::Zergling => 2f32,
+            UnitTypeId::Corruptor => 3f32,
             UnitTypeId::Mutalisk => 1f32,
             UnitTypeId::Ultralisk => 1f32,
             _ => 10f32,
@@ -548,6 +555,7 @@ impl ArmyManager {
                 value -= unit.supply_cost();
             }
         }
+        priority -= (bot.units.my.units.of_type(unit_type).supply() / 10) as f32;
         (value.max(1f32) as isize, priority as usize)
     }
 

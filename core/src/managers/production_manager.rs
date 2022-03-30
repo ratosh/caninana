@@ -35,20 +35,27 @@ impl ProductionManager {
     fn produce_units(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
         bot_state.build_queue.check_completion(bot);
         self.producing.clear();
-        for command in bot_state.build_queue.into_iter() {
-            match command {
+        for element in bot_state.build_queue.into_iter() {
+            match element.command {
                 UnitCommand {
                     unit_type,
                     wanted_amount,
                     save_resources,
                 } => {
-                    self.produce(bot, bot_state, unit_type, wanted_amount, save_resources);
+                    self.produce(
+                        bot,
+                        bot_state,
+                        unit_type,
+                        wanted_amount,
+                        save_resources,
+                        element.priority,
+                    );
                 }
                 UpgradeCommand {
                     upgrade,
                     save_resources,
                 } => {
-                    self.upgrade(bot, bot_state, upgrade, save_resources);
+                    self.upgrade(bot, bot_state, upgrade, save_resources, element.priority);
                 }
             }
         }
@@ -63,6 +70,7 @@ impl ProductionManager {
         unit_type: UnitTypeId,
         wanted_amount: usize,
         save_resources: bool,
+        priority: usize,
     ) {
         if bot.counter().all().count(unit_type) >= wanted_amount {
             return;
@@ -70,7 +78,7 @@ impl ProductionManager {
             self.save_unit_resources(bot, bot_state, unit_type, save_resources, true, true);
             return;
         }
-        if self.missing_unit_requirements(bot, bot_state, unit_type) {
+        if self.missing_unit_requirements(bot, bot_state, unit_type, save_resources, priority) {
             return;
         }
         let upgrade_ability = unit_type.morph_ability();
@@ -95,6 +103,8 @@ impl ProductionManager {
         bot: &Bot,
         bot_state: &mut BotState,
         unit_type: UnitTypeId,
+        save_resources: bool,
+        priority: usize,
     ) -> bool {
         let has_requirement = unit_type.has_requirement(bot);
         if has_requirement {
@@ -102,11 +112,17 @@ impl ProductionManager {
         }
 
         if let Some(requirement) = unit_type.building_requirements().first() {
-            if !self.missing_unit_requirements(bot, bot_state, *requirement) {
+            if !self.missing_unit_requirements(
+                bot,
+                bot_state,
+                *requirement,
+                save_resources,
+                priority,
+            ) {
                 bot_state.build_queue.push(
-                    Command::new_unit(*requirement, 1, true),
+                    Command::new_unit(*requirement, 1, save_resources),
                     false,
-                    Self::REQUIREMENT_QUEUE_PRIORITY,
+                    Self::REQUIREMENT_QUEUE_PRIORITY + priority,
                 );
             }
         }
@@ -118,6 +134,8 @@ impl ProductionManager {
         bot: &Bot,
         bot_state: &mut BotState,
         upgrade_id: UpgradeId,
+        save_resources: bool,
+        priority: usize,
     ) -> bool {
         let has_requirement = upgrade_id.has_requirement(bot);
         if has_requirement {
@@ -125,10 +143,18 @@ impl ProductionManager {
         }
 
         if let Some(requirement) = upgrade_id.building_requirements().first() {
-            if !self.missing_unit_requirements(bot, bot_state, *requirement) {
-                bot_state
-                    .build_queue
-                    .push(Command::new_unit(*requirement, 1, true), false, 100);
+            if !self.missing_unit_requirements(
+                bot,
+                bot_state,
+                *requirement,
+                save_resources,
+                priority,
+            ) {
+                bot_state.build_queue.push(
+                    Command::new_unit(*requirement, 1, save_resources),
+                    false,
+                    100,
+                );
             }
         }
         true
@@ -186,13 +212,18 @@ impl ProductionManager {
         bot_state: &mut BotState,
         upgrade: UpgradeId,
         save_resources: bool,
+        priority: usize,
     ) {
+        if bot_state.spending_focus == SpendingFocus::Army && bot.minerals < 500 {
+            return;
+        }
         let produced_on = upgrade.produced_on();
         if bot.is_ordered_upgrade(upgrade) {
             return;
         }
         if bot.can_afford_upgrade(upgrade) {
-            if self.missing_upgrade_requirements(bot, bot_state, upgrade) {
+            if self.missing_upgrade_requirements(bot, bot_state, upgrade, save_resources, priority)
+            {
                 return;
             }
             if let Some(building) = bot
@@ -290,7 +321,7 @@ impl ProductionManager {
                     .townhalls
                     .closest(bot.start_location)
                     .map_or(bot.start_location, |f| f.position())
-                    .towards(bot.game_info.map_center, 8f32),
+                    .towards(bot.game_info.map_center, 4f32),
                 PlacementOptions {
                     max_distance: 20,
                     step: 2,
@@ -315,16 +346,15 @@ impl ProductionManager {
             return;
         }
         if let Some(expansion_location) = bot
-            .free_expansions()
-            .filter(|e| bot.pathing_distance(bot.start_location, e.loc).is_some())
+            .expansions
+            .iter()
+            .filter(|e| {
+                e.alliance.is_neutral()
+                    && bot.pathing_distance(bot.start_location, e.loc).is_some()
+                    && e.geysers.len() > 1
+            })
             .map(|e| e.loc)
-            .closest(
-                bot.units
-                    .my
-                    .townhalls
-                    .center()
-                    .unwrap_or(bot.start_location),
-            )
+            .next()
         {
             if let Some(builder) = self.get_builder(bot, expansion_location) {
                 builder.build(unit_type, expansion_location, false);
@@ -382,8 +412,14 @@ impl ProductionManager {
     fn build_gas(&self, bot: &mut Bot) {
         let mut geysers = Units::new();
         for owned_expansion in bot.owned_expansions() {
-            if let Some(geyser) = bot.find_gas_placement(owned_expansion.loc) {
-                geysers.push(geyser);
+            if let Some(base_tag) = owned_expansion.base {
+                if let Some(base) = bot.units.my.townhalls.get(base_tag) {
+                    if base.is_ready() {
+                        if let Some(geyser) = bot.find_gas_placement(owned_expansion.loc) {
+                            geysers.push(geyser);
+                        }
+                    }
+                }
             }
         }
         if let Some(geyser) = geysers.iter().closest(bot.start_location) {
