@@ -2,22 +2,29 @@ use rand::prelude::*;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
-use crate::utils::{Supply, UnitOrderCheck};
-use crate::{AIComponent, BotState};
 use crate::command_queue::Command;
 use crate::params::*;
+use crate::utils::{Supply, UnitOrderCheck};
+use crate::{AIComponent, BotState};
 
 #[derive(Default)]
 pub struct OverlordManager {}
 
 impl OverlordManager {
-
     fn queue_overseers(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let workers = bot.counter().all().count(bot.race_values.worker);
         if workers >= UNLOCK_OVERSEER_WORKERS {
-            let enemy_invisible = bot_state.enemy_cache.units.filter(|u| u.is_cloaked() || u.is_burrowed()).supply() as usize;
+            let enemy_invisible = bot_state
+                .enemy_cache
+                .units
+                .filter(|u| u.is_cloaked() || u.is_burrowed())
+                .supply() as usize;
             bot_state.build_queue.push(
-                Command::new_unit(UnitTypeId::Overseer, workers/ 20 + enemy_invisible / 10, true),
+                Command::new_unit(
+                    UnitTypeId::Overseer,
+                    workers / 20 + enemy_invisible / 10,
+                    true,
+                ),
                 false,
                 500,
             );

@@ -275,8 +275,7 @@ impl ArmyManager {
             } else if unit.type_id() == UnitTypeId::RoachBurrowed {
                 if unit.has_ability(AbilityId::BurrowUpRoach)
                     && (decision == UnitDecision::Advance
-                        && unit.hits_percentage().unwrap_or_default()
-                            >= UNBURROW_HEALTH_PERCENTAGE
+                        && unit.hits_percentage().unwrap_or_default() >= UNBURROW_HEALTH_PERCENTAGE
                         || avoid_burrow)
                 {
                     unit.use_ability(AbilityId::BurrowUpRoach, false);
