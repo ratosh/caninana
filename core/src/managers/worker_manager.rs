@@ -398,10 +398,11 @@ impl WorkerManager {
                 WorkerDecision::Gather => {
                     let assignment = self.assignment.get(&worker.tag());
                     if let Some(current_assignment) = assignment {
-                        if worker.is_carrying_resource() {
-                            if !worker.is_returning() && bot.units.my.townhalls.len() > 0 {
-                                worker.return_resource(false);
-                            }
+                        if worker.is_carrying_resource()
+                            && !worker.is_returning()
+                            && !bot.units.my.townhalls.is_empty()
+                        {
+                            worker.return_resource(false);
                         }
                         if !worker.is_carrying_resource() || worker.is_idle() {
                             if let Some(worker_assignment) = worker.target_tag() {
