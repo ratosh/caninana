@@ -53,6 +53,8 @@ impl Strength for Unit {
             0.0f32
         } else if self.is_structure() {
             1.5f32
+        } else if self.is_cloaked() {
+            2f32
         } else {
             1f32
         };
@@ -121,14 +123,12 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Roach,
                 UnitTypeId::Ravager,
                 UnitTypeId::Ultralisk,
-                UnitTypeId::BroodLord,
                 // UnitTypeId::LurkerMP,
             ],
             UnitTypeId::Marauder => vec![
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::Mutalisk,
-                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Reaper => vec![UnitTypeId::Ravager],
@@ -150,7 +150,6 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Thor => vec![
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
-                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Banshee => vec![
                 UnitTypeId::Hydralisk,

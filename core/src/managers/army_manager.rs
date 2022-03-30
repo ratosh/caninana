@@ -234,9 +234,9 @@ impl ArmyManager {
             );
 
             let fallback = (unit.type_id() == UnitTypeId::Roach
-                && unit.health_percentage().unwrap_or_default() < BURROW_HEALTH_PERCENTAGE)
+                && unit.hits_percentage().unwrap_or_default() < BURROW_HEALTH_PERCENTAGE)
                 || (!unit.can_attack()
-                    && unit.health_percentage().unwrap_or_default() < UNBURROW_HEALTH_PERCENTAGE);
+                    && unit.hits_percentage().unwrap_or_default() < UNBURROW_HEALTH_PERCENTAGE);
 
             let strength_multiplier = if bot.minerals > 5000 {
                 0.5f32
@@ -267,7 +267,7 @@ impl ArmyManager {
                 && !bot.has_upgrade(UpgradeId::TunnelingClaws);
             if unit.type_id() == UnitTypeId::Roach
                 && unit.has_ability(AbilityId::BurrowDownRoach)
-                && unit.health_percentage().unwrap_or_default() < BURROW_HEALTH_PERCENTAGE
+                && unit.hits_percentage().unwrap_or_default() < BURROW_HEALTH_PERCENTAGE
                 && !avoid_burrow
             {
                 unit.use_ability(AbilityId::BurrowDownRoach, false);
@@ -275,7 +275,7 @@ impl ArmyManager {
             } else if unit.type_id() == UnitTypeId::RoachBurrowed {
                 if unit.has_ability(AbilityId::BurrowUpRoach)
                     && (decision == UnitDecision::Advance
-                        && unit.health_percentage().unwrap_or_default()
+                        && unit.hits_percentage().unwrap_or_default()
                             >= UNBURROW_HEALTH_PERCENTAGE
                         || avoid_burrow)
                 {
@@ -326,12 +326,12 @@ impl ArmyManager {
             let extended_enemy = priority_targets
                 .iter()
                 .filter(|t| unit.can_attack_unit(t))
-                .furthest(bot.enemy_start);
+                .closest(bot.start_location);
 
             let secondary_target = secondary_targets
                 .iter()
                 .filter(|f| unit.can_attack_unit(f))
-                .furthest(bot.enemy_start);
+                .closest(bot.start_location);
 
             if let Some(target) = target_in_range {
                 if decision == UnitDecision::Retreat && unit.on_cooldown() {
@@ -451,7 +451,6 @@ impl ArmyManager {
             90,
         );
 
-        let drones = bot.counter().all().count(UnitTypeId::Drone) as isize;
         let wanted_army_supply = (bot.supply_army + bot.supply_left) as isize;
         debug!("Wanted army supply {:?}", wanted_army_supply);
 
@@ -475,14 +474,6 @@ impl ArmyManager {
                     priority,
                 );
             }
-        }
-
-        if drones > UNLOCK_OVERSEER_WORKERS {
-            bot_state.build_queue.push(
-                Command::new_unit(UnitTypeId::Overseer, drones as usize / 20, true),
-                false,
-                100,
-            );
         }
     }
 
@@ -569,7 +560,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingattackspeed, false),
                 false,
-                50,
+                150,
             );
         }
         let workers = bot.counter().all().count(bot.race_values.worker);
@@ -589,14 +580,14 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Overlordspeed, true),
                 false,
-                80,
+                180,
             );
         }
         if bot.counter().all().count(UnitTypeId::Baneling) > 0 {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::CentrificalHooks, false),
                 false,
-                50,
+                150,
             );
         }
         if bot.counter().all().count(UnitTypeId::Roach) > 0 {
@@ -638,21 +629,21 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel1, false),
                 false,
-                60,
+                160,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergMeleeWeaponsLevel1) {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel2, false),
                 false,
-                60,
+                160,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergMeleeWeaponsLevel2) {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMeleeWeaponsLevel3, false),
                 false,
-                60,
+                160,
             );
         }
         let ground_number = bot
@@ -668,21 +659,21 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel1, false),
                 false,
-                70,
+                170,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergGroundArmorsLevel1) {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel2, false),
                 false,
-                70,
+                170,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergGroundArmorsLevel2) {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergGroundArmorsLevel3, false),
                 false,
-                70,
+                170,
             );
         }
         let ranged_number = bot
@@ -698,33 +689,33 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel1, false),
                 false,
-                80,
+                180,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergMissileWeaponsLevel1) {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel2, false),
                 false,
-                80,
+                180,
             );
         }
         if bot.has_upgrade(UpgradeId::ZergMissileWeaponsLevel2) {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ZergMissileWeaponsLevel3, false),
                 false,
-                80,
+                180,
             );
         }
         if bot.counter().all().count(UnitTypeId::Ultralisk) > 0 {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::ChitinousPlating, false),
                 false,
-                50,
+                150,
             );
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::AnabolicSynthesis, true),
                 false,
-                55,
+                155,
             );
         }
     }
