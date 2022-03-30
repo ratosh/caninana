@@ -22,9 +22,7 @@ impl ProductionManager {
             .my
             .structures
             .filter(|u| {
-                u.is_attacked()
-                    && !u.is_ready()
-                    && u.health_percentage().unwrap_or_default() < 0.1f32
+                u.is_attacked() && !u.is_ready() && u.hits_percentage().unwrap_or_default() < 0.1f32
             })
             .iter()
         {
@@ -303,9 +301,6 @@ impl ProductionManager {
         unit_type: UnitTypeId,
         wanted_amount: usize,
     ) {
-        if bot_state.spending_focus == SpendingFocus::Army {
-            return;
-        }
         debug!("Trying to build {:?} {:?}", unit_type, wanted_amount);
         if unit_type.is_structure() {
             if bot.race_values.gas == unit_type || bot.race_values.rich_gas == unit_type {
@@ -341,7 +336,10 @@ impl ProductionManager {
         }
     }
 
-    fn build_expansion(&self, bot: &mut Bot, _bot_state: &BotState, unit_type: UnitTypeId) {
+    fn build_expansion(&self, bot: &mut Bot, bot_state: &BotState, unit_type: UnitTypeId) {
+        if bot_state.spending_focus == SpendingFocus::Army {
+            return;
+        }
         if bot.counter().ordered().count(unit_type) > 0 {
             return;
         }
