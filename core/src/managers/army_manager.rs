@@ -108,8 +108,8 @@ impl ArmyManager {
         my_army.sort(|u| u.tag());
 
         // Defend our townhalls
-        let defense_range =
-            if self.defending { 20f32 } else { 10f32 } + bot.units.my.townhalls.len() as f32 * 4f32;
+        let defense_range = if self.defending { 20f32 } else { 10f32 }
+            + bot.owned_expansions().count() as f32 * 4f32;
 
         if self.defending {
             my_army.extend(
@@ -124,15 +124,28 @@ impl ArmyManager {
         if my_army.is_empty() {
             return;
         }
+        let mut defense_points = bot
+            .units
+            .my
+            .townhalls
+            .iter()
+            .map(|u| u.position())
+            .collect::<Vec<Point2>>();
+        if let Some(next_expansion) = bot
+            .expansions
+            .iter()
+            .filter(|e| e.alliance.is_neutral())
+            .next()
+            .map(|e| e.loc)
+        {
+            defense_points.push(next_expansion);
+        }
 
         let enemy_attack_force = bot_state.enemy_cache.units.filter(|e| {
             e.is_dangerous()
-                && bot
-                    .units
-                    .my
-                    .townhalls
+                && defense_points
                     .iter()
-                    .any(|h| h.is_closer(defense_range, *e) && bot.has_creep(h.position()))
+                    .any(|h| h.is_closer(defense_range, *e))
         });
 
         let mut priority_targets = Units::new();
@@ -144,34 +157,15 @@ impl ArmyManager {
             bot_state
                 .enemy_cache
                 .units
-                .filter(|u| !u.is_flying() && !u.is_hallucination() && u.is_dangerous()),
+                .filter(|u| !u.is_hallucination() && u.is_dangerous()),
         );
 
         secondary_targets.extend(
             bot.units
                 .enemy
                 .all
-                .ground()
-                .filter(|u| !u.is_flying() && !priority_targets.contains_tag(u.tag())),
+                .filter(|u| !priority_targets.contains_tag(u.tag())),
         );
-
-        if !my_army.filter(|u| u.can_attack_air()).is_empty() {
-            priority_targets.extend(
-                bot.units
-                    .enemy
-                    .all
-                    .flying()
-                    .filter(|u| u.is_flying() && !u.is_hallucination() && u.is_dangerous()),
-            );
-
-            secondary_targets.extend(
-                bot.units
-                    .enemy
-                    .all
-                    .flying()
-                    .filter(|u| u.is_flying() && !priority_targets.contains_tag(u.tag())),
-            );
-        }
 
         let our_global_strength = my_army.strength(bot);
         let their_global_strength = priority_targets.strength(bot);
@@ -566,7 +560,7 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingmovementspeed, true),
                 false,
-                150,
+                300,
             );
         }
         if bot_state.spending_focus == SpendingFocus::Army {
@@ -583,13 +577,13 @@ impl ArmyManager {
         if workers >= UNLOCK_BURROW_WORKERS {
             bot_state
                 .build_queue
-                .push(Command::new_upgrade(UpgradeId::Burrow, true), false, 150);
+                .push(Command::new_upgrade(UpgradeId::Burrow, true), false, 300);
         }
         if workers >= UNLOCK_TUNNELING_CLAWS_WORKERS {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::TunnelingClaws, true),
                 false,
-                150,
+                250,
             );
         }
         if workers >= OVERLORD_SPEED_WORKERS {
@@ -610,19 +604,19 @@ impl ArmyManager {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::GlialReconstitution, true),
                 false,
-                100,
+                200,
             );
         }
         if bot.counter().all().count(UnitTypeId::Hydralisk) > 0 {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::EvolveGroovedSpines, false),
-                false,
-                70,
+                bot.counter().all().count(UnitTypeId::Hydralisk) > 6,
+                170,
             );
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::EvolveMuscularAugments, true),
-                false,
-                80,
+                bot.counter().all().count(UnitTypeId::Hydralisk) > 6,
+                180,
             );
         }
         if workers >= MULTI_EVOLUTION_WORKERS {
