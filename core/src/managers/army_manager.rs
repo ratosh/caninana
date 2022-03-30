@@ -537,9 +537,10 @@ impl ArmyManager {
         result
     }
 
-    fn unit_value(bot_state: &BotState, unit_type: UnitTypeId) -> (isize, usize) {
+    fn unit_value(bot: &Bot, bot_state: &BotState, unit_type: UnitTypeId) -> (isize, usize) {
         let mut value = match unit_type {
-            UnitTypeId::Corruptor => 2f32,
+            UnitTypeId::Zergling => 2f32,
+            UnitTypeId::Corruptor => 3f32,
             UnitTypeId::Mutalisk => 1f32,
             UnitTypeId::Ultralisk => 1f32,
             _ => 10f32,
