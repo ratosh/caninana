@@ -28,9 +28,6 @@ impl Pool16 {
             .push(Command::new_unit(UnitTypeId::Drone, 17, true), true, 960);
         bot_state
             .build_queue
-            .push(Command::new_unit(UnitTypeId::Zergling, 2, false), true, 955);
-        bot_state
-            .build_queue
             .push(Command::new_unit(UnitTypeId::Hatchery, 2, true), true, 950);
         bot_state
             .build_queue

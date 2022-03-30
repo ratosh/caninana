@@ -440,6 +440,12 @@ impl ArmyManager {
     }
 
     fn queue_units(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
+        let min_lings = 4;
+        bot_state.build_queue.push(
+            Command::new_unit(UnitTypeId::Zergling, min_lings, false),
+            true,
+            9999,
+        );
         let extra_queens = match bot_state.spending_focus {
             SpendingFocus::Economy => 1,
             SpendingFocus::Balance => 3,
@@ -548,6 +554,7 @@ impl ArmyManager {
                 value -= unit.supply_cost();
             }
         }
+        priority -= (bot.units.my.units.of_type(unit_type).supply() / 10) as f32;
         (value.max(1f32) as isize, priority as usize)
     }
 

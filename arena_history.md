@@ -1,5 +1,16 @@
 # Performance from ai_arena
 
+## v0.9.0 (390)
+39.58% win rate after 710 games
+
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| MechaShark         | -71 | 5    | 22     | 0    |
+| SharpenedEdge      | -56 | 2    | 25     | 0    |
+| BoundByTheKhala    | -53 | 3    | 14     | 0    |
+| SF4G               | -52 | 0    | 11     | 0    |
+| Dysnomia           | -44 | 0    | 27     | 0    |
+
 ## v0.7.3 (390)
 52.60% win rate after 519 games
 
