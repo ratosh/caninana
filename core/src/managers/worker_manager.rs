@@ -172,7 +172,7 @@ impl WorkerManager {
             } else if needed_fighters > 0 {
                 needed_fighters -= 1;
                 WorkerDecision::Fight
-            } else if close_attackers && (worker.hits_percentage().unwrap_or_default() <= 0.5f32) {
+            } else if close_attackers && (worker.hits_percentage().unwrap_or_default() <= 0.55f32) {
                 WorkerDecision::Run
             } else {
                 WorkerDecision::Gather
@@ -344,11 +344,23 @@ impl WorkerManager {
             .mineral_fields
             .closest(bot.start_location)
             .unwrap();
+        for burrowed_worker in bot.units.my.all.of_type(UnitTypeId::DroneBurrowed) {
+            if burrowed_worker.hits_percentage().unwrap_or_default() > 0.9f32 {
+                burrowed_worker.use_ability(AbilityId::BurrowUpDrone, false);
+            }
+        }
         for worker in bot.units.my.workers.iter() {
             let decision = self
                 .worker_decision
                 .get(&worker.tag())
                 .unwrap_or(&WorkerDecision::Gather);
+            if *decision == WorkerDecision::Run
+                && bot.has_upgrade(UpgradeId::Burrow)
+                && !worker.is_burrowed()
+            {
+                worker.use_ability(AbilityId::BurrowDownDrone, false);
+                continue;
+            }
             match decision {
                 WorkerDecision::Run => {
                     let attackers = bot.units.enemy.units.filter(|f| {
