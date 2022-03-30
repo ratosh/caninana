@@ -503,11 +503,11 @@ impl ArmyManager {
 
         for unit_type in self.allowed_tech.iter() {
             if unit_type.has_requirement(bot) {
-                unit_distribution.insert(*unit_type, Self::unit_value(bot_state, *unit_type));
+                unit_distribution.insert(*unit_type, Self::unit_value(bot, bot_state, *unit_type));
             } else {
                 bot_state
                     .build_queue
-                    .push(Command::new_unit(*unit_type, 1, true), false, 100);
+                    .push(Command::new_unit(*unit_type, 1, true), false, 200);
             }
         }
         let mut result = HashMap::new();
