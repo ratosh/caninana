@@ -20,18 +20,23 @@ pub trait IsDangerous {
 
 impl IsDangerous for Unit {
     fn is_dangerous(&self) -> bool {
-        self.can_attack() || SPECIAL_ATTACKERS.contains(&self.type_id())
+        self.can_attack() || SPECIAL_UNITS.contains(&self.type_id())
     }
 }
 
-const SPECIAL_ATTACKERS: [UnitTypeId; 7] = [
-    UnitTypeId::WidowMine,
+const SPECIAL_UNITS: [UnitTypeId; 12] = [
     UnitTypeId::Infestor,
     UnitTypeId::InfestorBurrowed,
     UnitTypeId::LurkerMP,
     UnitTypeId::LurkerMPBurrowed,
     UnitTypeId::Disruptor,
+    UnitTypeId::Observer,
+    UnitTypeId::WarpPrism,
+    UnitTypeId::Liberator,
+    UnitTypeId::LiberatorAG,
+    UnitTypeId::WidowMine,
     UnitTypeId::Medivac,
+    UnitTypeId::Raven,
 ];
 
 //TODO: Give bonus for units better at one role.
@@ -42,7 +47,7 @@ impl Strength for Unit {
             0.0f32
         } else if self.is_worker() {
             0.1f32
-        } else if SPECIAL_ATTACKERS.contains(&self.type_id()) {
+        } else if SPECIAL_UNITS.contains(&self.type_id()) {
             1.0f32
         } else if !self.can_attack() {
             0.0f32
@@ -72,9 +77,22 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::BroodLord,
                 UnitTypeId::Ultralisk,
             ],
-            UnitTypeId::Sentry => vec![UnitTypeId::BroodLord],
-            UnitTypeId::Stalker => vec![UnitTypeId::Zergling],
-            UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::BroodLord],
+            UnitTypeId::Sentry => vec![
+                UnitTypeId::Roach,
+                UnitTypeId::Hydralisk,
+                UnitTypeId::Ultralisk,
+                UnitTypeId::BroodLord,
+            ],
+            UnitTypeId::Stalker => vec![
+                UnitTypeId::Zergling,
+                UnitTypeId::Roach,
+                UnitTypeId::Hydralisk,
+            ],
+            UnitTypeId::Immortal => vec![
+                UnitTypeId::Zergling,
+                UnitTypeId::Hydralisk,
+                UnitTypeId::BroodLord,
+            ],
             UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
             UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
             UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
@@ -91,7 +109,11 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Corruptor,
             ],
             UnitTypeId::Tempest => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
-            UnitTypeId::Adept => vec![UnitTypeId::Roach, UnitTypeId::BroodLord],
+            UnitTypeId::Adept => vec![
+                UnitTypeId::Roach,
+                UnitTypeId::Hydralisk,
+                UnitTypeId::BroodLord,
+            ],
             UnitTypeId::Disruptor => vec![UnitTypeId::Ultralisk],
             // Race::Terran
             UnitTypeId::Marine => vec![
@@ -138,6 +160,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Viking => vec![UnitTypeId::Hydralisk],
             UnitTypeId::Raven => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Cyclone => vec![UnitTypeId::Zergling],
             UnitTypeId::HellionTank => vec![UnitTypeId::Roach],
             UnitTypeId::Liberator => vec![UnitTypeId::Corruptor],
             // Race::Zerg
@@ -170,6 +193,7 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::Hydralisk => vec![
                 UnitTypeId::Sentry,
+                UnitTypeId::Colossus,
                 UnitTypeId::Hellion,
                 UnitTypeId::HellionTank,
                 UnitTypeId::SiegeTank,
@@ -220,7 +244,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Viking,
                 UnitTypeId::Hydralisk,
                 // UnitTypeId::Mutalisk,
-                // UnitTypeId::Corruptor,
+                UnitTypeId::Corruptor,
             ],
             UnitTypeId::Ravager => vec![
                 UnitTypeId::Immortal,
@@ -553,5 +577,22 @@ impl HasRequirement for UpgradeId {
             }
         }
         self.building_requirements().is_empty()
+    }
+}
+
+pub trait Center {
+    fn center_point(&self) -> Option<Point2>;
+}
+
+impl Center for Vec<(usize, usize)> {
+    fn center_point(&self) -> Option<Point2> {
+        if self.is_empty() {
+            None
+        } else {
+            let (sum, len) = self.iter().fold(((0, 0), 0), |(sum, len), p| {
+                ((sum.0 + p.0, sum.1 + p.1), len + 1)
+            });
+            Some(Point2::from((sum.0 / len, sum.1 / len)))
+        }
     }
 }

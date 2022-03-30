@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use itertools::Itertools;
@@ -8,6 +9,7 @@ use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
 use crate::params::*;
+use crate::utils::Center;
 use crate::utils::*;
 use crate::*;
 
@@ -27,6 +29,7 @@ pub struct WorkerManager {
     assignment: HashMap<u64, u64>,
     // (resource_tag, worker_tag)
     resources: HashMap<u64, HashSet<u64>>,
+    worker_defense: bool,
 }
 
 impl WorkerManager {
@@ -64,7 +67,9 @@ impl WorkerManager {
     const GEYSERS_WORKERS: usize = 3;
 
     fn decision(&mut self, bot: &mut Bot) {
-        let defense_range = 19f32;
+        let defense_range = bot
+            .start_location
+            .distance(bot.ramps.my.points.center_point().unwrap());
         let surroundings_range = 15f32;
 
         let close_units = bot.units.enemy.units.filter(|f| {
@@ -116,11 +121,6 @@ impl WorkerManager {
         let cannons_close = enemy_buildings_close
             .of_type(UnitTypeId::PhotonCannon)
             .len();
-        let current_fighters = self
-            .worker_decision
-            .values()
-            .filter(|f| **f == WorkerDecision::Fight)
-            .count();
 
         let army_supply = bot
             .units
@@ -140,17 +140,17 @@ impl WorkerManager {
             needed_fighters += cannons_close * 4
         }
         if weak_attackers > 0 {
-            needed_fighters += weak_attackers + 1
+            needed_fighters += weak_attackers
         }
         debug!(
-            "U[{:?}] W[{:?}] S[{:?}] F[{:?}] NF[{:?}]",
+            "U[{:?}] W[{:?}] S[{:?}] NF[{:?}]",
             units_attacking,
             weak_attackers,
             enemy_buildings_close.len(),
-            current_fighters,
             needed_fighters
         );
         needed_fighters = needed_fighters.saturating_sub(army_supply);
+        self.worker_defense = self.worker_defense || weak_attackers > 5;
 
         for worker in bot
             .units
@@ -172,10 +172,7 @@ impl WorkerManager {
             } else if needed_fighters > 0 {
                 needed_fighters -= 1;
                 WorkerDecision::Fight
-            } else if close_attackers
-                && (weak_attackers > 1 && weak_attackers == units_attacking
-                    || worker.hits_percentage().unwrap_or_default() <= 0.5)
-            {
+            } else if close_attackers && (worker.hits_percentage().unwrap_or_default() <= 0.5f32) {
                 WorkerDecision::Run
             } else {
                 WorkerDecision::Gather
@@ -266,6 +263,11 @@ impl WorkerManager {
                 .mineral_fields
                 .closer(9f32, townhall.position())
                 .iter()
+                .sorted_by(|a, b| {
+                    a.distance(townhall)
+                        .partial_cmp(&b.distance(townhall))
+                        .unwrap_or(Ordering::Equal)
+                })
                 .map(|m| m.tag())
             {
                 match self.resources.get(&mineral) {
@@ -274,8 +276,11 @@ impl WorkerManager {
                         minerals.push_back(mineral);
                     }
                     Some(assigned) => {
-                        for _ in assigned.len()..Self::MINERAL_WORKERS {
-                            minerals.push_back(mineral);
+                        for i in assigned.len()..Self::MINERAL_WORKERS {
+                            match i {
+                                0 => minerals.push_front(mineral),
+                                _ => minerals.push_back(mineral),
+                            }
                         }
                     }
                 }
@@ -287,8 +292,7 @@ impl WorkerManager {
                 .units
                 .my
                 .gas_buildings
-                .ready()
-                .filter(|u| u.vespene_contents().unwrap_or_default() > 0)
+                .filter(|u| u.is_almost_ready() && u.vespene_contents().unwrap_or_default() > 0)
                 .closer(9f32, townhall.position())
                 .iter()
                 .map(|g| g.tag())
@@ -335,7 +339,6 @@ impl WorkerManager {
     }
 
     fn micro(&mut self, bot: &mut Bot) {
-        let advance_mineral = bot.units.mineral_fields.closest(bot.enemy_start).unwrap();
         let retreat_mineral = bot
             .units
             .mineral_fields
@@ -363,40 +366,31 @@ impl WorkerManager {
                     }
                 }
                 WorkerDecision::Fight => {
-                    let close_targets = bot.units.enemy.all.filter(|u| {
-                        worker.can_attack_unit(u) && worker.in_range(u, worker.speed())
-                    });
+                    let weakest_in_range = bot
+                        .units
+                        .enemy
+                        .all
+                        .iter()
+                        .filter(|u| worker.can_attack_unit(u) && worker.in_range(u, 0.3f32))
+                        .sorted_by(|a, b| a.hits().cmp(&b.hits()))
+                        .next();
                     let closest_to_base = bot
                         .units
                         .enemy
                         .all
                         .iter()
                         .filter(|u| worker.can_attack_unit(u))
-                        .closest(bot.start_location);
-                    let closest_target = bot
-                        .units
-                        .enemy
-                        .all
-                        .iter()
-                        .filter(|u| worker.can_attack_unit(u) && worker.in_range(u, 3f32))
-                        .closest(worker);
-                    if worker.on_cooldown() {
+                        .closest(retreat_mineral.position());
+                    if worker.weapon_cooldown().unwrap_or_default() > 0.2f32 {
                         worker.order_gather(retreat_mineral.tag(), false);
-                    } else if let Some(target) = close_targets.closest(worker) {
-                        worker.order_attack(Target::Tag(target.tag()), false);
-                    } else if let Some(target) = closest_target {
-                        if !target.is_worker() {
-                            worker.order_attack(Target::Tag(target.tag()), false);
-                        } else if bot
-                            .pathing_distance(target.position(), retreat_mineral.position())
-                            > bot.pathing_distance(worker.position(), retreat_mineral.position())
-                        {
-                            worker.order_gather(advance_mineral.tag(), false);
-                        } else {
-                            worker.order_gather(retreat_mineral.tag(), false);
+                    } else if worker.is_carrying_resource() {
+                        if !worker.is_returning() {
+                            worker.return_resource(false);
                         }
-                    } else if let Some(target) = closest_to_base {
+                    } else if let Some(target) = weakest_in_range {
                         worker.order_attack(Target::Tag(target.tag()), false);
+                    } else if let Some(target) = closest_to_base {
+                        worker.order_attack(Target::Pos(target.position()), false);
                     } else {
                         worker.order_gather(retreat_mineral.tag(), false);
                     }
@@ -404,9 +398,12 @@ impl WorkerManager {
                 WorkerDecision::Gather => {
                     let assignment = self.assignment.get(&worker.tag());
                     if let Some(current_assignment) = assignment {
-                        if worker.is_carrying_resource() && !worker.is_returning() {
-                            worker.return_resource(false);
-                        } else if !worker.is_carrying_resource() || worker.is_idle() {
+                        if worker.is_carrying_resource() {
+                            if !worker.is_returning() && bot.units.my.townhalls.len() > 0 {
+                                worker.return_resource(false);
+                            }
+                        }
+                        if !worker.is_carrying_resource() || worker.is_idle() {
                             if let Some(worker_assignment) = worker.target_tag() {
                                 if worker_assignment != *current_assignment {
                                     worker.order_gather(*current_assignment, false);
@@ -453,8 +450,8 @@ impl WorkerManager {
 
         let ideal_workers = MAX_WORKERS.min((ideal_miners + ideal_geysers) as usize);
         let min_extra_workers = match bot_state.spending_focus {
-            SpendingFocus::Economy => 4,
-            SpendingFocus::Balance => 1,
+            SpendingFocus::Economy => bot.owned_expansions().count() * 2,
+            SpendingFocus::Balance => bot.owned_expansions().count() + 1,
             SpendingFocus::Army => 0,
         };
         let min_workers = if bot.counter().ordered().count(bot.race_values.worker)
@@ -464,14 +461,20 @@ impl WorkerManager {
         } else {
             ideal_workers.min(bot.counter().all().count(bot.race_values.worker))
         };
-
+        if self.worker_defense {
+            bot_state.build_queue.push(
+                Command::new_unit(bot.race_values.worker, 16, false),
+                true,
+                9999,
+            );
+        }
         bot_state.build_queue.push(
             Command::new_unit(bot.race_values.worker, min_workers, false),
             true,
             250,
         );
         let ideal_priority = if bot_state.spending_focus == SpendingFocus::Economy {
-            150
+            100
         } else {
             15
         };
