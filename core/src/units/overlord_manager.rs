@@ -95,7 +95,7 @@ impl OverlordManager {
             u.hits_percentage().unwrap_or_default() >= 0.9f32
                 && !self.overlord_assignment.contains_key(&u.tag())
         });
-        if self.scout_lord.is_none() {
+        if self.scout_lord.is_none() && bot.counter().all().count(UnitTypeId::Overlord) > 3 {
             if bot.counter().all().count(UnitTypeId::Overseer) == 0 {
                 if let Some(unit) = overlords.pop() {
                     self.scout_lord = Some(unit.tag());
@@ -210,11 +210,11 @@ impl OverlordManager {
             } else if let Some(unit) = enemy_units
                 .clone()
                 .filter(|f| f.is_cloaked())
-                .furthest(bot.enemy_start)
+                .closest(bot.start_location)
             {
                 enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
                 unit.position()
-            } else if let Some(unit) = enemy_units.clone().furthest(bot.enemy_start) {
+            } else if let Some(unit) = enemy_units.clone().closest(bot.start_location) {
                 enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
                 unit.position()
             } else {
