@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use crate::command_queue::Command;
 use crate::params::*;
-use crate::utils::{*};
+use crate::utils::*;
 use crate::{AIComponent, BotState};
 
 #[derive(Default)]
@@ -95,11 +95,12 @@ impl OverlordManager {
             u.hits_percentage().unwrap_or_default() >= 0.9f32
                 && !self.overlord_assignment.contains_key(&u.tag())
         });
-        if self.scout_lord.is_none() && bot.counter().all().count(UnitTypeId::Overlord) > 3 {
-            if bot.counter().all().count(UnitTypeId::Overseer) == 0 {
-                if let Some(unit) = overlords.pop() {
-                    self.scout_lord = Some(unit.tag());
-                }
+        if self.scout_lord.is_none()
+            && bot.counter().all().count(UnitTypeId::Overlord) > 3
+            && bot.counter().all().count(UnitTypeId::Overseer) == 0
+        {
+            if let Some(unit) = overlords.pop() {
+                self.scout_lord = Some(unit.tag());
             }
         }
         for e in bot.expansions.iter() {
