@@ -1,4 +1,4 @@
-pub const MAX_WORKERS: usize = 70;
+pub const MAX_WORKERS: usize = 64;
 pub const MAX_QUEENS: usize = 6;
 pub const MULTI_EVOLUTION_WORKERS: usize = MAX_WORKERS;
 pub const DOUBLE_GAS_PER_BASE_WORKERS: usize = 34;
