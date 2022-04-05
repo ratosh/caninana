@@ -166,7 +166,7 @@ impl ResourceManager {
         bot_state.build_queue.push(
             Command::new_unit(extractor, wanted_extractors, false),
             false,
-            160,
+            260,
         );
     }
 }

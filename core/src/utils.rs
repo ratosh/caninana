@@ -1,7 +1,10 @@
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
+use crate::BotState;
 
-use crate::UnwrapOrMax;
+pub trait Strength {
+    fn strength(&self, bot: &Bot) -> f32;
+}
 
 impl Strength for Units {
     fn strength(&self, bot: &Bot) -> f32 {
@@ -10,8 +13,46 @@ impl Strength for Units {
     }
 }
 
-pub trait Strength {
-    fn strength(&self, bot: &Bot) -> f32;
+pub trait DynamicStrength {
+    fn dynamic_strength(&self, bot: &Bot) -> f32;
+}
+
+impl DynamicStrength for Units {
+    fn dynamic_strength(&self, bot: &Bot) -> f32 {
+        self.filter(|u| !u.is_structure() || !u.is_close_to_their_base(bot)).strength(bot)
+    }
+}
+
+pub trait CloseToTheirBase {
+    fn is_close_to_their_base(&self, bot: &Bot) -> bool;
+}
+
+impl CloseToTheirBase for Unit {
+    fn is_close_to_their_base(&self, bot: &Bot) -> bool {
+        bot
+            .units
+            .enemy
+            .townhalls
+            .closest_distance(self.position())
+            .unwrap_or_max()
+            < 25f32
+    }
+}
+
+pub trait CloseToOurBase {
+    fn is_close_to_our_base(&self, bot: &Bot) -> bool;
+}
+
+impl CloseToOurBase for Unit {
+    fn is_close_to_our_base(&self, bot: &Bot) -> bool {
+        bot
+            .units
+            .my
+            .townhalls
+            .closest_distance(self.position())
+            .unwrap_or_default()
+            < 35f32
+    }
 }
 
 pub trait IsDangerous {
@@ -20,23 +61,30 @@ pub trait IsDangerous {
 
 impl IsDangerous for Unit {
     fn is_dangerous(&self) -> bool {
-        self.can_attack() || SPECIAL_UNITS.contains(&self.type_id())
+        self.can_attack()
+            || SPECIAL_DANGEROUS.contains(&self.type_id())
+            || SPECIAL_UNITS.contains(&self.type_id())
     }
 }
 
-const SPECIAL_UNITS: [UnitTypeId; 12] = [
+const SPECIAL_DANGEROUS: [UnitTypeId; 9] = [
     UnitTypeId::Infestor,
     UnitTypeId::InfestorBurrowed,
     UnitTypeId::LurkerMP,
     UnitTypeId::LurkerMPBurrowed,
     UnitTypeId::Disruptor,
-    UnitTypeId::Observer,
-    UnitTypeId::WarpPrism,
     UnitTypeId::Liberator,
     UnitTypeId::LiberatorAG,
     UnitTypeId::WidowMine,
-    UnitTypeId::Medivac,
     UnitTypeId::Raven,
+];
+
+const SPECIAL_UNITS: [UnitTypeId; 5] = [
+    UnitTypeId::Observer,
+    UnitTypeId::WarpPrism,
+    UnitTypeId::Medivac,
+    UnitTypeId::Overlord,
+    UnitTypeId::Overseer,
 ];
 
 //TODO: Give bonus for units better at one role.
@@ -46,8 +94,8 @@ impl Strength for Unit {
         let multiplier = if !self.is_almost_ready() || self.is_hallucination() {
             0.0f32
         } else if self.is_worker() {
-            0.1f32
-        } else if SPECIAL_UNITS.contains(&self.type_id()) {
+            0.2f32
+        } else if SPECIAL_DANGEROUS.contains(&self.type_id()) {
             1.0f32
         } else if !self.can_attack() {
             0.0f32
@@ -87,7 +135,6 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::Stalker => vec![
                 UnitTypeId::Zergling,
-                UnitTypeId::Roach,
                 UnitTypeId::Hydralisk,
             ],
             UnitTypeId::Immortal => vec![
@@ -162,7 +209,9 @@ impl CounteredBy for UnitTypeId {
             // Race::Zerg
             UnitTypeId::Zergling => vec![
                 UnitTypeId::Zealot,
+                UnitTypeId::Adept,
                 UnitTypeId::Sentry,
+                UnitTypeId::Marine,
                 UnitTypeId::Reaper,
                 UnitTypeId::Hellion,
                 UnitTypeId::HellionTank,
@@ -432,7 +481,7 @@ impl BuildingRequirement for UnitTypeId {
             UnitTypeId::Roach => vec![UnitTypeId::RoachWarren],
             UnitTypeId::Ravager => vec![UnitTypeId::RoachWarren],
             UnitTypeId::Hydralisk => vec![UnitTypeId::HydraliskDen],
-            UnitTypeId::Mutalisk => vec![UnitTypeId::Spire],
+            UnitTypeId::Mutalisk => vec![UnitTypeId::Spire, UnitTypeId::GreaterSpire],
             UnitTypeId::Overseer => vec![UnitTypeId::Lair, UnitTypeId::Hive],
             UnitTypeId::Ultralisk => vec![UnitTypeId::UltraliskCavern],
             UnitTypeId::Corruptor => vec![UnitTypeId::Spire, UnitTypeId::GreaterSpire],
@@ -454,7 +503,7 @@ impl BuildingRequirement for UnitTypeId {
 impl ProducedOn for UpgradeId {
     fn produced_on(&self) -> Vec<UnitTypeId> {
         match *self {
-            UpgradeId::Burrow => vec![UnitTypeId::Hatchery],
+            UpgradeId::Burrow => vec![UnitTypeId::Hatchery, UnitTypeId::Lair, UnitTypeId::Hive],
             UpgradeId::Zerglingattackspeed | UpgradeId::Zerglingmovementspeed => {
                 vec![UnitTypeId::SpawningPool]
             }
@@ -480,6 +529,14 @@ impl ProducedOn for UpgradeId {
             | UpgradeId::ZergMeleeWeaponsLevel1
             | UpgradeId::ZergMeleeWeaponsLevel2
             | UpgradeId::ZergMeleeWeaponsLevel3 => vec![UnitTypeId::EvolutionChamber],
+            UpgradeId::ZergFlyerArmorsLevel1
+            | UpgradeId::ZergFlyerArmorsLevel2
+            | UpgradeId::ZergFlyerArmorsLevel3
+            | UpgradeId::ZergFlyerWeaponsLevel1
+            | UpgradeId::ZergFlyerWeaponsLevel2
+            | UpgradeId::ZergFlyerWeaponsLevel3 => {
+                vec![UnitTypeId::Spire, UnitTypeId::GreaterSpire]
+            }
             _ => {
                 panic!("Idk where to produce {:?}", self);
             }
@@ -493,11 +550,15 @@ impl BuildingRequirement for UpgradeId {
             UpgradeId::CentrificalHooks
             | UpgradeId::ZergGroundArmorsLevel2
             | UpgradeId::ZergMissileWeaponsLevel2
-            | UpgradeId::ZergMeleeWeaponsLevel2 => vec![UnitTypeId::Lair, UnitTypeId::Hive],
+            | UpgradeId::ZergMeleeWeaponsLevel2
+            | UpgradeId::ZergFlyerArmorsLevel2
+            | UpgradeId::ZergFlyerWeaponsLevel2 => vec![UnitTypeId::Lair, UnitTypeId::Hive],
             UpgradeId::Zerglingattackspeed
             | UpgradeId::ZergGroundArmorsLevel3
             | UpgradeId::ZergMissileWeaponsLevel3
-            | UpgradeId::ZergMeleeWeaponsLevel3 => vec![UnitTypeId::Hive],
+            | UpgradeId::ZergMeleeWeaponsLevel3
+            | UpgradeId::ZergFlyerArmorsLevel3
+            | UpgradeId::ZergFlyerWeaponsLevel3 => vec![UnitTypeId::Hive],
             _ => vec![],
         }
     }
@@ -554,6 +615,85 @@ pub trait HasRequirement {
     fn has_requirement(&self, bot: &Bot) -> bool;
 }
 
+pub trait UnitUpgradeList {
+    fn unit_upgrades(&self) -> Vec<UpgradeId>;
+}
+
+impl UnitUpgradeList for UnitTypeId {
+    fn unit_upgrades(&self) -> Vec<UpgradeId> {
+        let mut result = vec![];
+        // Weapons check
+        match self {
+            UnitTypeId::BroodLord => {
+                result.push(UpgradeId::ZergMeleeWeaponsLevel1);
+                result.push(UpgradeId::ZergMeleeWeaponsLevel2);
+                result.push(UpgradeId::ZergMeleeWeaponsLevel3);
+                result.push(UpgradeId::ZergFlyerWeaponsLevel1);
+                result.push(UpgradeId::ZergFlyerWeaponsLevel2);
+                result.push(UpgradeId::ZergFlyerWeaponsLevel3);
+            }
+            UnitTypeId::Zergling | UnitTypeId::Baneling | UnitTypeId::Ultralisk => {
+                result.push(UpgradeId::ZergMeleeWeaponsLevel1);
+                result.push(UpgradeId::ZergMeleeWeaponsLevel2);
+                result.push(UpgradeId::ZergMeleeWeaponsLevel3);
+            }
+            UnitTypeId::Roach | UnitTypeId::Ravager | UnitTypeId::Hydralisk => {
+                result.push(UpgradeId::ZergMissileWeaponsLevel1);
+                result.push(UpgradeId::ZergMissileWeaponsLevel2);
+                result.push(UpgradeId::ZergMissileWeaponsLevel3);
+            }
+            UnitTypeId::Corruptor => {
+                result.push(UpgradeId::ZergFlyerWeaponsLevel1);
+                result.push(UpgradeId::ZergFlyerWeaponsLevel2);
+                result.push(UpgradeId::ZergFlyerWeaponsLevel3);
+            }
+            _ => {}
+        }
+        // Defense check
+        match self {
+            UnitTypeId::Zergling
+            | UnitTypeId::Baneling
+            | UnitTypeId::Roach
+            | UnitTypeId::Ravager
+            | UnitTypeId::Hydralisk
+            | UnitTypeId::Infestor
+            | UnitTypeId::LurkerMP
+            | UnitTypeId::SwarmHostMP
+            | UnitTypeId::Ultralisk => {
+                result.push(UpgradeId::ZergGroundArmorsLevel1);
+                result.push(UpgradeId::ZergGroundArmorsLevel2);
+                result.push(UpgradeId::ZergGroundArmorsLevel3);
+            }
+            UnitTypeId::Mutalisk
+            | UnitTypeId::Viper
+            | UnitTypeId::Corruptor
+            | UnitTypeId::BroodLord => {
+                result.push(UpgradeId::ZergFlyerArmorsLevel1);
+                result.push(UpgradeId::ZergFlyerArmorsLevel2);
+                result.push(UpgradeId::ZergFlyerArmorsLevel3);
+            }
+            _ => {}
+        }
+        result
+    }
+}
+
+pub trait UpgradeCounter {
+    fn count_upgrades(&self, bot: &Bot) -> usize;
+}
+
+impl UpgradeCounter for UnitTypeId {
+    fn count_upgrades(&self, bot: &Bot) -> usize {
+        let mut counter = 0;
+        for upgrade_id in self.unit_upgrades() {
+            if bot.has_upgrade(upgrade_id) {
+                counter += 1;
+            }
+        }
+        counter
+    }
+}
+
 impl HasRequirement for UnitTypeId {
     fn has_requirement(&self, bot: &Bot) -> bool {
         for requirement in self.building_requirements() {
@@ -589,6 +729,52 @@ impl Center for Vec<(usize, usize)> {
                 ((sum.0 + p.0, sum.1 + p.1), len + 1)
             });
             Some(Point2::from((sum.0 / len, sum.1 / len)))
+        }
+    }
+}
+
+pub trait UnwrapOrMax<T> {
+    fn unwrap_or_max(self) -> T;
+}
+
+impl UnwrapOrMax<f32> for Option<f32> {
+    fn unwrap_or_max(self) -> f32 {
+        match self {
+            Some(x) => x,
+            None => f32::MAX,
+        }
+    }
+}
+
+pub trait MoveTowards {
+    fn move_towards(&self, bot: &Bot, bot_state: &BotState, multiplier: f32);
+}
+
+impl MoveTowards for Unit {
+    fn move_towards(&self, bot: &Bot, bot_state: &BotState, multiplier: f32) {
+        let center = bot_state
+            .enemy_cache
+            .units
+            .filter(|t| t.can_attack_unit(self) && self.distance(t.position()) < 16f32)
+            .center();
+        if let Some(center_point) = center {
+            let position = {
+                let pos = self
+                    .position()
+                    .towards(center_point, self.speed() * multiplier);
+                if self.is_flying() || bot.is_pathable(pos) {
+                    pos
+                } else {
+                    *self
+                        .position()
+                        .neighbors8()
+                        .iter()
+                        .filter(|p| bot.is_pathable(**p))
+                        .furthest(center_point)
+                        .unwrap_or(&bot.start_location)
+                }
+            };
+            self.order_move_to(Target::Pos(position), 0.5f32, false);
         }
     }
 }
