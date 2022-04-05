@@ -21,7 +21,7 @@ pub struct OverlordManager {
 }
 
 impl OverlordManager {
-    const EXPANSION_DISTANCE : f32 = 8f32;
+    const EXPANSION_DISTANCE: f32 = 8f32;
     const RETREAT_ON: [UnitTypeId; 5] = [
         UnitTypeId::Viking,
         UnitTypeId::Battlecruiser,
@@ -131,7 +131,8 @@ impl OverlordManager {
                 .all
                 .filter(|u| u.can_attack_air() && u.in_real_range(unit, u.speed() + unit.speed()))
                 .iter()
-                .closest(unit).is_some()
+                .closest(unit)
+                .is_some()
             {
                 unit.move_towards(bot, bot_state, -20f32);
             } else {
@@ -182,14 +183,16 @@ impl OverlordManager {
             .units
             .of_type(UnitTypeId::Overseer)
             .iter()
-            .sorted_by(|a, b| b.hits().cmp(&a.hits()).then(a.tag().cmp(&b.tag()))) {
+            .sorted_by(|a, b| b.hits().cmp(&a.hits()).then(a.tag().cmp(&b.tag())))
+        {
             if bot
                 .units
                 .enemy
                 .all
                 .filter(|f| f.can_attack_air() && f.in_real_range(unit, f.speed() + unit.speed()))
                 .iter()
-                .closest(unit).is_some()
+                .closest(unit)
+                .is_some()
             {
                 unit.move_towards(bot, bot_state, -20f32);
             } else {

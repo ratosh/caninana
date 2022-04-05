@@ -1,6 +1,6 @@
+use crate::BotState;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
-use crate::BotState;
 
 pub trait Strength {
     fn strength(&self, bot: &Bot) -> f32;
@@ -19,7 +19,8 @@ pub trait DynamicStrength {
 
 impl DynamicStrength for Units {
     fn dynamic_strength(&self, bot: &Bot) -> f32 {
-        self.filter(|u| !u.is_structure() || !u.is_close_to_their_base(bot)).strength(bot)
+        self.filter(|u| !u.is_structure() || !u.is_close_to_their_base(bot))
+            .strength(bot)
     }
 }
 
@@ -29,8 +30,7 @@ pub trait CloseToTheirBase {
 
 impl CloseToTheirBase for Unit {
     fn is_close_to_their_base(&self, bot: &Bot) -> bool {
-        bot
-            .units
+        bot.units
             .enemy
             .townhalls
             .closest_distance(self.position())
@@ -45,8 +45,7 @@ pub trait CloseToOurBase {
 
 impl CloseToOurBase for Unit {
     fn is_close_to_our_base(&self, bot: &Bot) -> bool {
-        bot
-            .units
+        bot.units
             .my
             .townhalls
             .closest_distance(self.position())
@@ -133,10 +132,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Ultralisk,
                 UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Stalker => vec![
-                UnitTypeId::Zergling,
-                UnitTypeId::Hydralisk,
-            ],
+            UnitTypeId::Stalker => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
             UnitTypeId::Immortal => vec![
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
