@@ -57,7 +57,7 @@ impl QueenManager {
                     .filter(|&p| {
                         (!bot.is_visible((p.x as usize, p.y as usize))
                             || !bot.has_creep((p.x as usize, p.y as usize)))
-                            && (h.position().distance(p)
+                            && (h.position().distance(p) * 1.5
                                 >= bot.pathing_distance(h.position(), *p).unwrap_or_max())
                     })
                     .closest(h.position())
