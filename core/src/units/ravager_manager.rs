@@ -7,14 +7,18 @@ use crate::{AIComponent, BotState};
 pub struct RavagerManager {}
 
 impl RavagerManager {
-    const CORROSIVE_POSSIBLE_TARGETS: [UnitTypeId; 18] = [
+    const CORROSIVE_POSSIBLE_TARGETS: [UnitTypeId; 25] = [
         UnitTypeId::WidowMineBurrowed,
         UnitTypeId::SiegeTankSieged,
+        UnitTypeId::Banshee,
         UnitTypeId::Thor,
         UnitTypeId::Battlecruiser,
         UnitTypeId::LiberatorAG,
         UnitTypeId::PlanetaryFortress,
         UnitTypeId::Bunker,
+        UnitTypeId::WarpPrismPhasing,
+        UnitTypeId::Observer,
+        UnitTypeId::ObserverSiegeMode,
         UnitTypeId::HighTemplar,
         UnitTypeId::Colossus,
         UnitTypeId::VoidRay,
@@ -24,16 +28,18 @@ impl RavagerManager {
         UnitTypeId::LurkerMPBurrowed,
         UnitTypeId::BroodLord,
         UnitTypeId::Infestor,
+        UnitTypeId::InfestorBurrowed,
         UnitTypeId::SpineCrawler,
         UnitTypeId::SporeCrawler,
+        UnitTypeId::OverlordCocoon,
+        UnitTypeId::OverseerSiegeMode,
     ];
 
     fn cast_corrosive_bile(&self, bot: &mut Bot, bot_state: &BotState) {
-        let ravagers = bot
-            .units
-            .my
-            .units
-            .filter(|f| f.has_ability(AbilityId::EffectCorrosiveBile));
+        let ravagers =
+            bot.units.my.units.filter(|unit| {
+                unit.has_ability(AbilityId::EffectCorrosiveBile) && unit.on_cooldown()
+            });
 
         for ravager in ravagers {
             if let Some(target) = bot_state

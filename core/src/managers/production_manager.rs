@@ -165,14 +165,15 @@ impl ProductionManager {
         unit_type: UnitTypeId,
         save_resources: bool,
     ) {
-        let producing_point = if unit_type.is_worker() || !unit_type.is_melee() {
-            bot.start_center
+        let larvas = bot.units.my.larvas.clone();
+        let larva = if unit_type.is_worker() || !unit_type.is_melee() {
+            larvas.first()
         } else {
-            bot.start_location
+            larvas.closest(bot.start_location)
         };
         let produced_on = unit_type.produced_on();
         if produced_on.contains(&UnitTypeId::Larva) {
-            if let Some(larva) = bot.units.my.larvas.closest(producing_point).cloned() {
+            if let Some(larva) = larva {
                 debug!("training a {:?} at {:?}", unit_type, produced_on);
                 bot.units.my.larvas.remove(larva.tag());
                 larva.train(unit_type, false);
@@ -184,7 +185,7 @@ impl ProductionManager {
             .structures
             .ready()
             .of_types(&produced_on)
-            .idle()
+            .almost_idle()
             .first()
         {
             if self.producing.contains(&train_at.tag()) {
@@ -212,7 +213,7 @@ impl ProductionManager {
         save_resources: bool,
         priority: usize,
     ) {
-        if bot_state.spending_focus == SpendingFocus::Army && bot.minerals < 500 {
+        if !bot.can_afford_vespene_upgrade(upgrade) {
             return;
         }
         let produced_on = upgrade.produced_on();
@@ -229,15 +230,15 @@ impl ProductionManager {
                 .my
                 .structures
                 .of_types(&produced_on)
-                .idle()
+                .almost_idle()
                 .first()
             {
                 if !self.producing.contains(&building.tag()) {
                     building.research(upgrade, false);
+                    self.producing.insert(building.tag());
                 }
-                self.producing.insert(building.tag());
                 bot.subtract_upgrade_cost(upgrade);
-            } else {
+            } else if bot.units.my.structures.of_types(&produced_on).is_empty() {
                 bot_state.build_queue.push(
                     Command::new_unit(*produced_on.first().unwrap(), 1, save_resources),
                     false,
@@ -336,11 +337,17 @@ impl ProductionManager {
         }
     }
 
-    fn build_expansion(&self, bot: &mut Bot, bot_state: &BotState, unit_type: UnitTypeId) {
-        if bot_state.spending_focus == SpendingFocus::Army {
+    fn build_expansion(&self, bot: &mut Bot, _bot_state: &BotState, unit_type: UnitTypeId) {
+        if bot_state.spending_focus == SpendingFocus::Army && bot.minerals < 300 {
             return;
         }
-        if bot.counter().ordered().count(unit_type) > 0 {
+        if !bot
+            .units
+            .my
+            .townhalls
+            .filter(|u| u.build_progress() < 0.1f32)
+            .is_empty()
+        {
             return;
         }
         if let Some(expansion_location) = bot
@@ -397,10 +404,10 @@ impl ProductionManager {
                         bot.subtract_resources(unit_type, false);
                     }
                 } else {
-                    println!("No builder");
+                    debug!("No builder");
                 }
             } else {
-                println!("No defense center");
+                debug!("No defense center");
             }
         } else {
             debug!("No defenseless townhall");
@@ -449,10 +456,7 @@ impl ProductionManager {
         }
     }
 
-    fn save_upgrade_cost(&self, bot: &mut Bot, bot_state: &BotState, upgrade_id: UpgradeId) {
-        if bot_state.spending_focus == SpendingFocus::Army {
-            return;
-        }
+    fn save_upgrade_cost(&self, bot: &mut Bot, _bot_state: &BotState, upgrade_id: UpgradeId) {
         bot.subtract_upgrade_cost(upgrade_id);
     }
 }
