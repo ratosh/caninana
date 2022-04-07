@@ -92,19 +92,13 @@ impl ResourceManager {
             _ => SpendingFocus::Army,
         };
         debug!(
-            format!(
-                "Decision {:?} > A[{:?}] T[{:?}] [{:?}|{:?}]vs{:?}",
-                bot_state.spending_focus,
-                advanced_enemy_units,
-                close_enemy_units,
-                our_strength,
-                our_offensive_strength,
-                their_strength
-            )
-            .as_str(),
-            Some((0f32, 0f32)),
-            Some((255, 255, 255)),
-            Some(12),
+            "Decision {:?} > A[{:?}] T[{:?}] [{:?}|{:?}]vs{:?}",
+            bot_state.spending_focus,
+            advanced_enemy_units,
+            close_enemy_units,
+            our_strength,
+            our_offensive_strength,
+            their_strength
         );
     }
 
