@@ -1,5 +1,16 @@
 # Performance from ai_arena
 
+## v0.9.5 (390)
+44.53% win rate after 274 games
+
+| Bot                | Elo | Wins | Losses | Ties |
+|--------------------|-----|------|--------|------|
+| MechaShark         | -35 | 0    | 11     | 0    |
+| AdditionalPylons   | -25 | 3    | 9      | 0    |
+| SharpenedEdge      | -24 | 0    | 10     | 0    |
+| SF4G               | -21 | 0    | 4      | 0    |
+| DominionDog        | -17 | 1    | 9      | 0    |
+
 ## v0.9.0 (390)
 39.58% win rate after 710 games
 

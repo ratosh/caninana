@@ -9,7 +9,7 @@ pub trait Strength {
 impl Strength for Units {
     fn strength(&self, bot: &Bot) -> f32 {
         self.iter().map(|u| u.strength(bot)).sum::<f32>()
-            * (1f32 + (self.len() as f32 + 1f32).log(10f32))
+            * (1f32 + (self.len() as f32 + 1f32).log(8f32))
     }
 }
 
@@ -122,7 +122,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Zealot => vec![
                 UnitTypeId::Roach,
                 UnitTypeId::Ravager,
-                // UnitTypeId::Mutalisk,
+                UnitTypeId::Mutalisk,
                 UnitTypeId::BroodLord,
                 UnitTypeId::Ultralisk,
             ],
@@ -132,25 +132,22 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Ultralisk,
                 UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Stalker => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
-            UnitTypeId::Immortal => vec![
+            UnitTypeId::Stalker => vec![
                 UnitTypeId::Zergling,
+                UnitTypeId::Roach,
                 UnitTypeId::Hydralisk,
-                UnitTypeId::BroodLord,
             ],
+            UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::BroodLord],
             UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
             UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
             UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
-            UnitTypeId::DarkTemplar => vec![
-                // UnitTypeId::Mutalisk,
-                UnitTypeId::BroodLord,
-            ],
+            UnitTypeId::DarkTemplar => vec![UnitTypeId::Mutalisk, UnitTypeId::BroodLord],
             UnitTypeId::Carrier => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
             UnitTypeId::Oracle => vec![
                 UnitTypeId::Hydralisk,
-                // UnitTypeId::Mutalisk
+                UnitTypeId::Mutalisk,
                 UnitTypeId::Corruptor,
             ],
             UnitTypeId::Tempest => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
@@ -171,29 +168,26 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Marauder => vec![
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
-                // UnitTypeId::Mutalisk,
+                UnitTypeId::Mutalisk,
             ],
             UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Reaper => vec![UnitTypeId::Ravager],
             UnitTypeId::Ghost => vec![UnitTypeId::Zergling],
-            UnitTypeId::Hellion => vec![
-                UnitTypeId::Roach,
-                // UnitTypeId::Mutalisk
-            ],
+            UnitTypeId::Hellion => vec![UnitTypeId::Roach, UnitTypeId::Mutalisk],
             UnitTypeId::SiegeTank => vec![
-                // UnitTypeId::Mutalisk,
+                UnitTypeId::Mutalisk,
                 UnitTypeId::BroodLord,
                 UnitTypeId::Ravager,
             ],
             UnitTypeId::SiegeTankSieged => vec![
-                // UnitTypeId::Mutalisk,
+                UnitTypeId::Mutalisk,
                 UnitTypeId::BroodLord,
                 UnitTypeId::Ravager,
             ],
             UnitTypeId::Thor => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
             UnitTypeId::Banshee => vec![
                 UnitTypeId::Hydralisk,
-                // UnitTypeId::Mutalisk,
+                UnitTypeId::Mutalisk,
                 UnitTypeId::Corruptor,
             ],
             UnitTypeId::Viking => vec![UnitTypeId::Hydralisk],
@@ -219,7 +213,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Colossus,
                 UnitTypeId::SiegeTank,
                 UnitTypeId::SiegeTankSieged,
-                // UnitTypeId::Mutalisk,
+                UnitTypeId::Mutalisk,
                 UnitTypeId::Roach,
                 UnitTypeId::Ultralisk,
             ],
@@ -230,7 +224,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::SiegeTankSieged,
                 UnitTypeId::Marauder,
                 UnitTypeId::Ultralisk,
-                // UnitTypeId::Mutalisk,
+                UnitTypeId::Mutalisk,
             ],
             UnitTypeId::Hydralisk => vec![
                 UnitTypeId::Sentry,
@@ -284,7 +278,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Phoenix,
                 UnitTypeId::Viking,
                 UnitTypeId::Hydralisk,
-                // UnitTypeId::Mutalisk,
+                UnitTypeId::Mutalisk,
                 UnitTypeId::Corruptor,
             ],
             UnitTypeId::Ravager => vec![
@@ -758,6 +752,7 @@ impl MoveTowards for Unit {
                 let pos = self
                     .position()
                     .towards(center_point, self.speed() * multiplier);
+                // TODO: Check if position is inside game area (for flying units)
                 if self.is_flying() || bot.is_pathable(pos) {
                     pos
                 } else {
