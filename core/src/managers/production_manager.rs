@@ -337,7 +337,7 @@ impl ProductionManager {
         }
     }
 
-    fn build_expansion(&self, bot: &mut Bot, _bot_state: &BotState, unit_type: UnitTypeId) {
+    fn build_expansion(&self, bot: &mut Bot, bot_state: &BotState, unit_type: UnitTypeId) {
         if bot_state.spending_focus == SpendingFocus::Army && bot.minerals < 300 {
             return;
         }
