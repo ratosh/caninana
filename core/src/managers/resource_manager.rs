@@ -91,7 +91,7 @@ impl ResourceManager {
             1 => SpendingFocus::Balance,
             _ => SpendingFocus::Army,
         };
-        bot.debug.draw_text_screen(
+        debug!(
             format!(
                 "Decision {:?} > A[{:?}] T[{:?}] [{:?}|{:?}]vs{:?}",
                 bot_state.spending_focus,
