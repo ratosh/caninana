@@ -1,7 +1,7 @@
 pub const MAX_WORKERS: usize = 64;
 pub const MAX_QUEENS: usize = 8;
 
-pub const MULTI_EVOLUTION_WORKERS: usize = 64;
+pub const MULTI_EVOLUTION_WORKERS: usize = 60;
 pub const DOUBLE_GAS_PER_BASE_WORKERS: usize = 52;
 pub const UNLOCK_ROACH_WORKERS: usize = 26;
 pub const UNLOCK_HYDRA_WORKERS: usize = 38;

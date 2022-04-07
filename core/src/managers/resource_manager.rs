@@ -3,7 +3,7 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
-use crate::params::DOUBLE_GAS_PER_BASE_WORKERS;
+use crate::params::*;
 use crate::utils::*;
 use crate::*;
 
@@ -60,22 +60,23 @@ impl ResourceManager {
             })
             .strength(bot);
 
+        let our_expansions = bot.owned_expansions().count();
         let their_expansions = bot.enemy_expansions().count();
 
         let mut conditions: u8 = 0;
         if close_enemy_units > our_offensive_strength {
             conditions += 1;
         }
-        if advanced_enemy_units > our_offensive_strength {
+        if advanced_enemy_units * 0.8f32 > our_strength {
             conditions += 1;
         }
-        if their_strength > our_offensive_strength {
+        if their_strength * 0.8f32 > our_offensive_strength {
             conditions += 1;
         }
         if their_strength > our_strength {
             conditions += 1;
         }
-        if their_expansions == 1 {
+        if their_expansions == 1 && our_expansions > 1 {
             conditions += 1;
         }
         if bot.minerals > 1_000 {
@@ -91,11 +92,12 @@ impl ResourceManager {
             _ => SpendingFocus::Army,
         };
         debug!(
-            "Decision {:?} > {:?} {:?} {:?}|{:?}",
+            "Decision {:?} > A[{:?}] T[{:?}] [{:?}|{:?}]vs{:?}",
             bot_state.spending_focus,
             advanced_enemy_units,
             close_enemy_units,
             our_strength,
+            our_offensive_strength,
             their_strength
         );
     }
@@ -137,8 +139,8 @@ impl ResourceManager {
         let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap_or_default())
             + bot.units.my.workers.idle().len() as u32;
         let halls = if bot_state.spending_focus != SpendingFocus::Army
-            && ideal_harvesters < 70
-            && (ideal_harvesters.saturating_sub(current_harvesters) < 8 || bot.minerals > 1_000)
+            && ((ideal_harvesters < 70 && ideal_harvesters.saturating_sub(current_harvesters) < 8)
+                || bot.minerals > 1_000)
         {
             bot.counter().count(bot.race_values.start_townhall) + 1
         } else {
@@ -157,9 +159,9 @@ impl ResourceManager {
 
     fn order_geysers(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let extractor = bot.race_values.gas;
-        let drones = bot.counter().all().count(UnitTypeId::Drone);
-        let wanted_extractors = if drones < DOUBLE_GAS_PER_BASE_WORKERS {
-            1.max(bot.counter().all().count(UnitTypeId::Drone) / 16)
+        let workers = bot.units.my.workers.len();
+        let wanted_extractors = if workers < DOUBLE_GAS_PER_BASE_WORKERS {
+            1.max(workers as usize / 16)
         } else {
             bot.owned_expansions().count().saturating_sub(1) * 2
         };
