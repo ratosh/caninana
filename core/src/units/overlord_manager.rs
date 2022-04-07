@@ -29,10 +29,21 @@ impl OverlordManager {
         UnitTypeId::Carrier,
         UnitTypeId::Mutalisk,
     ];
+    const OVERSEER_ON: [UnitTypeId; 2] = [UnitTypeId::Banshee, UnitTypeId::DarkTemplar];
+    const IGNORE_INVISIBLE: [UnitTypeId; 3] = [
+        UnitTypeId::CreepTumor,
+        UnitTypeId::CreepTumorBurrowed,
+        UnitTypeId::CreepTumorQueen,
+    ];
 
     fn queue_overseers(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let workers = bot.units.my.workers.len();
-        if workers >= UNLOCK_OVERSEER_WORKERS {
+        let invisible_units = !bot_state
+            .enemy_cache
+            .units
+            .filter(|u| (u.is_cloaked() && u.can_attack()) || u.is_burrowed())
+            .is_empty();
+        if workers >= UNLOCK_OVERSEER_WORKERS || invisible_units {
             let workers = bot.supply_workers as usize;
             let enemy_invisible = bot_state
                 .enemy_cache
@@ -85,13 +96,16 @@ impl OverlordManager {
         if retreat_lords {
             return;
         }
-        if self.scout_lord.is_none()
-            && bot.counter().all().count(UnitTypeId::Overlord) > 3
+        if bot.counter().all().count(UnitTypeId::Overlord) > 2
             && bot.counter().all().count(UnitTypeId::Overseer) == 0
         {
-            if let Some(unit) = overlords.pop() {
-                self.scout_lord = Some(unit.tag());
+            if self.scout_lord.is_none() {
+                if let Some(unit) = overlords.pop() {
+                    self.scout_lord = Some(unit.tag());
+                }
             }
+        } else {
+            self.scout_lord = None;
         }
         for e in bot.expansions.iter() {
             if e.alliance != Alliance::Neutral {
@@ -201,7 +215,7 @@ impl OverlordManager {
                     point
                 } else if let Some(unit) = enemy_units
                     .clone()
-                    .filter(|f| f.is_cloaked())
+                    .filter(|f| f.is_cloaked() && !Self::IGNORE_INVISIBLE.contains(&f.type_id()))
                     .closest(bot.start_location)
                 {
                     enemy_units = enemy_units.filter(|f| f.position().distance(unit) > 9f32);
