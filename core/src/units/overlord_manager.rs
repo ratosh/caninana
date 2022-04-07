@@ -29,7 +29,7 @@ impl OverlordManager {
         UnitTypeId::Carrier,
         UnitTypeId::Mutalisk,
     ];
-    
+
     const IGNORE_INVISIBLE: [UnitTypeId; 3] = [
         UnitTypeId::CreepTumor,
         UnitTypeId::CreepTumorBurrowed,
