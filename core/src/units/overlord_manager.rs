@@ -29,7 +29,7 @@ impl OverlordManager {
         UnitTypeId::Carrier,
         UnitTypeId::Mutalisk,
     ];
-    const OVERSEER_ON: [UnitTypeId; 2] = [UnitTypeId::Banshee, UnitTypeId::DarkTemplar];
+    
     const IGNORE_INVISIBLE: [UnitTypeId; 3] = [
         UnitTypeId::CreepTumor,
         UnitTypeId::CreepTumorBurrowed,
