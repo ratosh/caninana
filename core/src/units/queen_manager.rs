@@ -4,8 +4,8 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::params::*;
-use crate::utils::PathingDistance;
-use crate::{AIComponent, BotState, UnwrapOrMax};
+use crate::utils::*;
+use crate::{AIComponent, BotState};
 
 #[derive(Default)]
 pub struct QueenManager {
@@ -57,7 +57,7 @@ impl QueenManager {
                     .filter(|&p| {
                         (!bot.is_visible((p.x as usize, p.y as usize))
                             || !bot.has_creep((p.x as usize, p.y as usize)))
-                            && (h.position().distance(p) * 1.5
+                            && (h.position().distance(p) * 1.25
                                 >= bot.pathing_distance(h.position(), *p).unwrap_or_max())
                     })
                     .closest(h.position())
@@ -90,8 +90,7 @@ impl QueenManager {
                 .filter(|&p| {
                     (!bot.is_visible((p.x as usize, p.y as usize))
                         || !bot.has_creep((p.x as usize, p.y as usize)))
-                        && (queen.position().distance(p)
-                            >= bot.pathing_distance(queen.position(), *p).unwrap_or_max())
+                        && bot.pathing_distance(queen.position(), *p).is_some()
                 })
                 .closest(queen.position())
             {
@@ -199,7 +198,7 @@ impl CreepPlacement for Bot {
                         .filter(|p| {
                             if let Some(exp) = self.expansions.iter().map(|e| e.loc).closest(p) {
                                 (exp.x - p.x).abs() > CREEP_DISTANCE_TO_HALL
-                                    && (exp.y - p.y).abs() > CREEP_DISTANCE_TO_HALL
+                                    || (exp.y - p.y).abs() > CREEP_DISTANCE_TO_HALL
                             } else {
                                 false
                             }

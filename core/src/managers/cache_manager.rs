@@ -37,15 +37,14 @@ impl UnitsCache {
                 .insert(unit.tag(), CacheEntry::new(to_be_cached, bot.time));
         }
         self.cache.retain(|_, value| {
-            if bot.is_visible(value.unit.position())
-                && value.unit.is_using(AbilityId::EffectTacticalJump)
-            {
-                value.last_seen + Self::TACTICAL_JUMP_CACHE_TIME > bot.time
+            let reference_time = if value.unit.is_using(AbilityId::EffectTacticalJump) {
+                value.last_seen + Self::TACTICAL_JUMP_CACHE_TIME
             } else if bot.is_visible(value.unit.position()) && !value.unit.is_burrowed() {
-                value.last_seen + Self::VISIBLE_AREA_CACHE_TIME > bot.time
+                value.last_seen + Self::VISIBLE_AREA_CACHE_TIME
             } else {
-                value.last_seen + Self::FOG_AREA_CACHE_TIME > bot.time
-            }
+                value.last_seen + Self::FOG_AREA_CACHE_TIME
+            };
+            reference_time > bot.time
         });
         self.units.clear();
         for unit in self.cache.values() {

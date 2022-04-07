@@ -18,7 +18,7 @@ pub struct Squads {
 
 impl Squad {
     fn influence_range(&self) -> f32 {
-        3f32 + (self.squad.len() as f32).log10()
+        2f32 + (self.squad.len() as f32).log10()
     }
 
     fn center(&self) -> Point2 {
