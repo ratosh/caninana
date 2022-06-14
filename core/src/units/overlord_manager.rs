@@ -38,10 +38,7 @@ impl OverlordManager {
 
     fn queue_overseers(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let workers = bot.units.my.workers.len();
-        let invisible_units = bot_state
-            .enemy_cache
-            .units
-            .filter(|u| u.need_detection());
+        let invisible_units = bot_state.enemy_cache.units.filter(|u| u.need_detection());
         if workers >= UNLOCK_OVERSEER_WORKERS || !invisible_units.is_empty() {
             let workers = bot.supply_workers as usize;
             let enemy_invisible = invisible_units.len() as usize;
