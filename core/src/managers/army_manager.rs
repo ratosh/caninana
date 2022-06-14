@@ -170,8 +170,8 @@ impl ArmyManager {
         let defending = self.defending;
         self.money_engaging = (self.money_engaging && bot.minerals > 200) || bot.minerals > 1_000;
         self.strength_engaging = (self.strength_engaging
-            && our_global_strength >= their_global_strength * 0.9f32)
-            || our_global_strength >= their_global_strength * 1.3f32;
+            && our_global_strength >= their_global_strength * 1.2f32)
+            || our_global_strength >= their_global_strength * 2.0f32;
 
         let engaging = self.money_engaging || self.strength_engaging;
 
@@ -233,14 +233,19 @@ impl ArmyManager {
                 || (!unit.can_attack()
                     && unit.hits_percentage().unwrap_or_default() < UNBURROW_HEALTH_PERCENTAGE);
 
-            let strength_multiplier = if bot.minerals > 5000 {
-                0.5f32
-            } else if defending {
-                0.7f32
-            } else if engaging {
+            let defensive_unit = defense_points
+                .iter()
+                .any(|h| h.is_closer(defense_range, unit));
+            let strength_multiplier = if bot.minerals > 2_000 {
+                0.3f32.max(1.0f32 - bot.minerals as f32 / 10_000f32)
+            } else if defensive_unit {
                 0.9f32
-            } else {
+            } else if engaging {
+                1.0f32
+            } else if defending {
                 1.1f32
+            } else {
+                1.2f32
             };
             let decision = if fallback {
                 UnitDecision::Retreat
