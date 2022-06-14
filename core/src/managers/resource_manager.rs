@@ -85,7 +85,9 @@ impl ResourceManager {
         if bot_state.minimum_strength > our_offensive_strength {
             conditions += 1;
         }
-        bot_state.minimum_strength = bot_state.minimum_strength.max(our_offensive_strength * 3f32 / 4f32);
+        bot_state.minimum_strength = bot_state
+            .minimum_strength
+            .max(our_offensive_strength * 3f32 / 4f32);
 
         bot_state.spending_focus = match conditions {
             0 => SpendingFocus::Economy,
@@ -139,13 +141,10 @@ impl ResourceManager {
         let ideal_harvesters = bases.sum(|x| x.ideal_harvesters().unwrap_or(12));
         let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap_or_default())
             + bot.units.my.workers.idle().len() as u32;
-        let ideal_diff = if bases.len() < 3 {
-            8
-        } else {
-            2
-        };
+        let ideal_diff = if bases.len() < 3 { 8 } else { 2 };
         let halls = if bot_state.spending_focus != SpendingFocus::Army
-            && ((ideal_harvesters < 70 && ideal_harvesters.saturating_sub(current_harvesters) < ideal_diff)
+            && ((ideal_harvesters < 70
+                && ideal_harvesters.saturating_sub(current_harvesters) < ideal_diff)
                 || bot.minerals > 1_000)
         {
             bot.counter().count(bot.race_values.start_townhall) + 1
