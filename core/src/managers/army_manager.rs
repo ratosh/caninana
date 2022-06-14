@@ -50,15 +50,17 @@ impl ArmyManager {
             || !bot_state
                 .enemy_cache
                 .units
-                .filter(|u| u.is_flying() && u.is_dangerous())
+                .filter(|u| u.is_flying() && u.can_attack_ground())
                 .is_empty()
         {
             self.allowed_tech.insert(UnitTypeId::Hydralisk);
         }
-        if workers >= UNLOCK_LATE_TECH_WORKERS {
-            //     self.allowed_tech.insert(UnitTypeId::Mutalisk);
+        if !bot_state
+            .enemy_cache
+            .units
+            .filter(|u| u.need_corruptors())
+            .is_empty() {
             self.allowed_tech.insert(UnitTypeId::Corruptor);
-            //     self.allowed_tech.insert(UnitTypeId::Ultralisk);
         }
         if workers >= UNLOCK_REALLY_LATE_TECH_WORKERS {
             self.allowed_tech.insert(UnitTypeId::BroodLord);
@@ -124,21 +126,13 @@ impl ArmyManager {
         if my_army.is_empty() {
             return;
         }
-        let mut defense_points = bot
+        let defense_points = bot
             .units
             .my
             .townhalls
             .iter()
             .map(|u| u.position())
             .collect::<Vec<Point2>>();
-        if let Some(next_expansion) = bot
-            .expansions
-            .iter()
-            .find(|e| e.alliance.is_neutral())
-            .map(|e| e.loc)
-        {
-            defense_points.push(next_expansion);
-        }
 
         let enemy_attack_force = bot_state.enemy_cache.units.filter(|e| {
             e.is_dangerous()
@@ -438,9 +432,9 @@ impl ArmyManager {
             true,
             9999,
         );
-        let extra_queens = match bot_state.spending_focus {
-            SpendingFocus::Economy => 1,
-            SpendingFocus::Balance => 3,
+        let extra_queens:usize = match bot_state.spending_focus {
+            SpendingFocus::Economy => 4,
+            SpendingFocus::Balance => 5,
             SpendingFocus::Army => 6,
         };
         let min_queens = MAX_QUEENS.min(bot.units.my.townhalls.len() + extra_queens);
@@ -526,6 +520,7 @@ impl ArmyManager {
             UnitTypeId::Corruptor => 3f32,
             UnitTypeId::Mutalisk => 1f32,
             UnitTypeId::Ultralisk => 1f32,
+            UnitTypeId::Ravager => 2f32,
             _ => 10f32,
         };
         let mut priority = 35f32;
@@ -589,23 +584,23 @@ impl ArmyManager {
                 150,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Roach) > 0 {
+        if bot.counter().all().count(UnitTypeId::RoachWarren) > 0 {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::GlialReconstitution, true),
                 false,
                 200,
             );
         }
-        if bot.counter().all().count(UnitTypeId::Hydralisk) > 0 {
+        if bot.counter().all().count(UnitTypeId::HydraliskDen) > 0 {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::EvolveGroovedSpines, false),
-                bot.counter().all().count(UnitTypeId::Hydralisk) > 6,
-                170,
+                bot.counter().all().count(UnitTypeId::Hydralisk) > 0,
+                210,
             );
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::EvolveMuscularAugments, true),
-                bot.counter().all().count(UnitTypeId::Hydralisk) > 6,
-                180,
+                bot.counter().all().count(UnitTypeId::Hydralisk) > 0,
+                220,
             );
         }
         if workers >= MULTI_EVOLUTION_WORKERS {

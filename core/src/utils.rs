@@ -66,6 +66,16 @@ impl IsDangerous for Unit {
     }
 }
 
+pub trait NeedsCorruptors {
+    fn need_corruptors(&self) -> bool;
+}
+
+impl NeedsCorruptors for Unit {
+    fn need_corruptors(&self) -> bool {
+        NEED_CORRUPTORS.contains(&self.type_id())
+    }
+}
+
 const SPECIAL_DANGEROUS: [UnitTypeId; 9] = [
     UnitTypeId::Infestor,
     UnitTypeId::InfestorBurrowed,
@@ -82,8 +92,16 @@ const SPECIAL_UNITS: [UnitTypeId; 5] = [
     UnitTypeId::Observer,
     UnitTypeId::WarpPrism,
     UnitTypeId::Medivac,
-    UnitTypeId::Overlord,
+    UnitTypeId::OverlordTransport,
     UnitTypeId::Overseer,
+];
+
+const NEED_CORRUPTORS: [UnitTypeId; 5] = [
+    UnitTypeId::Colossus,
+    UnitTypeId::Carrier,
+    UnitTypeId::Tempest,
+    UnitTypeId::Battlecruiser,
+    UnitTypeId::Mutalisk,
 ];
 
 //TODO: Give bonus for units better at one role.
@@ -95,13 +113,13 @@ impl Strength for Unit {
         } else if self.is_worker() {
             0.2f32
         } else if SPECIAL_DANGEROUS.contains(&self.type_id()) {
-            1.0f32
+            0.5f32
         } else if !self.can_attack() {
             0.0f32
         } else if self.is_structure() {
             1.5f32
         } else if self.is_cloaked() {
-            2f32
+            1.2f32
         } else {
             1f32
         };
@@ -144,7 +162,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
             UnitTypeId::DarkTemplar => vec![UnitTypeId::Mutalisk, UnitTypeId::BroodLord],
             UnitTypeId::Carrier => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
-            UnitTypeId::Mothership => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Mothership => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Oracle => vec![
                 UnitTypeId::Hydralisk,
                 UnitTypeId::Mutalisk,
@@ -194,7 +212,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Raven => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
             UnitTypeId::Cyclone => vec![UnitTypeId::Zergling],
-            UnitTypeId::HellionTank => vec![UnitTypeId::Roach],
+            UnitTypeId::HellionTank => vec![UnitTypeId::Roach, UnitTypeId::Mutalisk],
             UnitTypeId::Liberator => vec![UnitTypeId::Corruptor],
             // Race::Zerg
             UnitTypeId::Zergling => vec![
