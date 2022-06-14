@@ -8,10 +8,11 @@ use crate::*;
 pub struct DefenseManager {}
 
 impl DefenseManager {
-    const SPORE_UNITS: [UnitTypeId; 4] = [
+    const SPORE_UNITS: [UnitTypeId; 5] = [
         UnitTypeId::Banshee,
         UnitTypeId::Battlecruiser,
         UnitTypeId::Oracle,
+        UnitTypeId::Carrier,
         UnitTypeId::Mutalisk,
     ];
 
