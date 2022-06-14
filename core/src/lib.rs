@@ -72,4 +72,5 @@ pub struct BotState {
     pub build_queue: CommandQueue,
     pub enemy_cache: UnitsCache,
     pub spending_focus: SpendingFocus,
+    pub minimum_strength: f32,
 }

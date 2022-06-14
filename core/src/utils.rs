@@ -576,6 +576,7 @@ impl BuildingRequirement for UpgradeId {
     fn building_requirements(&self) -> Vec<UnitTypeId> {
         match *self {
             UpgradeId::CentrificalHooks
+            | UpgradeId::TunnelingClaws
             | UpgradeId::ZergGroundArmorsLevel2
             | UpgradeId::ZergMissileWeaponsLevel2
             | UpgradeId::ZergMeleeWeaponsLevel2
