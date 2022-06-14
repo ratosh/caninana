@@ -98,10 +98,7 @@ impl WorkerManager {
             .units
             .enemy
             .all
-            .filter(|u| {
-                u.is_worker()
-                    && !close_units.in_range(u, surroundings_range).is_empty()
-            })
+            .filter(|u| u.is_worker() && !close_units.in_range(u, surroundings_range).is_empty())
             .len();
         let enemy_buildings_close = bot.units.enemy.all.filter(|f| {
             !f.is_ready()

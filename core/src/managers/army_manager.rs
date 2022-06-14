@@ -59,7 +59,8 @@ impl ArmyManager {
             .enemy_cache
             .units
             .filter(|u| u.need_corruptors())
-            .is_empty() {
+            .is_empty()
+        {
             self.allowed_tech.insert(UnitTypeId::Corruptor);
         }
         if workers >= UNLOCK_REALLY_LATE_TECH_WORKERS {
@@ -432,7 +433,7 @@ impl ArmyManager {
             true,
             9999,
         );
-        let extra_queens:usize = match bot_state.spending_focus {
+        let extra_queens: usize = match bot_state.spending_focus {
             SpendingFocus::Economy => 4,
             SpendingFocus::Balance => 5,
             SpendingFocus::Army => 6,
