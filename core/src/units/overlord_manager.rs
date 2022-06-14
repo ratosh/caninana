@@ -21,7 +21,7 @@ pub struct OverlordManager {
 }
 
 impl OverlordManager {
-    const EXPANSION_DISTANCE: f32 = 8f32;
+    const EXPANSION_DISTANCE: f32 = 9f32;
     const RETREAT_ON: [UnitTypeId; 5] = [
         UnitTypeId::Viking,
         UnitTypeId::Battlecruiser,

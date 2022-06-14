@@ -573,9 +573,12 @@ impl DetectionCloseBy for Bot {
     fn detection_close_by(&self, unit: &Unit, range: f32) -> bool {
         if !self
             .units
-            .enemy
             .all
-            .filter(|u| u.is_detector() && u.is_closer(u.detect_range() + range, unit))
+            .filter(|u| {
+                u.alliance() != unit.alliance()
+                    && u.is_detector()
+                    && u.is_closer(u.detect_range() + range, unit)
+            })
             .is_empty()
         {
             return true;
