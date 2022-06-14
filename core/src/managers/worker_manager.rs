@@ -98,11 +98,7 @@ impl WorkerManager {
             .units
             .enemy
             .all
-            .filter(|u| {
-                u.is_worker()
-                    && close_units.closest_distance(u.position()).unwrap_or_max()
-                        < surroundings_range
-            })
+            .filter(|u| u.is_worker() && !close_units.in_range(u, surroundings_range).is_empty())
             .len();
         let enemy_buildings_close = bot.units.enemy.all.filter(|f| {
             !f.is_ready()
@@ -464,7 +460,7 @@ impl WorkerManager {
         let min_extra_workers = match bot_state.spending_focus {
             SpendingFocus::Economy => bot.owned_expansions().count() * 2,
             SpendingFocus::Balance => bot.owned_expansions().count() + 1,
-            SpendingFocus::Army => 1,
+            SpendingFocus::Army => 0,
         };
         let min_workers = if bot.counter().ordered().count(bot.race_values.worker)
             < min_extra_workers

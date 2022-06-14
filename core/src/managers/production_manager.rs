@@ -317,7 +317,7 @@ impl ProductionManager {
                     .townhalls
                     .closest(bot.start_location)
                     .map_or(bot.start_location, |f| f.position())
-                    .towards(bot.game_info.map_center, 4f32),
+                    .towards(bot.game_info.map_center, 7f32),
                 PlacementOptions {
                     max_distance: 20,
                     step: 2,
