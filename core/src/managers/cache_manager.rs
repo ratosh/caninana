@@ -6,6 +6,7 @@ use rust_sc2::prelude::*;
 use rust_sc2::Event::UnitDestroyed;
 
 use crate::{AIComponent, BotState};
+use crate::utils::DetectionCloseBy;
 
 #[derive(Default)]
 pub struct UnitsCache {
@@ -16,6 +17,7 @@ pub struct UnitsCache {
 impl UnitsCache {
     const FOG_AREA_CACHE_TIME: f32 = 120f32;
     const VISIBLE_AREA_CACHE_TIME: f32 = 10f32;
+    const ON_DETECTION_CACHE_TIME: f32 = 1f32;
     const TACTICAL_JUMP_CACHE_TIME: f32 = 4f32;
 
     pub fn destroy_unit(&mut self, tag: u64) {
@@ -39,7 +41,9 @@ impl UnitsCache {
         self.cache.retain(|_, value| {
             let reference_time = if value.unit.is_using(AbilityId::EffectTacticalJump) {
                 value.last_seen + Self::TACTICAL_JUMP_CACHE_TIME
-            } else if bot.is_visible(value.unit.position()) && !value.unit.is_burrowed() {
+            } else if bot.detection_close_by(&value.unit, 0f32) {
+                value.last_seen + Self::ON_DETECTION_CACHE_TIME
+            } else if bot.is_visible(value.unit.position()) {
                 value.last_seen + Self::VISIBLE_AREA_CACHE_TIME
             } else {
                 value.last_seen + Self::FOG_AREA_CACHE_TIME

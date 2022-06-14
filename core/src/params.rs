@@ -17,7 +17,7 @@ pub const SAVE_FOR_ATTACK_UPGRADES_ON_UNITS: usize = 4;
 pub const SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS: usize = 6;
 
 pub const CREEP_DISTANCE_TO_HALL: f32 = 3.5f32;
-pub const CREEP_SPREAD_MAP_DISTANCE: usize = 4;
+pub const CREEP_SPREAD_MAP_DISTANCE: usize = 5;
 pub const CREEP_SPREAD_DISTANCE: usize = 6;
 pub const CREEP_SPREAD_ENERGY: u32 = 55;
 
