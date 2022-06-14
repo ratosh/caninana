@@ -66,6 +66,16 @@ impl IsDangerous for Unit {
     }
 }
 
+pub trait NeedsDetection {
+    fn need_detection(&self) -> bool;
+}
+
+impl NeedsDetection for Unit {
+    fn need_detection(&self) -> bool {
+        NEED_DETECTION.contains(&self.type_id())
+    }
+}
+
 pub trait NeedsCorruptors {
     fn need_corruptors(&self) -> bool;
 }
@@ -94,6 +104,16 @@ const SPECIAL_UNITS: [UnitTypeId; 5] = [
     UnitTypeId::Medivac,
     UnitTypeId::OverlordTransport,
     UnitTypeId::Overseer,
+];
+
+const NEED_DETECTION: [UnitTypeId; 7] = [
+    UnitTypeId::Observer,
+    UnitTypeId::DarkTemplar,
+    UnitTypeId::LurkerMP,
+    UnitTypeId::LurkerMPBurrowed,
+    UnitTypeId::WidowMine,
+    UnitTypeId::WidowMineBurrowed,
+    UnitTypeId::Banshee,
 ];
 
 const NEED_CORRUPTORS: [UnitTypeId; 5] = [

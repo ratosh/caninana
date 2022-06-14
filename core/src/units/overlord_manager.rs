@@ -38,22 +38,14 @@ impl OverlordManager {
 
     fn queue_overseers(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let workers = bot.units.my.workers.len();
-        let invisible_units = !bot_state
-            .enemy_cache
-            .units
-            .filter(|u| (u.is_cloaked() && u.can_attack()) || u.is_burrowed())
-            .is_empty();
-        if workers >= UNLOCK_OVERSEER_WORKERS || invisible_units {
+        let invisible_units = bot_state.enemy_cache.units.filter(|u| u.need_detection());
+        if workers >= UNLOCK_OVERSEER_WORKERS || !invisible_units.is_empty() {
             let workers = bot.supply_workers as usize;
-            let enemy_invisible = bot_state
-                .enemy_cache
-                .units
-                .filter(|u| u.is_cloaked() || u.is_burrowed())
-                .supply() as usize;
+            let enemy_invisible = invisible_units.len() as usize;
             bot_state.build_queue.push(
                 Command::new_unit(
                     UnitTypeId::Overseer,
-                    1 + workers / 20 + enemy_invisible / 10,
+                    1 + workers / 20 + enemy_invisible / 4,
                     true,
                 ),
                 false,
@@ -189,7 +181,7 @@ impl OverlordManager {
         let mut enemy_units = bot_state
             .enemy_cache
             .units
-            .filter(|f| !f.is_worker() && f.is_dangerous() || f.is_cloaked());
+            .filter(|f| !f.is_worker() && f.is_dangerous());
         let mut next_expansion = bot.free_expansions().map(|e| e.loc).next();
         for unit in bot
             .units
