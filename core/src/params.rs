@@ -1,3 +1,5 @@
+pub const DEBUG_DRAW: bool = true;
+
 pub const MAX_WORKERS: usize = 80;
 pub const MAX_QUEENS: usize = 10;
 
@@ -33,4 +35,5 @@ pub const BURROW_HEALTH_PERCENTAGE: f32 = 0.58f32;
 pub const BURROW_DETECTION_RANGE: f32 = 9f32;
 pub const UNBURROW_HEALTH_PERCENTAGE: f32 = 0.95f32;
 
+pub const PRIORITY_DRONE_ECONOMY: usize = 250;
 pub const QUEEN_INJECT_SWITCH_BASE_RANGE: f32 = 3f32;

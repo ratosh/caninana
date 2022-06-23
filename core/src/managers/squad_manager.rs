@@ -3,6 +3,7 @@ use rust_sc2::geometry::Point3;
 use rust_sc2::prelude::*;
 use rust_sc2::Event::UnitDestroyed;
 
+use crate::params::*;
 use crate::utils::IsDangerous;
 use crate::{AIComponent, BotState};
 
@@ -18,7 +19,7 @@ pub struct Squads {
 
 impl Squad {
     fn influence_range(&self) -> f32 {
-        2f32 + (self.squad.len() as f32).log10()
+        3f32 + (self.squad.len() as f32).log(8f32)
     }
 
     fn center(&self) -> Point2 {
@@ -31,9 +32,7 @@ impl Squad {
 
     fn is_close(&self, unit: &Unit) -> bool {
         unit.is_closer(
-            unit.speed()
-                + unit.real_ground_range().max(unit.real_air_range())
-                + self.influence_range(),
+            unit.real_ground_range().max(unit.real_air_range()) + self.influence_range(),
             self.center(),
         )
     }
@@ -50,13 +49,16 @@ impl Squads {
         {
             self.recalculate_unit_squad(unit);
         }
-        // for squad in self.squads.iter() {
-        //     bot.debug.draw_sphere(
-        //         squad.center3(),
-        //         squad.influence_range(),
-        //         Some((255, 255, 255)),
-        //     );
-        // }
+
+        if DEBUG_DRAW {
+            for squad in self.squads.iter() {
+                bot.debug.draw_sphere(
+                    squad.center3(),
+                    squad.influence_range(),
+                    Some((255, 255, 255)),
+                );
+            }
+        }
     }
 
     fn recalculate_unit_squad(&mut self, unit: &Unit) {
