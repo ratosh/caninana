@@ -395,39 +395,61 @@ pub trait UnitOrderCheck {
     fn order_move_to(&self, target: Target, range: f32, queue: bool);
     fn order_attack(&self, target: Target, queue: bool);
     fn order_gather(&self, target: u64, queue: bool);
+    fn order_ability_at(&self, ability: AbilityId, target: Target, queue: bool);
+    fn order_ability(&self, ability: AbilityId, queue: bool);
 }
 
 impl UnitOrderCheck for Unit {
     fn order_move_to(&self, target: Target, range: f32, queue: bool) {
-        if should_send_order(self, target, range, queue) {
+        if should_send_order(self, AbilityId::MoveMove, target, range, queue) {
             self.move_to(target, queue);
         }
     }
 
     fn order_attack(&self, target: Target, queue: bool) {
-        if should_send_order(self, target, 0.3f32, queue) {
+        if should_send_order(self, AbilityId::AttackAttack, target, 0.3f32, queue) {
             self.attack(target, queue);
         }
     }
 
     fn order_gather(&self, target: u64, queue: bool) {
         let target_tag = Target::Tag(target);
-        if should_send_order(self, target_tag, 0.1f32, queue) {
-            self.gather(target, false);
+        if should_send_order(self, AbilityId::HarvestGather, target_tag, 0.1f32, queue) {
+            self.gather(target, queue);
+        }
+    }
+
+    fn order_ability_at(&self, ability: AbilityId, target: Target, queue: bool) {
+        if should_send_order(self, ability, target, 0.1f32, queue) {
+            self.command(ability, target, queue);
+        }
+    }
+
+    fn order_ability(&self, ability: AbilityId, queue: bool) {
+        if should_send_order(self, ability, Target::None, 0.1f32, queue) {
+            self.command(ability, Target::None, queue);
         }
     }
 }
 
-fn should_send_order(unit: &Unit, target: Target, range: f32, queue: bool) -> bool {
+fn should_send_order(
+    unit: &Unit,
+    ability: AbilityId,
+    target: Target,
+    range: f32,
+    queue: bool,
+) -> bool {
     if queue {
         true
     } else {
         match (unit.target(), target) {
             (Target::Pos(current_pos), Target::Pos(wanted_pos)) => {
-                current_pos.distance(wanted_pos) > range
+                !unit.is_using(ability) || current_pos.distance(wanted_pos) > range
             }
             (_, Target::Pos(wanted_pos)) => unit.position().distance(wanted_pos) > range,
-            (Target::Tag(current_tag), Target::Tag(wanted_tag)) => current_tag != wanted_tag,
+            (Target::Tag(current_tag), Target::Tag(wanted_tag)) => {
+                !unit.is_using(ability) || current_tag != wanted_tag
+            }
             (_, _) => true,
         }
     }
