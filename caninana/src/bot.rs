@@ -12,8 +12,7 @@ use caninana_core::units::overlord_manager::OverlordManager;
 use caninana_core::units::queen_manager::QueenManager;
 use caninana_core::units::ravager_manager::RavagerManager;
 use caninana_core::*;
-use caninana_openings::zerg::pool14::Pool14;
-use caninana_openings::zerg::pool16::Pool16;
+use caninana_openings::zerg::hatch17::Hatch17;
 
 #[bot]
 pub struct Caninana {
@@ -48,10 +47,7 @@ impl Player for Caninana {
     }
 
     fn on_start(&mut self) -> SC2Result<()> {
-        let mut opening: Box<dyn Opening> = match self._bot.enemy_race {
-            Race::Zerg => Box::new(Pool14::default()),
-            _ => Box::new(Pool16::default()),
-        };
+        let mut opening = Hatch17::default();
         opening.opening(&self._bot, &mut self.bot_state);
         self._bot
             .chat_ally(format!("Tag:{}v{}", crate_name!(), crate_version!()).as_str());
