@@ -124,8 +124,10 @@ impl QueenManager {
     }
 
     fn handle_injection(&mut self, bot: &mut Bot) {
-        if bot.units.my.larvas.len() > INJECTION_MAX_LARVA ||
-            bot.units.my.larvas.len() > bot.units.my.townhalls.len() * INJECTION_MAX_LARVA_PER_BASE {
+        if bot.units.my.larvas.len() > INJECTION_MAX_LARVA
+            || bot.units.my.larvas.len()
+                > bot.units.my.townhalls.len() * INJECTION_MAX_LARVA_PER_BASE
+        {
             return;
         }
         let mut queens = bot
