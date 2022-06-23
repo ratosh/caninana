@@ -15,7 +15,7 @@ pub struct UnitsCache {
 }
 
 impl UnitsCache {
-    const FOG_AREA_CACHE_TIME: f32 = 120f32;
+    const FOG_AREA_CACHE_TIME: f32 = 60f32;
     const VISIBLE_AREA_CACHE_TIME: f32 = 10f32;
     const ON_DETECTION_CACHE_TIME: f32 = 1f32;
     const TACTICAL_JUMP_CACHE_TIME: f32 = 4f32;

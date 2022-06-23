@@ -98,7 +98,10 @@ impl WorkerManager {
             .units
             .enemy
             .all
-            .filter(|u| u.is_worker() && !close_units.in_range(u, surroundings_range).is_empty())
+            .filter(|u| {
+                (u.is_worker() || u.type_id() == UnitTypeId::Zergling)
+                    && !close_units.in_range(u, surroundings_range).is_empty()
+            })
             .len();
         let enemy_buildings_close = bot.units.enemy.all.filter(|f| {
             !f.is_ready()
@@ -108,7 +111,7 @@ impl WorkerManager {
                     .townhalls
                     .closest_distance(f.position())
                     .unwrap_or_max()
-                    <= defense_range
+                    <= defense_range * 2f32
         });
         let spines_close = enemy_buildings_close
             .of_type(UnitTypeId::SpineCrawler)
@@ -117,16 +120,25 @@ impl WorkerManager {
         let cannons_close = enemy_buildings_close
             .of_type(UnitTypeId::PhotonCannon)
             .len();
+        let halls_close = enemy_buildings_close
+            .of_types(&vec![
+                UnitTypeId::CommandCenter,
+                UnitTypeId::PlanetaryFortress,
+            ])
+            .len();
 
         let army_supply = bot
             .units
             .my
             .units
-            .filter(|f| f.is_ready() && !f.is_worker())
+            .filter(|f| f.is_ready() && !f.is_worker() && f.type_id() != UnitTypeId::Queen)
             .sum(|f| f.supply_cost()) as usize;
 
-        let mut needed_fighters =
-            spines_close * 5 + pylons_close * 5 + cannons_close * 4 + weak_attackers;
+        let mut needed_fighters = spines_close * 5
+            + pylons_close * 5
+            + cannons_close * 4
+            + 8 * halls_close
+            + weak_attackers;
         if weak_attackers > 1 {
             needed_fighters += 1;
         }
@@ -460,15 +472,19 @@ impl WorkerManager {
         let min_extra_workers = match bot_state.spending_focus {
             SpendingFocus::Economy => bot.owned_expansions().count() * 2,
             SpendingFocus::Balance => bot.owned_expansions().count() + 1,
-            SpendingFocus::Army => 0,
+            SpendingFocus::Army => 1,
         };
-        let min_workers = if bot.counter().ordered().count(bot.race_values.worker)
-            < min_extra_workers
-        {
-            ideal_workers.min(bot.counter().all().count(bot.race_values.worker) + min_extra_workers)
-        } else {
-            ideal_workers.min(bot.counter().all().count(bot.race_values.worker))
-        };
+        let drones = bot
+            .counter()
+            .all()
+            .count(bot.race_values.worker)
+            .saturating_sub(bot.counter().count(UnitTypeId::DroneBurrowed));
+        let min_workers =
+            if bot.counter().ordered().count(bot.race_values.worker) < min_extra_workers {
+                ideal_workers.min(drones + min_extra_workers)
+            } else {
+                ideal_workers.min(drones)
+            };
         if self.worker_defense {
             bot_state.build_queue.push(
                 Command::new_unit(bot.race_values.worker, 16, false),
@@ -479,7 +495,7 @@ impl WorkerManager {
         bot_state.build_queue.push(
             Command::new_unit(bot.race_values.worker, min_workers, false),
             true,
-            250,
+            PRIORITY_DRONE_ECONOMY,
         );
         let ideal_priority = if bot_state.spending_focus == SpendingFocus::Economy {
             100
