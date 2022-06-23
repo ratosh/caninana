@@ -20,23 +20,35 @@ impl QueenManager {
                 && u.has_ability(AbilityId::TransfusionTransfusion)
         });
 
+        let being_healed = queens
+            .filter(|q| q.is_using(AbilityId::TransfusionTransfusion))
+            .iter()
+            .map(|q| q.target_tag().unwrap_or_default())
+            .collect::<Vec<u64>>();
+
         for queen in queens.iter() {
-            if let Some(heal) = bot
+            if let Some(heal_target) = bot
                 .units
                 .my
                 .all
                 .filter(|u| {
-                    u.position().distance(queen.position()) < TRANSFUSION_MAX_RANGE
+                    u.tag() != queen.tag()
+                        && !being_healed.contains(&u.tag())
+                        && !u.is_burrowed()
+                        && u.position().distance(queen.position()) < TRANSFUSION_MAX_RANGE
                         && u.health_max().unwrap_or_default() - u.health().unwrap_or_default()
                             > TRANSFUSION_MISSING_HEALTH
                 })
-                .closest(queen)
+                .min(|u| u.hits_percentage())
             {
                 queen.command(
                     AbilityId::TransfusionTransfusion,
-                    Target::Tag(heal.tag()),
+                    Target::Tag(heal_target.tag()),
                     false,
                 );
+                break;
+            } else if queen.is_using(AbilityId::TransfusionTransfusion) {
+                queen.hold_position(false);
             }
         }
     }
@@ -72,15 +84,18 @@ impl QueenManager {
                 }
             });
 
+        let min_energy = CREEP_SPREAD_ENERGY
+            .min(CREEP_SPREAD_ENERGY_MIN + tumors.len() as u32 * CREEP_SPREAD_ENERGY_PER_TUMOR);
         if let Some(queen) = bot
             .units
             .my
             .units
             .filter(|u| {
                 !u.is_using(AbilityId::EffectInjectLarva)
+                    && !u.is_using(AbilityId::TransfusionTransfusion)
                     && !u.is_using(AbilityId::BuildCreepTumorQueen)
                     && u.has_ability(AbilityId::BuildCreepTumorQueen)
-                    && u.energy().unwrap_or_default() > CREEP_SPREAD_ENERGY
+                    && u.energy().unwrap_or_default() >= min_energy
             })
             .first()
         {
@@ -88,8 +103,9 @@ impl QueenManager {
                 .spread_map
                 .iter()
                 .filter(|&p| {
-                    (!bot.is_visible((p.x as usize, p.y as usize))
-                        || !bot.has_creep((p.x as usize, p.y as usize)))
+                    bot.units.my.townhalls.closest_distance(p).unwrap_or_max() < 17f32
+                        && (!bot.is_visible((p.x as usize, p.y as usize))
+                            || !bot.has_creep((p.x as usize, p.y as usize)))
                         && bot.pathing_distance(queen.position(), *p).is_some()
                 })
                 .closest(queen.position())
@@ -108,14 +124,15 @@ impl QueenManager {
     }
 
     fn handle_injection(&mut self, bot: &mut Bot) {
-        if bot.units.my.larvas.len() > INJECTION_MAX_LARVA {
+        if bot.units.my.larvas.len() > bot.units.my.townhalls.len() * INJECTION_MAX_LARVA {
             return;
         }
-        let mut queens = bot.units.my.units.of_type(UnitTypeId::Queen).filter(|u| {
-            !u.is_using(AbilityId::EffectInjectLarva)
-                && u.has_ability(AbilityId::EffectInjectLarva)
-                && !u.is_attacked()
-        });
+        let mut queens = bot
+            .units
+            .my
+            .units
+            .of_type(UnitTypeId::Queen)
+            .filter(|u| u.has_ability(AbilityId::EffectInjectLarva));
         let injecting_queens = bot
             .units
             .my
@@ -123,19 +140,61 @@ impl QueenManager {
             .of_type(UnitTypeId::Queen)
             .filter(|u| u.is_using(AbilityId::EffectInjectLarva));
         if !queens.is_empty() {
-            for base in bot.units.my.townhalls.iter().filter(|h| {
-                !h.has_buff(BuffId::QueenSpawnLarvaTimer)
-                    && injecting_queens
-                        .filter(|q| q.target_tag() == Some(h.tag()))
-                        .is_empty()
-            }) {
+            for base in bot
+                .units
+                .my
+                .townhalls
+                .sorted(|u| u.tag())
+                .iter()
+                .filter(|h| !h.has_buff(BuffId::QueenSpawnLarvaTimer))
+            {
                 debug!("Need to inject in base {}", base.tag());
-                if let Some(queen) = queens.closest(base) {
-                    queen.command(AbilityId::EffectInjectLarva, Target::Tag(base.tag()), false);
-                    let queen_tag = queen.tag();
-                    queens.remove(queen_tag);
+                if let Some(closest_queen) = queens.closest(base) {
+                    if closest_queen.is_using(AbilityId::EffectInjectLarva) {
+                        if let Some(current_job) = closest_queen.target_tag() {
+                            if current_job != base.tag() {
+                                if let Some(injecting_in_base) =
+                                    bot.units.my.townhalls.get(current_job)
+                                {
+                                    if injecting_in_base.distance(closest_queen)
+                                        > base.distance(closest_queen)
+                                            + QUEEN_INJECT_SWITCH_BASE_RANGE
+                                    {
+                                        closest_queen.order_ability_at(
+                                            AbilityId::TransfusionTransfusion,
+                                            Target::Tag(base.tag()),
+                                            false,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    } else if let Some(injecting_queen) = injecting_queens
+                        .filter(|q| q.target_tag() == Some(base.tag()))
+                        .first()
+                    {
+                        if closest_queen.tag() != injecting_queen.tag() {
+                            closest_queen.command(
+                                AbilityId::EffectInjectLarva,
+                                Target::Tag(base.tag()),
+                                false,
+                            );
+                            let queen_tag = closest_queen.tag();
+                            queens.remove(queen_tag);
+                            injecting_queen.stop(false);
+                            queens.push(injecting_queen.clone());
+                        }
+                    } else {
+                        closest_queen.command(
+                            AbilityId::EffectInjectLarva,
+                            Target::Tag(base.tag()),
+                            false,
+                        );
+                        let queen_tag = closest_queen.tag();
+                        queens.remove(queen_tag);
+                    }
                 } else {
-                    debug!("Unable to find a queen to inject");
+                    debug!("Could not find a queen");
                 }
             }
         }
