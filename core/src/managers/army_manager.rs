@@ -432,12 +432,6 @@ impl ArmyManager {
     }
 
     fn queue_units(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        let min_lings = 4;
-        bot_state.build_queue.push(
-            Command::new_unit(UnitTypeId::Zergling, min_lings, false),
-            true,
-            9999,
-        );
         let extra_queens: usize = match bot_state.spending_focus {
             SpendingFocus::Economy => 4,
             SpendingFocus::Balance => 5,

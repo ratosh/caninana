@@ -833,3 +833,13 @@ impl MoveTowards for Unit {
         }
     }
 }
+
+pub trait Take {
+    fn take(&self, n: usize) -> Self;
+}
+
+impl Take for Units {
+    fn take(&self, n: usize) -> Self {
+        self.iter().take(n).map(|u| (u.tag(), u.clone())).collect()
+    }
+}

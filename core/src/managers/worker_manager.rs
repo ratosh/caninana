@@ -472,7 +472,7 @@ impl WorkerManager {
         let min_extra_workers = match bot_state.spending_focus {
             SpendingFocus::Economy => bot.owned_expansions().count() * 2,
             SpendingFocus::Balance => bot.owned_expansions().count() + 1,
-            SpendingFocus::Army => 1,
+            SpendingFocus::Army => 0,
         };
         let drones = bot
             .counter()
