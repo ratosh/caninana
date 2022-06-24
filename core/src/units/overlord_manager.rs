@@ -343,20 +343,18 @@ impl OverlordManager {
                     Target::None,
                     false,
                 );
-            } else {
-                if let Some(assignment) = self.assignments.get(&overseer.tag()) {
-                    match assignment {
-                        OverlordAssignment::Point(position) => {
-                            overseer.order_move_to(Target::Pos(*position), 1.0f32, false);
-                        }
-                        OverlordAssignment::Unit(unit) => {
-                            overseer.order_move_to(Target::Tag(*unit), 1.0f32, false);
-                        }
+            } else if let Some(assignment) = self.assignments.get(&overseer.tag()) {
+                match assignment {
+                    OverlordAssignment::Point(position) => {
+                        overseer.order_move_to(Target::Pos(*position), 1.0f32, false);
                     }
-                } else {
-                    debug!("Missing assignment")
-                };
-            }
+                    OverlordAssignment::Unit(unit) => {
+                        overseer.order_move_to(Target::Tag(*unit), 1.0f32, false);
+                    }
+                }
+            } else {
+                debug!("Missing assignment")
+            };
         }
     }
 
