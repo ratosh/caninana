@@ -427,10 +427,8 @@ impl ArmyManager {
                     Some(target)
                 } else if let Some(target) = extended_enemy {
                     Some(target)
-                } else if let Some(target) = secondary_target {
-                    Some(target)
                 } else {
-                    None
+                    secondary_target
                 };
                 let attack_goal = if unit.is_flying() {
                     bot.start_location

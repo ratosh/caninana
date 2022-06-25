@@ -158,9 +158,8 @@ impl Strength for Unit {
 
 impl BaseStrength for Unit {
     fn base_strength(&self, _bot: &Bot) -> f32 {
-        let multiplier = if !self.is_almost_ready() || self.is_hallucination() {
-            0.0f32
-        } else if !self.can_attack() {
+        let multiplier = if !self.is_almost_ready() || self.is_hallucination() || !self.can_attack()
+        {
             0.0f32
         } else if self.is_cloaked() {
             1.2f32
