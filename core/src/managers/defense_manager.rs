@@ -2,6 +2,7 @@ use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
 use crate::command_queue::Command;
+use crate::params::PRIORITY_SPORE_CRAWLER;
 use crate::*;
 
 #[derive(Default)]
@@ -47,7 +48,7 @@ impl DefenseManager {
             bot_state.build_queue.push(
                 Command::new_unit(UnitTypeId::SporeCrawler, spores, true),
                 false,
-                210,
+                PRIORITY_SPORE_CRAWLER,
             );
         };
     }

@@ -48,7 +48,7 @@ impl QueenManager {
                 );
                 break;
             } else if queen.is_using(AbilityId::TransfusionTransfusion) {
-                queen.hold_position(false);
+                queen.stop(false);
             }
         }
     }
