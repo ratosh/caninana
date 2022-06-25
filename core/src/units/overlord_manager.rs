@@ -27,7 +27,7 @@ enum OverlordAssignment {
 }
 
 impl OverlordManager {
-    const EXPANSION_DISTANCE: f32 = 10f32;
+    const EXPANSION_DISTANCE: f32 = 9f32;
     const RETREAT_ON: [UnitTypeId; 5] = [
         UnitTypeId::Viking,
         UnitTypeId::Battlecruiser,
@@ -79,7 +79,8 @@ impl OverlordManager {
 
             if overlords.len() > 2 {
                 if self.scout_lord.is_none() {
-                    if let Some(unit) = overlords.pop() {
+                    if let Some(unit) = overlords.closest(bot.start_location) {
+                        self.clear_assignment_unit(unit.tag());
                         self.scout_lord = Some(unit.tag());
                     }
                 }
@@ -237,12 +238,13 @@ impl OverlordManager {
     }
 
     fn micro(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        self.overlord_micro(bot, bot_state);
-        self.overseer_micro(bot, bot_state);
+        self.micro_overlord(bot, bot_state);
+        self.micro_overseer(bot, bot_state);
+        self.micro_changeling(bot, bot_state);
     }
 
     // TODO: Hide them if enemy is going heavy on anti air.
-    fn overlord_micro(&self, bot: &Bot, bot_state: &BotState) {
+    fn micro_overlord(&self, bot: &Bot, bot_state: &BotState) {
         let random_scouting = bot_state
             .enemy_cache
             .units
@@ -312,7 +314,7 @@ impl OverlordManager {
         }
     }
 
-    fn overseer_micro(&mut self, bot: &Bot, bot_state: &BotState) {
+    fn micro_overseer(&mut self, bot: &Bot, bot_state: &BotState) {
         for overseer in bot.units.my.units.of_type(UnitTypeId::Overseer).iter() {
             if bot_state
                 .enemy_cache
@@ -376,6 +378,33 @@ impl OverlordManager {
             self.assignments.remove(&tag);
         }
     }
+
+    fn micro_changeling(&self, bot: &mut Bot, _bot_state: &mut BotState) {
+        let mut random = thread_rng();
+        for changeling in bot
+            .units
+            .my
+            .all
+            .of_types(&vec![
+                UnitTypeId::Changeling,
+                UnitTypeId::ChangelingMarine,
+                UnitTypeId::ChangelingZealot,
+                UnitTypeId::ChangelingZergling,
+                UnitTypeId::ChangelingMarineShield,
+                UnitTypeId::ChangelingZerglingWings,
+            ])
+            .filter(|u| u.is_idle())
+        {
+            let target = if let Some(expansion) = bot.free_expansions().choose(&mut random) {
+                expansion.loc
+            } else if let Some(enemy_expansion) = bot.enemy_expansions().choose(&mut random) {
+                enemy_expansion.loc
+            } else {
+                bot.enemy_start
+            };
+            changeling.order_move_to(Target::Pos(target), 7f32, false)
+        }
+    }
 }
 
 impl AIComponent for OverlordManager {
@@ -388,6 +417,9 @@ impl AIComponent for OverlordManager {
 
     fn on_event(&mut self, event: &Event, _: &mut BotState) {
         if let UnitDestroyed(tag, _) = event {
+            if self.scout_lord == Some(*tag) {
+                self.scout_lord = None;
+            }
             self.clear_assignment_unit(*tag);
         }
     }
