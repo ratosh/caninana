@@ -5,6 +5,9 @@ use rust_sc2::prelude::*;
 pub trait Strength {
     fn strength(&self, bot: &Bot) -> f32;
 }
+pub trait BaseStrength {
+    fn base_strength(&self, bot: &Bot) -> f32;
+}
 
 impl Strength for Units {
     fn strength(&self, bot: &Bot) -> f32 {
@@ -86,15 +89,32 @@ impl NeedsCorruptors for Unit {
     }
 }
 
-const SPECIAL_DANGEROUS: [UnitTypeId; 9] = [
+pub trait NeedsRavagers {
+    fn need_ravagers(&self) -> bool;
+}
+
+impl NeedsRavagers for Unit {
+    fn need_ravagers(&self) -> bool {
+        NEED_RAVAGERS.contains(&self.type_id())
+    }
+}
+const NEED_RAVAGERS: [UnitTypeId; 3] = [
+    UnitTypeId::PhotonCannon,
+    UnitTypeId::Bunker,
+    UnitTypeId::PlanetaryFortress,
+];
+
+const SPECIAL_DANGEROUS: [UnitTypeId; 11] = [
     UnitTypeId::Infestor,
     UnitTypeId::InfestorBurrowed,
     UnitTypeId::LurkerMP,
     UnitTypeId::LurkerMPBurrowed,
     UnitTypeId::Disruptor,
+    UnitTypeId::AdeptPhaseShift,
     UnitTypeId::Liberator,
     UnitTypeId::LiberatorAG,
     UnitTypeId::WidowMine,
+    UnitTypeId::WidowMineBurrowed,
     UnitTypeId::Raven,
 ];
 
@@ -116,10 +136,14 @@ const NEED_DETECTION: [UnitTypeId; 7] = [
     UnitTypeId::Banshee,
 ];
 
-const NEED_CORRUPTORS: [UnitTypeId; 5] = [
+const NEED_CORRUPTORS: [UnitTypeId; 9] = [
     UnitTypeId::Colossus,
     UnitTypeId::Carrier,
     UnitTypeId::Tempest,
+    UnitTypeId::Viking,
+    UnitTypeId::Banshee,
+    UnitTypeId::Raven,
+    UnitTypeId::Liberator,
     UnitTypeId::Battlecruiser,
     UnitTypeId::Mutalisk,
 ];
@@ -127,25 +151,41 @@ const NEED_CORRUPTORS: [UnitTypeId; 5] = [
 //TODO: Give bonus for units better at one role.
 // e.g. thor anti air
 impl Strength for Unit {
-    fn strength(&self, _: &Bot) -> f32 {
-        let multiplier = if !self.is_almost_ready() || self.is_hallucination() {
+    fn strength(&self, bot: &Bot) -> f32 {
+        self.base_strength(bot) * self.hits_percentage().unwrap_or(1f32)
+    }
+}
+
+impl BaseStrength for Unit {
+    fn base_strength(&self, _bot: &Bot) -> f32 {
+        let multiplier = if !self.is_almost_ready() || self.is_hallucination() || !self.can_attack()
+        {
             0.0f32
-        } else if self.is_worker() {
-            0.2f32
-        } else if SPECIAL_DANGEROUS.contains(&self.type_id()) {
-            0.5f32
-        } else if !self.can_attack() {
-            0.0f32
-        } else if self.is_structure() {
-            1.5f32
         } else if self.is_cloaked() {
             1.2f32
         } else {
             1f32
         };
-        multiplier
-            * (self.cost().vespene + self.cost().minerals) as f32
-            * self.hits_percentage().unwrap_or(1f32)
+        multiplier * (self.type_id().base_strength(_bot))
+    }
+}
+
+impl BaseStrength for UnitTypeId {
+    fn base_strength(&self, _bot: &Bot) -> f32 {
+        let multiplier = if self.is_worker() {
+            0.1f32
+        } else if SPECIAL_DANGEROUS.contains(self) {
+            0.5f32
+        } else if self.is_structure() {
+            1.5f32
+        } else {
+            1f32
+        };
+        if let Some(cost) = _bot.game_data.units.get(self) {
+            multiplier * (cost.vespene_cost as f32 * 1.6875f32 + cost.mineral_cost as f32)
+        } else {
+            0f32
+        }
     }
 }
 
@@ -170,12 +210,12 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Ultralisk,
                 UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Stalker => vec![
+            UnitTypeId::Stalker => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
+            UnitTypeId::Immortal => vec![
                 UnitTypeId::Zergling,
-                UnitTypeId::Roach,
                 UnitTypeId::Hydralisk,
+                UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Immortal => vec![UnitTypeId::Zergling, UnitTypeId::BroodLord],
             UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
             UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
             UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
@@ -194,7 +234,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Hydralisk,
                 UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Disruptor => vec![UnitTypeId::Ultralisk],
+            UnitTypeId::Disruptor => vec![UnitTypeId::Ultralisk, UnitTypeId::BroodLord],
             // Race::Terran
             UnitTypeId::Marine => vec![
                 // UnitTypeId::Baneling,
@@ -207,11 +247,16 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
                 UnitTypeId::Mutalisk,
+                UnitTypeId::BroodLord,
             ],
             UnitTypeId::Medivac => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
-            UnitTypeId::Reaper => vec![UnitTypeId::Ravager],
+            UnitTypeId::Reaper => vec![UnitTypeId::BroodLord],
             UnitTypeId::Ghost => vec![UnitTypeId::Zergling],
-            UnitTypeId::Hellion => vec![UnitTypeId::Roach, UnitTypeId::Mutalisk],
+            UnitTypeId::Hellion => vec![
+                UnitTypeId::Roach,
+                UnitTypeId::Mutalisk,
+                UnitTypeId::BroodLord,
+            ],
             UnitTypeId::SiegeTank => vec![
                 UnitTypeId::Mutalisk,
                 UnitTypeId::BroodLord,
@@ -228,7 +273,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Mutalisk,
                 UnitTypeId::Corruptor,
             ],
-            UnitTypeId::Viking => vec![UnitTypeId::Hydralisk],
+            UnitTypeId::Viking => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Raven => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
             UnitTypeId::Cyclone => vec![UnitTypeId::Zergling],
@@ -338,6 +383,7 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::PhotonCannon => vec![UnitTypeId::Ravager],
             UnitTypeId::Bunker => vec![UnitTypeId::Ravager],
+            UnitTypeId::PlanetaryFortress => vec![UnitTypeId::Ravager],
             _ => vec![],
         }
     }
