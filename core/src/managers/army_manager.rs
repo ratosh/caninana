@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use log::debug;
+use rand::prelude::IteratorRandom;
+use rand::thread_rng;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 use rust_sc2::units::Container;
@@ -12,6 +14,7 @@ use crate::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum UnitDecision {
+    Scout,
     Advance,
     Retreat,
     Undefined,
@@ -24,6 +27,9 @@ pub struct ArmyManager {
     strength_engaging: bool,
     allowed_tech: HashSet<UnitTypeId>,
     allied_decision: HashMap<u64, UnitDecision>,
+    last_scout: f32,
+    scouting_ling: Option<u64>,
+    scouting_place: Option<Point2>,
 }
 
 impl ArmyManager {
@@ -48,7 +54,7 @@ impl ArmyManager {
                 .units
                 .filter(|u| u.need_roaches())
                 .len()
-                > 1
+                > 2
         {
             self.unlock_tech(bot, UnitTypeId::Roach);
         }
@@ -76,7 +82,7 @@ impl ArmyManager {
     }
 
     fn unlock_tech(&mut self, bot: &mut Bot, unit_type: UnitTypeId) {
-        if !self.allowed_tech.contains(&unit_type) {
+        if DEBUG_TEXT && !self.allowed_tech.contains(&unit_type) {
             bot.chat_ally(format!("Unlocking {:?}", unit_type).as_str())
         }
         self.allowed_tech.insert(unit_type);
@@ -129,7 +135,12 @@ impl ArmyManager {
                     .units
                     .ready()
                     .of_type(UnitTypeId::Queen)
-                    .filter(|u| !u.is_using(AbilityId::EffectInjectLarva)),
+                    .filter(|u| {
+                        !u.is_using_any(&vec![
+                            AbilityId::EffectInjectLarva,
+                            AbilityId::TransfusionTransfusion,
+                        ])
+                    }),
             );
         }
         if my_army.is_empty() {
@@ -214,6 +225,13 @@ impl ArmyManager {
                 )
             })
             .collect::<HashMap<_, _>>();
+        let furthest_ling = bot
+            .units
+            .my
+            .units
+            .of_type(UnitTypeId::Zergling)
+            .furthest(bot.start_location)
+            .cloned();
 
         let has_healing_queen = !bot
             .units
@@ -223,6 +241,15 @@ impl ArmyManager {
             .of_type(UnitTypeId::Queen)
             .filter(|u| u.energy().unwrap_or_default() > TRANSFUSION_MIN_ENERGY)
             .is_empty();
+
+        if let Some(scouting_ling) = furthest_ling.as_ref() {
+            if self.last_scout + LING_ADVANCED_SCOUT_DELAY < bot.time {
+                let mut rng = thread_rng();
+                self.last_scout = bot.time;
+                self.scouting_ling = Some(scouting_ling.tag());
+                self.scouting_place = bot.enemy_expansions().choose(&mut rng).map(|u| u.loc);
+            }
+        }
         for unit in my_army.iter() {
             let squad_strength = bot_state
                 .squads
@@ -230,6 +257,11 @@ impl ArmyManager {
                 .unwrap()
                 .squad
                 .strength(bot);
+            let scouting_ling = if let Some(tag) = self.scouting_ling {
+                unit.tag() == tag
+            } else {
+                false
+            };
 
             let their_strength = priority_targets
                 .filter(|e| {
@@ -281,7 +313,9 @@ impl ArmyManager {
             } else {
                 1.2f32
             } - resource_reduction;
-            let decision = if fallback {
+            let decision = if scouting_ling {
+                UnitDecision::Scout
+            } else if fallback {
                 UnitDecision::Retreat
             } else if (defending || engaging)
                 && our_strength >= their_strength * strength_multiplier
@@ -344,9 +378,13 @@ impl ArmyManager {
                 })
                 .min_by_key(|t| t.hits());
 
-            let threats = priority_targets.iter().filter(|t| {
-                t.can_attack_unit(unit) && t.in_real_range(unit, -unit.speed())
-                    || t.type_id() == UnitTypeId::Baneling && t.is_closer(unit.speed() + 3f32, unit)
+            let threats = priority_targets
+                .iter()
+                .filter(|t| t.can_attack_unit(unit) && t.in_real_range(unit, -unit.speed()));
+            let run_from = bot_state.enemy_cache.units.iter().filter(|t| {
+                (t.type_id() == UnitTypeId::Baneling && t.is_closer(unit.speed() + 3f32, unit))
+                    || (t.type_id() == UnitTypeId::DisruptorPhased
+                        && t.is_closer(unit.speed() + 3f32, unit))
             });
 
             let closest_attackable = priority_targets
@@ -403,10 +441,14 @@ impl ArmyManager {
 
             let mut final_target: Option<Unit> = None;
 
-            if let Some(target) = target_in_range {
-                if decision == UnitDecision::Retreat
-                    && unit.weapon_cooldown().unwrap_or_default() > 10f32
-                {
+            if decision == UnitDecision::Scout {
+                if let Some(scout_at) = self.scouting_place {
+                    unit.order_attack(Target::Pos(scout_at), false);
+                }
+            } else if run_from.count() > 0 {
+                Self::move_towards(bot, unit, -2f32);
+            } else if let Some(target) = target_in_range {
+                if decision == UnitDecision::Retreat && unit.on_cooldown() {
                     Self::move_towards(bot, unit, -2.0f32);
                 } else if unit.range_vs(target) > target.range_vs(unit)
                     && unit.weapon_cooldown().unwrap_or_default() > 10f32
@@ -499,7 +541,7 @@ impl ArmyManager {
                     })
                 {
                     if let Some(closest_hall) = bot.units.my.townhalls.closest(queen) {
-                        queen.order_move_to(Target::Pos(closest_hall.position()), 7f32, false);
+                        queen.order_move_to(Target::Pos(closest_hall.position()), 9f32, false);
                     }
                 }
             }
@@ -878,9 +920,11 @@ impl ArmyManager {
     }
 
     fn can_be_aggressive(&self, bot: &Bot) -> bool {
-        bot.units.my.units.of_type(UnitTypeId::Zergling).is_empty()
+        (bot.units.my.units.of_type(UnitTypeId::Zergling).is_empty()
             || bot.enemy_race != Race::Zerg
-            || bot.upgrade_progress(UpgradeId::Zerglingmovementspeed) > 0.9f32
+            || bot.upgrade_progress(UpgradeId::Zerglingmovementspeed) > 0.9f32)
+            && (bot.units.my.units.of_type(UnitTypeId::Roach).is_empty()
+                || bot.upgrade_progress(UpgradeId::TunnelingClaws) > 0.9f32)
     }
 }
 
