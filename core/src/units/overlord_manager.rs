@@ -173,7 +173,10 @@ impl OverlordManager {
                 let unit = if let Some(priority_target) = main_targets.closest(bot.start_location) {
                     debug!("Using a main target");
                     Some(priority_target)
-                } else if let Some(secondary_target) = secondary_targets.iter().filter(|u| assignments.closest_distance(u.position()).unwrap_or_max() > 5f32).closest(bot.start_location)
+                } else if let Some(secondary_target) = secondary_targets
+                    .iter()
+                    .filter(|u| assignments.closest_distance(u.position()).unwrap_or_max() > 5f32)
+                    .closest(bot.start_location)
                 {
                     debug!("Using a secondary target");
                     Some(secondary_target)
@@ -354,7 +357,11 @@ impl OverlordManager {
             } else if let Some(assignment) = self.assignments.get(&overseer.tag()) {
                 match assignment {
                     OverlordAssignment::Point(position) => {
-                        overseer.order_move_to(Target::Pos(*position), Self::EXPANSION_DISTANCE, false);
+                        overseer.order_move_to(
+                            Target::Pos(*position),
+                            Self::EXPANSION_DISTANCE,
+                            false,
+                        );
                     }
                     OverlordAssignment::Unit(unit) => {
                         overseer.order_move_to(Target::Tag(*unit), 1.0f32, false);
@@ -401,7 +408,12 @@ impl OverlordManager {
             ])
             .filter(|u| u.is_idle())
         {
-            let target = if let Some(expansion) = bot.expansions.iter().filter(|u| !u.alliance.is_mine()).choose(&mut random) {
+            let target = if let Some(expansion) = bot
+                .expansions
+                .iter()
+                .filter(|u| !u.alliance.is_mine())
+                .choose(&mut random)
+            {
                 expansion.loc
             } else {
                 bot.enemy_start

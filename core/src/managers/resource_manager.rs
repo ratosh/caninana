@@ -165,7 +165,9 @@ impl ResourceManager {
     fn order_geysers(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let extractor = bot.race_values.gas;
         let workers = bot.units.my.workers.len();
-        let wanted_extractors = if workers < DOUBLE_GAS_PER_BASE_WORKERS && bot.counter().count(UnitTypeId::RoachWarren) == 0 {
+        let wanted_extractors = if workers < DOUBLE_GAS_PER_BASE_WORKERS
+            && bot.counter().count(UnitTypeId::RoachWarren) == 0
+        {
             1.max(workers as usize / 16)
         } else {
             bot.owned_expansions().count().saturating_sub(1) * 2

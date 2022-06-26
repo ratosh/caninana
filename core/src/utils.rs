@@ -88,7 +88,6 @@ impl NeedsCorruptors for Unit {
     }
 }
 
-
 pub trait NeedsRoaches {
     fn need_roaches(&self) -> bool;
 }
@@ -164,7 +163,7 @@ const NEED_ROACHES: [UnitTypeId; 6] = [
     UnitTypeId::Hellion,
     UnitTypeId::HellionTank,
     UnitTypeId::Baneling,
-    UnitTypeId::Roach
+    UnitTypeId::Roach,
 ];
 
 //TODO: Give bonus for units better at one role.
@@ -291,15 +290,16 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Ravager,
             ],
             UnitTypeId::Thor => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
-            UnitTypeId::Banshee => vec![
-                UnitTypeId::Mutalisk,
-                UnitTypeId::Corruptor,
-            ],
+            UnitTypeId::Banshee => vec![UnitTypeId::Mutalisk, UnitTypeId::Corruptor],
             UnitTypeId::Viking => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Raven => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
             UnitTypeId::Cyclone => vec![UnitTypeId::Zergling],
-            UnitTypeId::HellionTank => vec![UnitTypeId::Roach, UnitTypeId::Mutalisk, UnitTypeId::BroodLord],
+            UnitTypeId::HellionTank => vec![
+                UnitTypeId::Roach,
+                UnitTypeId::Mutalisk,
+                UnitTypeId::BroodLord,
+            ],
             UnitTypeId::Liberator => vec![UnitTypeId::Corruptor],
             // Race::Zerg
             UnitTypeId::Zergling => vec![
