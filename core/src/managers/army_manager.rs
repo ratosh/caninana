@@ -213,7 +213,7 @@ impl ArmyManager {
                     (f.base_strength(bot) * 2f32).max(f.strength(bot) * 3f32),
                 )
             })
-            .collect::<HashMap<_, _>>();;
+            .collect::<HashMap<_, _>>();
 
         let has_healing_queen = !bot
             .units
