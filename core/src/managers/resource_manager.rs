@@ -53,13 +53,14 @@ impl ResourceManager {
             .enemy_cache
             .units
             .filter(|unit| {
-                !unit.is_flying() &&
-                    (bot.units
-                    .enemy
-                    .townhalls
-                    .closest_distance(unit.position())
-                    .unwrap_or_default()
-                    > 16f32
+                !unit.is_flying()
+                    && (bot
+                        .units
+                        .enemy
+                        .townhalls
+                        .closest_distance(unit.position())
+                        .unwrap_or_default()
+                        > 16f32
                         || (!unit.is_worker() && !unit.is_structure()))
             })
             .strength(bot);
@@ -67,8 +68,9 @@ impl ResourceManager {
             .enemy_cache
             .units
             .filter(|unit| {
-                unit.is_flying() &&
-                    (bot.units
+                unit.is_flying()
+                    && (bot
+                        .units
                         .enemy
                         .townhalls
                         .closest_distance(unit.position())
@@ -145,11 +147,9 @@ impl ResourceManager {
             0 | 1 => SpendingFocus::Economy,
             _ => SpendingFocus::Army,
         };
-        if DEBUG_TEXT {
-            if bot_state.spending_focus != spending_focus {
-                bot.chat_ally(format!("Changing decision to {:?}, [S{:.2}|OF{:.2}|AA{:.2}|AG{:.2}] vs [S{:.2}|A{:.2}|G{:.2}]", spending_focus, our_strength, our_offensive_strength, our_anti_air_strength, our_anti_ground_strength, their_strength, their_air_strength, their_ground_strength).as_str());
-                bot_state.spending_focus = spending_focus;
-            }
+        if DEBUG_TEXT && bot_state.spending_focus != spending_focus {
+            bot.chat_ally(format!("Changing decision to {:?}, [S{:.2}|OF{:.2}|AA{:.2}|AG{:.2}] vs [S{:.2}|A{:.2}|G{:.2}]", spending_focus, our_strength, our_offensive_strength, our_anti_air_strength, our_anti_ground_strength, their_strength, their_air_strength, their_ground_strength).as_str());
+            bot_state.spending_focus = spending_focus;
         }
     }
 

@@ -36,10 +36,7 @@ impl OverlordManager {
         UnitTypeId::Mutalisk,
     ];
 
-    const LONG_RANGE_UNITS: [UnitTypeId; 2] = [
-        UnitTypeId::Tempest,
-        UnitTypeId::Cyclone,
-    ];
+    const LONG_RANGE_UNITS: [UnitTypeId; 2] = [UnitTypeId::Tempest, UnitTypeId::Cyclone];
 
     fn queue_overseers(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let workers = bot.units.my.workers.len();
