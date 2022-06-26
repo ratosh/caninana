@@ -12,7 +12,6 @@ pub trait BaseStrength {
 impl Strength for Units {
     fn strength(&self, bot: &Bot) -> f32 {
         self.iter().map(|u| u.strength(bot)).sum::<f32>()
-            * (1f32 + (self.len() as f32 + 1f32).log(8f32))
     }
 }
 
@@ -89,6 +88,17 @@ impl NeedsCorruptors for Unit {
     }
 }
 
+
+pub trait NeedsRoaches {
+    fn need_roaches(&self) -> bool;
+}
+
+impl NeedsRoaches for Unit {
+    fn need_roaches(&self) -> bool {
+        NEED_ROACHES.contains(&self.type_id())
+    }
+}
+
 pub trait NeedsRavagers {
     fn need_ravagers(&self) -> bool;
 }
@@ -146,6 +156,15 @@ const NEED_CORRUPTORS: [UnitTypeId; 9] = [
     UnitTypeId::Liberator,
     UnitTypeId::Battlecruiser,
     UnitTypeId::Mutalisk,
+];
+
+const NEED_ROACHES: [UnitTypeId; 6] = [
+    UnitTypeId::Adept,
+    UnitTypeId::Reaper,
+    UnitTypeId::Hellion,
+    UnitTypeId::HellionTank,
+    UnitTypeId::Baneling,
+    UnitTypeId::Roach
 ];
 
 //TODO: Give bonus for units better at one role.
@@ -210,13 +229,17 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Ultralisk,
                 UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Stalker => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
+            UnitTypeId::Stalker => vec![
+                UnitTypeId::Zergling,
+                UnitTypeId::Roach,
+                UnitTypeId::Hydralisk,
+            ],
             UnitTypeId::Immortal => vec![
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,
                 UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Colossus => vec![UnitTypeId::Corruptor],
+            UnitTypeId::Colossus => vec![UnitTypeId::Corruptor, UnitTypeId::BroodLord],
             UnitTypeId::Phoenix => vec![UnitTypeId::Hydralisk],
             UnitTypeId::VoidRay => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::HighTemplar => vec![UnitTypeId::Ultralisk],
@@ -269,7 +292,6 @@ impl CounteredBy for UnitTypeId {
             ],
             UnitTypeId::Thor => vec![UnitTypeId::Zergling, UnitTypeId::Hydralisk],
             UnitTypeId::Banshee => vec![
-                UnitTypeId::Hydralisk,
                 UnitTypeId::Mutalisk,
                 UnitTypeId::Corruptor,
             ],
@@ -277,7 +299,7 @@ impl CounteredBy for UnitTypeId {
             UnitTypeId::Raven => vec![UnitTypeId::Hydralisk, UnitTypeId::Corruptor],
             UnitTypeId::Battlecruiser => vec![UnitTypeId::Corruptor],
             UnitTypeId::Cyclone => vec![UnitTypeId::Zergling],
-            UnitTypeId::HellionTank => vec![UnitTypeId::Roach, UnitTypeId::Mutalisk],
+            UnitTypeId::HellionTank => vec![UnitTypeId::Roach, UnitTypeId::Mutalisk, UnitTypeId::BroodLord],
             UnitTypeId::Liberator => vec![UnitTypeId::Corruptor],
             // Race::Zerg
             UnitTypeId::Zergling => vec![
@@ -351,10 +373,11 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::BroodLord,
             ],
             UnitTypeId::BroodLord => vec![
-                UnitTypeId::Stalker,
                 UnitTypeId::VoidRay,
                 UnitTypeId::Phoenix,
+                UnitTypeId::Carrier,
                 UnitTypeId::Viking,
+                UnitTypeId::Battlecruiser,
                 UnitTypeId::Corruptor,
             ],
             UnitTypeId::Viper => vec![

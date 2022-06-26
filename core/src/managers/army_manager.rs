@@ -27,7 +27,7 @@ pub struct ArmyManager {
 }
 
 impl ArmyManager {
-    fn army_unit_unlock(&mut self, bot: &Bot, bot_state: &BotState) {
+    fn army_unit_unlock(&mut self, bot: &mut Bot, bot_state: &BotState) {
         let workers = bot.counter().all().count(bot.race_values.worker);
         // for unit in bot.units.enemy.all.iter() {
         //     for counter in unit.type_id().countered_by() {
@@ -42,9 +42,8 @@ impl ArmyManager {
         if bot_state.spending_focus == SpendingFocus::Army {
             return;
         }
-        if workers >= UNLOCK_ROACH_WORKERS {
-            self.allowed_tech.insert(UnitTypeId::Roach);
-            // self.allowed_tech.insert(UnitTypeId::Ravager);
+        if workers >= UNLOCK_ROACH_WORKERS || bot_state.enemy_cache.units.filter(|u| u.need_roaches()).len() > 1 {
+            self.unlock_tech(bot, UnitTypeId::Roach);
         }
         if workers >= UNLOCK_HYDRA_WORKERS
             || !bot_state
@@ -53,7 +52,7 @@ impl ArmyManager {
                 .filter(|u| u.is_flying() && u.can_attack_ground())
                 .is_empty()
         {
-            self.allowed_tech.insert(UnitTypeId::Hydralisk);
+            self.unlock_tech(bot, UnitTypeId::Hydralisk);
         }
         if workers >= UNLOCK_LATE_TECH_WORKERS
             || !bot_state
@@ -62,11 +61,18 @@ impl ArmyManager {
                 .filter(|u| u.need_corruptors())
                 .is_empty()
         {
-            self.allowed_tech.insert(UnitTypeId::Corruptor);
+            self.unlock_tech(bot, UnitTypeId::Corruptor);
         }
         if workers >= UNLOCK_REALLY_LATE_TECH_WORKERS {
-            self.allowed_tech.insert(UnitTypeId::BroodLord);
+            self.unlock_tech(bot, UnitTypeId::BroodLord);
         }
+    }
+
+    fn unlock_tech(&mut self, bot: &mut Bot, unit_type: UnitTypeId) {
+        if !self.allowed_tech.contains(&unit_type) {
+            bot.chat_ally(format!("Unlocking {:?}", unit_type).as_str())
+        }
+        self.allowed_tech.insert(unit_type);
     }
 }
 
@@ -100,7 +106,7 @@ impl ArmyManager {
                         && !bot_state
                             .enemy_cache
                             .units
-                            .filter(|e| u.in_real_range(e, 0f32) || e.in_real_range(u, 0f32))
+                            .filter(|e| u.in_real_range(e, 0f32))
                             .is_empty()
                 }),
         );
@@ -174,7 +180,8 @@ impl ArmyManager {
             && our_global_strength >= their_global_strength * 0.9f32)
             || our_global_strength >= their_global_strength * 1.3f32;
 
-        let engaging = (self.money_engaging || self.strength_engaging) && self.check_tech(bot);
+        let engaging =
+            (self.money_engaging || self.strength_engaging) && self.can_be_aggressive(bot);
 
         for unit in priority_targets.iter() {
             let their_strength = priority_targets
@@ -196,7 +203,7 @@ impl ArmyManager {
             .map(|f| {
                 (
                     f.tag(),
-                    (f.base_strength(bot) * 2f32).max(f.strength(bot) * 4f32),
+                    (f.base_strength(bot) * 2f32).max(f.strength(bot) * 3f32),
                 )
             })
             .collect::<HashMap<_, _>>();
@@ -269,20 +276,21 @@ impl ArmyManager {
             let defensive_unit = defense_points
                 .iter()
                 .any(|h| h.is_closer(defense_range + 3f32, unit));
-            let strength_multiplier = if bot.minerals > 1_000 {
-                0.2f32.max(1.0f32 - bot.minerals as f32 / 10_000f32)
-            } else if defensive_unit {
-                0.7f32
+            let resource_reduction = bot.minerals as f32 / 10_000f32;
+            let strength_multiplier = if defensive_unit {
+                0.6f32
             } else if engaging {
                 0.8f32
             } else if defending {
-                0.9f32
-            } else {
                 1.0f32
-            };
-            let decision = if fallback {
+            } else {
+                1.2f32
+            } - resource_reduction;
+            let decision = if scouting_ling {
+                UnitDecision::Scout
+            } else if fallback {
                 UnitDecision::Retreat
-            } else if (defending || engaging || scouting_ling)
+            } else if (defending || engaging)
                 && our_strength >= their_strength * strength_multiplier
             {
                 UnitDecision::Advance
@@ -324,7 +332,7 @@ impl ArmyManager {
                     .units
                     .ready()
                     .of_type(UnitTypeId::Queen)
-                    .filter(|u| u.energy().unwrap_or_default() > TRANSFUSION_MIN_ENERGY)
+                    .filter(|u| u.energy().unwrap_or_default() > TRANSFUSION_MIN_ENERGY && !u.position().is_closer(8f32, unit))
                     .closest(unit)
                     .cloned()
             } else {
@@ -551,6 +559,19 @@ impl ArmyManager {
             false,
             PRIORITY_QUEEN,
         );
+        if !bot
+            .units
+            .my
+            .structures
+            .of_type(UnitTypeId::SpawningPool)
+            .is_empty()
+        {
+            bot_state.build_queue.push(
+                Command::new_unit(UnitTypeId::Zergling, MIN_LINGS, false),
+                false,
+                PRIORITY_MIN_LINGS,
+            );
+        }
 
         let wanted_army_supply = (bot.supply_army + bot.supply_left) as isize;
         debug!("Wanted army supply {:?}", wanted_army_supply);
@@ -587,13 +608,14 @@ impl ArmyManager {
         let mut unit_distribution = HashMap::new();
 
         for unit_type in self.allowed_tech.iter() {
+            let (weight, priority) = Self::unit_value(bot, bot_state, *unit_type);
             if unit_type.has_requirement(bot) {
-                unit_distribution.insert(*unit_type, Self::unit_value(bot, bot_state, *unit_type));
+                unit_distribution.insert(*unit_type, (weight, priority));
             } else {
                 bot_state.build_queue.push(
                     Command::new_unit(*unit_type, 1, true),
                     false,
-                    PRIORITY_ARMY_REQUIREMENT,
+                    priority + PRIORITY_ARMY_REQUIREMENT,
                 );
             }
         }
@@ -643,24 +665,24 @@ impl ArmyManager {
                 value -= unit.supply_cost();
             }
         }
-        priority -= (bot.units.my.units.of_type(unit_type).supply() / 5) as f32;
-        (value.max(1f32) as isize, priority.max(1f32) as usize)
+        priority -= (bot.units.my.units.of_type(unit_type).supply() / 2) as f32;
+        (value.max(1f32) as isize, priority.max(16f32) as usize)
     }
 
     fn queue_upgrades(&self, bot: &mut Bot, bot_state: &mut BotState) {
-        if bot.counter().all().count(UnitTypeId::Zergling) > 0
+        if bot.counter().all().count(UnitTypeId::SpawningPool) > 0
             && bot.can_afford_vespene_upgrade(UpgradeId::Zerglingmovementspeed)
         {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingmovementspeed, true),
                 false,
-                300,
+                PRIORITY_LING_SPEED,
             );
         }
         if bot_state.spending_focus == SpendingFocus::Army {
             return;
         }
-        if bot.counter().all().count(UnitTypeId::Zergling) > 20 {
+        if bot.counter().all().count(UnitTypeId::Zergling) > 20 && bot.counter().all().count(UnitTypeId::Hive) > 0 {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Zerglingattackspeed, false),
                 false,
@@ -668,7 +690,7 @@ impl ArmyManager {
             );
         }
         let workers = bot.counter().all().count(bot.race_values.worker);
-        if workers >= UNLOCK_BURROW_WORKERS {
+        if workers >= UNLOCK_BURROW_WORKERS && bot.counter().all().count(UnitTypeId::Lair) > 0  {
             bot_state.build_queue.push(
                 Command::new_upgrade(UpgradeId::Burrow, true),
                 false,
@@ -682,7 +704,7 @@ impl ArmyManager {
                 PRIORITY_TUNNELING_CLAWS,
             );
         }
-        if workers >= OVERLORD_SPEED_WORKERS {
+        if workers >= OVERLORD_SPEED_WORKERS && bot.counter().all().count(UnitTypeId::Lair) > 0 {
             bot_state.build_queue.push(
                 Command::new_upgrade(
                     UpgradeId::Overlordspeed,
@@ -719,10 +741,10 @@ impl ArmyManager {
             );
         }
 
-        let chambers = 0.max(3.min(workers.saturating_sub(20) / 10));
+        let chambers = 0.max(3.min(workers.saturating_sub(30) / 10));
         if chambers > 0 {
             bot_state.build_queue.push(
-                Command::new_unit(UnitTypeId::EvolutionChamber, chambers, true),
+                Command::new_unit(UnitTypeId::EvolutionChamber, chambers, bot_state.spending_focus == SpendingFocus::Economy),
                 false,
                 PRIORITY_EVOLUTION_CHAMBER,
             );
@@ -734,7 +756,7 @@ impl ArmyManager {
                 .units
                 .filter(|u| u.is_melee() && !u.is_worker())
                 .len();
-            if melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS {
+            if melee_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS && bot.upgrade_progress(UpgradeId::ZergGroundArmorsLevel1) > 0.1f32 {
                 self.queue_upgrade(
                     bot,
                     bot_state,
@@ -753,7 +775,7 @@ impl ArmyManager {
                 .units
                 .filter(|u| !u.is_flying() && !u.is_worker())
                 .len();
-            if ground_number > SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS {
+            if ground_number > SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS && bot.can_afford_vespene_upgrade(UpgradeId::ZergGroundArmorsLevel1) {
                 self.queue_upgrade(
                     bot,
                     bot_state,
@@ -772,7 +794,7 @@ impl ArmyManager {
                 .units
                 .filter(|u| !u.is_melee() && !u.is_worker())
                 .len();
-            if ranged_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS {
+            if ranged_number > SAVE_FOR_ATTACK_UPGRADES_ON_UNITS && bot.upgrade_progress(UpgradeId::ZergGroundArmorsLevel1) > 0.1f32 {
                 self.queue_upgrade(
                     bot,
                     bot_state,
@@ -846,11 +868,11 @@ impl ArmyManager {
             }
         }
     }
-    fn check_tech(&self, bot: &Bot) -> bool {
-        (bot.units.my.units.of_type(UnitTypeId::Zergling).is_empty()
-            || bot.upgrade_progress(UpgradeId::Zerglingmovementspeed) > 0.9f32)
-            && (bot.units.my.units.of_type(UnitTypeId::Roach).is_empty()
-                || bot.upgrade_progress(UpgradeId::TunnelingClaws) > 0.9f32)
+
+    fn can_be_aggressive(&self, bot: &Bot) -> bool {
+        bot.units.my.units.of_type(UnitTypeId::Zergling).is_empty()
+            || bot.enemy_race != Race::Zerg
+            || bot.upgrade_progress(UpgradeId::Zerglingmovementspeed) > 0.9f32
     }
 }
 

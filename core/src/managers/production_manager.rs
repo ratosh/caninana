@@ -151,7 +151,7 @@ impl ProductionManager {
                 bot_state.build_queue.push(
                     Command::new_unit(*requirement, 1, save_resources),
                     false,
-                    100,
+                    Self::REQUIREMENT_QUEUE_PRIORITY + 100,
                 );
             }
         }
@@ -165,14 +165,14 @@ impl ProductionManager {
         unit_type: UnitTypeId,
         save_resources: bool,
     ) {
-        let larvas = bot.units.my.larvas.clone();
-        let larva = if unit_type.is_worker() || !unit_type.is_melee() {
-            larvas.first()
-        } else {
-            larvas.closest(bot.start_location)
-        };
         let produced_on = unit_type.produced_on();
         if produced_on.contains(&UnitTypeId::Larva) {
+            let larvas = bot.units.my.larvas.clone();
+            let larva = if unit_type.is_worker() || unit_type == UnitTypeId::Overlord {
+                larvas.first()
+            } else {
+                larvas.closest(bot.start_location)
+            };
             if let Some(larva) = larva {
                 debug!("training a {:?} at {:?}", unit_type, produced_on);
                 bot.units.my.larvas.remove(larva.tag());
@@ -196,10 +196,14 @@ impl ProductionManager {
                 bot.subtract_resources(unit_type, true);
             }
         } else {
-            debug!("No building to create, pushing one to the queue");
+            debug!(
+                "No building to create [{:?}], pushing one [{:?}] to the queue",
+                unit_type,
+                produced_on.first()
+            );
             bot_state.build_queue.push(
                 Command::new_unit(*produced_on.first().unwrap(), 1, save_resources),
-                false,
+                true,
                 Self::REQUIREMENT_QUEUE_PRIORITY,
             );
         }
@@ -216,10 +220,10 @@ impl ProductionManager {
         if !bot.can_afford_vespene_upgrade(upgrade) {
             return;
         }
-        let produced_on = upgrade.produced_on();
         if bot.is_ordered_upgrade(upgrade) {
             return;
         }
+        let produced_on = upgrade.produced_on();
         if bot.can_afford_upgrade(upgrade) {
             if self.missing_upgrade_requirements(bot, bot_state, upgrade, save_resources, priority)
             {
@@ -238,12 +242,6 @@ impl ProductionManager {
                     self.producing.insert(building.tag());
                 }
                 bot.subtract_upgrade_cost(upgrade);
-            } else if bot.units.my.structures.of_types(&produced_on).is_empty() {
-                bot_state.build_queue.push(
-                    Command::new_unit(*produced_on.first().unwrap(), 1, save_resources),
-                    false,
-                    Self::REQUIREMENT_QUEUE_PRIORITY,
-                );
             }
         } else if save_resources {
             self.save_upgrade_cost(bot, bot_state, upgrade);
@@ -262,10 +260,6 @@ impl ProductionManager {
             return;
         }
         let produced_on = unit_type.produced_on();
-        debug!(
-            "Morphing a {:?} from {:?} using {:?}",
-            unit_type, produced_on, upgrade_ability
-        );
         if let Some(unit) = bot
             .units
             .my
@@ -273,12 +267,21 @@ impl ProductionManager {
             .of_types(&produced_on)
             .closest(bot.start_location)
         {
+            debug!(
+                "Morphing a {:?} from {:?} using {:?}",
+                unit_type, produced_on, upgrade_ability
+            );
             unit.use_ability(upgrade_ability.unwrap(), false);
             bot.subtract_resources(unit_type, false);
         } else {
+            debug!(
+                "No unit to produce [{:?}], pushing one [{:?}] to the queue",
+                unit_type,
+                produced_on.first()
+            );
             bot_state.build_queue.push(
                 Command::new_unit(*produced_on.first().unwrap(), 1, save_resources),
-                false,
+                true,
                 Self::REQUIREMENT_QUEUE_PRIORITY,
             );
         }
@@ -337,10 +340,7 @@ impl ProductionManager {
         }
     }
 
-    fn build_expansion(&self, bot: &mut Bot, bot_state: &BotState, unit_type: UnitTypeId) {
-        if bot_state.spending_focus == SpendingFocus::Army && bot.minerals < 300 {
-            return;
-        }
+    fn build_expansion(&self, bot: &mut Bot, _bot_state: &BotState, unit_type: UnitTypeId) {
         if !bot
             .units
             .my
@@ -415,39 +415,38 @@ impl ProductionManager {
     }
 
     fn build_gas(&self, bot: &mut Bot) {
-        let mut geysers = Units::new();
-        for owned_expansion in bot.owned_expansions() {
-            if let Some(base_tag) = owned_expansion.base {
-                if let Some(base) = bot.units.my.townhalls.get(base_tag) {
-                    if base.is_ready() {
-                        if let Some(geyser) = bot.find_gas_placement(owned_expansion.loc) {
-                            geysers.push(geyser);
+        let mut subtract_resources = false;
+        for base in bot.units.my.townhalls.sorted(|u| u.tag()) {
+            if base.is_ready() {
+                for owned_expansion in bot.owned_expansions() {
+                    if let Some(base_tag) = owned_expansion.base {
+                        if base_tag == base.tag() {
+                            if let Some(geyser) = bot.find_gas_placement(owned_expansion.loc) {
+                                if let Some(builder) = self.get_builder(bot, geyser.position()) {
+                                    builder.build_gas(geyser.tag(), false);
+                                    subtract_resources = true;
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-        if let Some(geyser) = geysers.iter().closest(bot.start_location) {
-            if let Some(builder) = self.get_builder(bot, geyser.position()) {
-                builder.build_gas(geyser.tag(), false);
-                bot.subtract_resources(bot.race_values.gas, false);
-            }
+        if subtract_resources {
+            bot.subtract_resources(bot.race_values.gas, false);
         }
     }
 
     fn save_unit_resources(
         &self,
         bot: &mut Bot,
-        bot_state: &BotState,
+        _bot_state: &BotState,
         unit_type: UnitTypeId,
         save_resources: bool,
         use_supply: bool,
         save_larva: bool,
     ) {
         if !save_resources {
-            return;
-        }
-        if bot_state.spending_focus == SpendingFocus::Army && unit_type.is_structure() {
             return;
         }
         bot.subtract_resources(unit_type, use_supply);
