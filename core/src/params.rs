@@ -4,9 +4,9 @@ pub const MAX_WORKERS: usize = 80;
 pub const MAX_QUEENS: usize = 10;
 
 pub const DOUBLE_GAS_PER_BASE_WORKERS: usize = 38;
-pub const UNLOCK_ROACH_WORKERS: usize = 26;
+pub const UNLOCK_ROACH_WORKERS: usize = 27;
 pub const UNLOCK_HYDRA_WORKERS: usize = 50;
-pub const UNLOCK_LATE_TECH_WORKERS: usize = 56;
+pub const UNLOCK_LATE_TECH_WORKERS: usize = 60;
 pub const UNLOCK_REALLY_LATE_TECH_WORKERS: usize = 70;
 pub const UNLOCK_OVERSEER_WORKERS: usize = 30;
 pub const UNLOCK_BURROW_WORKERS: usize = 25;
@@ -14,8 +14,8 @@ pub const OVERLORD_SPEED_WORKERS: usize = 30;
 pub const UNLOCK_TUNNELING_CLAWS_WORKERS: usize = 30;
 
 pub const UNLOCK_UPGRADES_WORKERS: usize = 40;
-pub const SAVE_FOR_ATTACK_UPGRADES_ON_UNITS: usize = 4;
-pub const SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS: usize = 8;
+pub const SAVE_FOR_ATTACK_UPGRADES_ON_UNITS: usize = 5;
+pub const SAVE_FOR_DEFENSE_UPGRADES_ON_UNITS: usize = 10;
 
 pub const CREEP_DISTANCE_TO_HALL: f32 = 4.5f32;
 pub const CREEP_SPREAD_MAP_DISTANCE: usize = 5;
@@ -28,7 +28,7 @@ pub const TRANSFUSION_MIN_ENERGY: u32 = 50;
 pub const TRANSFUSION_MAX_RANGE: f32 = 15f32;
 pub const TRANSFUSION_MISSING_HEALTH: u32 = 50;
 
-pub const INJECTION_MAX_LARVA_PER_BASE: usize = 4;
+pub const INJECTION_MAX_LARVA_PER_BASE: usize = 3;
 pub const INJECTION_MAX_LARVA: usize = 30;
 
 pub const RETREAT_HEALTH_PERCENTAGE: f32 = 0.4f32;
@@ -50,6 +50,10 @@ pub const PRIORITY_EVOLUTION_CHAMBER: usize = 160;
 pub const PRIORITY_SPORE_CRAWLER: usize = 290;
 pub const PRIORITY_BURROW: usize = 300;
 pub const PRIORITY_LORD_SPEED: usize = 290;
+pub const PRIORITY_LING_SPEED: usize = 310;
+pub const PRIORITY_MIN_LINGS: usize = 320;
+
+pub const MIN_LINGS: usize = 2;
 
 pub const OVERSEER_SWAP_DISTANCE: f32 = 9f32;
 pub const OVERSEER_CHANGELING_DELAY: f32 = 5f32;

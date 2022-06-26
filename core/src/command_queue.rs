@@ -76,7 +76,7 @@ impl CommandQueue {
                 unit_type,
                 wanted_amount,
                 save_resources: _,
-            } => bot.counter().count(unit_type) < wanted_amount,
+            } => bot.counter().alias().count(unit_type) < wanted_amount,
             Command::UpgradeCommand {
                 upgrade,
                 save_resources: _,

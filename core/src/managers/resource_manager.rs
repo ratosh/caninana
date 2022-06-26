@@ -141,7 +141,7 @@ impl ResourceManager {
         let ideal_harvesters = bases.sum(|x| x.ideal_harvesters().unwrap_or(12));
         let current_harvesters = bases.sum(|x| x.assigned_harvesters().unwrap_or_default())
             + bot.units.my.workers.idle().len() as u32;
-        let ideal_diff = if bases.len() < 3 { 8 } else { 2 };
+        let ideal_diff = if bases.len() < 3 { 12 } else { 2 };
         let halls = if bot_state.spending_focus != SpendingFocus::Army
             && ((ideal_harvesters < 70
                 && ideal_harvesters.saturating_sub(current_harvesters) < ideal_diff)
@@ -165,7 +165,9 @@ impl ResourceManager {
     fn order_geysers(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let extractor = bot.race_values.gas;
         let workers = bot.units.my.workers.len();
-        let wanted_extractors = if workers < DOUBLE_GAS_PER_BASE_WORKERS {
+        let wanted_extractors = if workers < DOUBLE_GAS_PER_BASE_WORKERS
+            && bot.counter().count(UnitTypeId::RoachWarren) == 0
+        {
             1.max(workers as usize / 16)
         } else {
             bot.owned_expansions().count().saturating_sub(1) * 2

@@ -44,7 +44,7 @@ impl OverlordManager {
             bot_state.build_queue.push(
                 Command::new_unit(
                     UnitTypeId::Overseer,
-                    1 + workers / 40 + invisible_units.len() as usize,
+                    1 + workers / 30 + invisible_units.len() as usize,
                     true,
                 ),
                 false,
@@ -126,6 +126,7 @@ impl OverlordManager {
 
             let mut next_expansion = bot.free_expansions().map(|e| e.loc).next();
             let mut main_targets = enemy_units.filter(|u| u.need_detection());
+            let mut assignments = Units::new();
             let closest_main_targets = main_targets
                 .sorted(|u| u.distance(bot.start_location))
                 .take(overseers.len() - 1);
@@ -140,11 +141,15 @@ impl OverlordManager {
                                 debug!("Found assignment [{:?}]", tag);
                                 if main_targets.remove(*tag).is_some() {
                                     debug!("Keep assignment");
+                                    assignments.push(overseer.clone());
                                     to_remove.push(overseer.tag());
                                 } else {
                                     debug!("Need new assignment");
                                     self.assignments.remove(&overseer.tag());
                                 }
+                            } else {
+                                debug!("Need new assignment");
+                                self.assignments.remove(&overseer.tag());
                             }
                         }
                         OverlordAssignment::Point(point) => {
@@ -168,7 +173,10 @@ impl OverlordManager {
                 let unit = if let Some(priority_target) = main_targets.closest(bot.start_location) {
                     debug!("Using a main target");
                     Some(priority_target)
-                } else if let Some(secondary_target) = secondary_targets.closest(bot.start_location)
+                } else if let Some(secondary_target) = secondary_targets
+                    .iter()
+                    .filter(|u| assignments.closest_distance(u.position()).unwrap_or_max() > 5f32)
+                    .closest(bot.start_location)
                 {
                     debug!("Using a secondary target");
                     Some(secondary_target)
@@ -218,6 +226,7 @@ impl OverlordManager {
                             "Dist [{:?}] to new assignment.",
                             unit.distance(bot.start_location)
                         );
+                        assignments.push(unit.clone());
                     }
                     main_targets.remove(target);
                     secondary_targets.remove(target);
@@ -348,7 +357,11 @@ impl OverlordManager {
             } else if let Some(assignment) = self.assignments.get(&overseer.tag()) {
                 match assignment {
                     OverlordAssignment::Point(position) => {
-                        overseer.order_move_to(Target::Pos(*position), 1.0f32, false);
+                        overseer.order_move_to(
+                            Target::Pos(*position),
+                            Self::EXPANSION_DISTANCE,
+                            false,
+                        );
                     }
                     OverlordAssignment::Unit(unit) => {
                         overseer.order_move_to(Target::Tag(*unit), 1.0f32, false);
@@ -395,10 +408,13 @@ impl OverlordManager {
             ])
             .filter(|u| u.is_idle())
         {
-            let target = if let Some(expansion) = bot.free_expansions().choose(&mut random) {
+            let target = if let Some(expansion) = bot
+                .expansions
+                .iter()
+                .filter(|u| !u.alliance.is_mine())
+                .choose(&mut random)
+            {
                 expansion.loc
-            } else if let Some(enemy_expansion) = bot.enemy_expansions().choose(&mut random) {
-                enemy_expansion.loc
             } else {
                 bot.enemy_start
             };
