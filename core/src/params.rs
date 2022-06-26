@@ -1,4 +1,5 @@
 pub const DEBUG_DRAW: bool = false;
+pub const DEBUG_TEXT: bool = true;
 
 pub const MAX_WORKERS: usize = 80;
 pub const MAX_QUEENS: usize = 10;
