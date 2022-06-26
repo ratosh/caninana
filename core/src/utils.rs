@@ -228,11 +228,7 @@ impl CounteredBy for UnitTypeId {
                 UnitTypeId::Ultralisk,
                 UnitTypeId::BroodLord,
             ],
-            UnitTypeId::Stalker => vec![
-                UnitTypeId::Zergling,
-                UnitTypeId::Roach,
-                UnitTypeId::Hydralisk,
-            ],
+            UnitTypeId::Stalker => vec![UnitTypeId::Zergling, UnitTypeId::BroodLord],
             UnitTypeId::Immortal => vec![
                 UnitTypeId::Zergling,
                 UnitTypeId::Hydralisk,

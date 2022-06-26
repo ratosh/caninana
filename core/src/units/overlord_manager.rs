@@ -36,6 +36,8 @@ impl OverlordManager {
         UnitTypeId::Mutalisk,
     ];
 
+    const LONG_RANGE_UNITS: [UnitTypeId; 2] = [UnitTypeId::Tempest, UnitTypeId::Cyclone];
+
     fn queue_overseers(&self, bot: &mut Bot, bot_state: &mut BotState) {
         let workers = bot.units.my.workers.len();
         let invisible_units = bot_state.enemy_cache.units.filter(|u| u.need_detection());
@@ -331,6 +333,7 @@ impl OverlordManager {
                 .filter(|f| {
                     f.can_attack_air() && f.in_real_range(overseer, f.speed() + overseer.speed())
                         || (f.target_tag().unwrap_or_default() == overseer.tag()
+                            && Self::LONG_RANGE_UNITS.contains(&f.type_id())
                             && f.position().distance(overseer) < 15f32)
                 })
                 .iter()
@@ -363,8 +366,12 @@ impl OverlordManager {
                             false,
                         );
                     }
-                    OverlordAssignment::Unit(unit) => {
-                        overseer.order_move_to(Target::Tag(*unit), 1.0f32, false);
+                    OverlordAssignment::Unit(tag) => {
+                        if let Some(unit) = bot_state.enemy_cache.units.get(*tag) {
+                            overseer.order_move_to(Target::Pos(unit.position()), 1.0f32, false);
+                        } else {
+                            overseer.order_move_to(Target::Tag(*tag), 1.0f32, false);
+                        }
                     }
                 }
             } else {

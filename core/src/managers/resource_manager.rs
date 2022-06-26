@@ -1,4 +1,3 @@
-use log::debug;
 use rust_sc2::bot::Bot;
 use rust_sc2::prelude::*;
 
@@ -11,46 +10,99 @@ use crate::*;
 pub struct ResourceManager {}
 
 impl ResourceManager {
+    const DEFENSIVE_UNITS: [UnitTypeId; 1] = [UnitTypeId::Queen];
+
+    const OFFENSIVE_UNITS: [UnitTypeId; 8] = [
+        UnitTypeId::Zergling,
+        UnitTypeId::Roach,
+        UnitTypeId::Ravager,
+        UnitTypeId::RavagerCocoon,
+        UnitTypeId::Hydralisk,
+        UnitTypeId::Corruptor,
+        UnitTypeId::BroodLord,
+        UnitTypeId::BroodLordCocoon,
+    ];
+
+    const ANTI_AIR_UNITS: [UnitTypeId; 3] = [
+        UnitTypeId::Queen,
+        UnitTypeId::Hydralisk,
+        UnitTypeId::Corruptor,
+    ];
+
+    const ANTI_GROUND_UNITS: [UnitTypeId; 8] = [
+        UnitTypeId::Queen,
+        UnitTypeId::Zergling,
+        UnitTypeId::Roach,
+        UnitTypeId::Ravager,
+        UnitTypeId::RavagerCocoon,
+        UnitTypeId::Hydralisk,
+        UnitTypeId::BroodLord,
+        UnitTypeId::BroodLordCocoon,
+    ];
+
     fn spending_decision(&mut self, bot: &mut Bot, bot_state: &mut BotState) {
-        let advanced_enemy_units = bot_state
+        let their_expansions = bot.enemy_expansions().count();
+        let their_strength = bot_state
             .enemy_cache
             .units
             .filter(|unit| {
-                !unit.is_worker()
-                    && bot
+                !unit.is_worker() && !unit.is_structure() && unit.type_id() != UnitTypeId::Queen
+            })
+            .strength(bot);
+        let their_ground_strength = bot_state
+            .enemy_cache
+            .units
+            .filter(|unit| {
+                !unit.is_flying()
+                    && (bot
                         .units
                         .enemy
                         .townhalls
                         .closest_distance(unit.position())
-                        .unwrap_or_max()
-                        > 20f32
+                        .unwrap_or_default()
+                        > 16f32
+                        || (!unit.is_worker() && !unit.is_structure()))
             })
             .strength(bot);
-        let close_enemy_units = bot_state
+        let their_air_strength = bot_state
             .enemy_cache
             .units
             .filter(|unit| {
-                !unit.is_worker()
-                    && bot
+                unit.is_flying()
+                    && (bot
                         .units
-                        .my
+                        .enemy
                         .townhalls
                         .closest_distance(unit.position())
                         .unwrap_or_default()
-                        < 30f32
+                        > 16f32
+                        || (!unit.is_worker() && !unit.is_structure()))
             })
             .strength(bot);
-        let their_strength = bot_state
-            .enemy_cache
-            .units
-            .filter(|unit| !unit.is_worker())
-            .strength(bot);
-        let our_strength = bot
+        let our_anti_ground_strength = bot
             .units
             .my
             .all
-            .filter(|unit| !unit.is_worker() && !unit.is_structure())
-            .strength(bot);
+            .filter(|unit| Self::ANTI_GROUND_UNITS.contains(&unit.type_id()))
+            .strength(bot)
+            + Self::ANTI_GROUND_UNITS
+                .iter()
+                .map(|t| bot.counter().ordered().count(*t) as f32 * t.base_strength(bot))
+                .sum::<f32>();
+        let our_anti_air_strength = bot
+            .units
+            .my
+            .all
+            .filter(|unit| Self::ANTI_AIR_UNITS.contains(&unit.type_id()))
+            .strength(bot)
+            + Self::ANTI_AIR_UNITS
+                .iter()
+                .map(|t| bot.counter().ordered().count(*t) as f32 * t.base_strength(bot))
+                .sum::<f32>();
+        let ordered_offensive_strength = Self::OFFENSIVE_UNITS
+            .iter()
+            .map(|t| bot.counter().ordered().count(*t) as f32 * t.base_strength(bot))
+            .sum::<f32>();
         let our_offensive_strength = bot
             .units
             .my
@@ -58,51 +110,47 @@ impl ResourceManager {
             .filter(|unit| {
                 !unit.is_worker() && !unit.is_structure() && unit.type_id() != UnitTypeId::Queen
             })
-            .strength(bot);
+            .strength(bot)
+            + ordered_offensive_strength;
 
-        let our_expansions = bot.owned_expansions().count();
-        let their_expansions = bot.enemy_expansions().count();
-
+        let ordered_defensive_strength = Self::DEFENSIVE_UNITS
+            .iter()
+            .map(|t| bot.counter().ordered().count(*t) as f32 * t.base_strength(bot))
+            .sum::<f32>();
+        let our_strength = bot
+            .units
+            .my
+            .all
+            .filter(|unit| !unit.is_worker() && !unit.is_structure())
+            .strength(bot)
+            + ordered_offensive_strength
+            + ordered_defensive_strength;
         let mut conditions: u8 = 0;
-        if close_enemy_units > our_offensive_strength * 0.6 {
+        if their_strength * 1.1f32 > our_strength {
+            conditions += 2;
+        }
+        if their_ground_strength > our_anti_ground_strength {
             conditions += 1;
         }
-        if advanced_enemy_units > our_offensive_strength {
-            conditions += 1;
-        }
-        if their_strength > our_offensive_strength {
-            conditions += 1;
-        }
-        if their_strength > our_strength {
-            conditions += 1;
-        }
-        if their_expansions == 1 && our_expansions > 1 {
-            conditions += 1;
-        }
-        if bot.minerals > 1_000 {
+        if their_air_strength > our_anti_air_strength {
             conditions += 1;
         }
         if bot_state.minimum_strength > our_offensive_strength {
             conditions += 1;
         }
-        bot_state.minimum_strength = bot_state
-            .minimum_strength
-            .max(our_offensive_strength * 3f32 / 4f32);
+        if their_expansions < 2 && bot.time > 155f32 && bot.time < 270f32 {
+            conditions += 2;
+        }
+        bot_state.minimum_strength = bot_state.minimum_strength.max(their_strength * 0.7f32);
 
-        bot_state.spending_focus = match conditions {
-            0 => SpendingFocus::Economy,
-            1 => SpendingFocus::Balance,
+        let spending_focus = match conditions {
+            0 | 1 => SpendingFocus::Economy,
             _ => SpendingFocus::Army,
         };
-        debug!(
-            "Decision {:?} > A[{:?}] T[{:?}] [{:?}|{:?}]vs{:?}",
-            bot_state.spending_focus,
-            advanced_enemy_units,
-            close_enemy_units,
-            our_strength,
-            our_offensive_strength,
-            their_strength
-        );
+        if DEBUG_TEXT && bot_state.spending_focus != spending_focus {
+            bot.chat_ally(format!("Changing decision to {:?}, [S{:.2}|OF{:.2}|AA{:.2}|AG{:.2}] vs [S{:.2}|A{:.2}|G{:.2}]", spending_focus, our_strength, our_offensive_strength, our_anti_air_strength, our_anti_ground_strength, their_strength, their_air_strength, their_ground_strength).as_str());
+            bot_state.spending_focus = spending_focus;
+        }
     }
 
     fn order_supply(&self, bot: &mut Bot, bot_state: &mut BotState) {
