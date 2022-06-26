@@ -136,7 +136,7 @@ impl ResourceManager {
             conditions += 1;
         }
         if bot_state.minimum_strength > our_offensive_strength {
-            conditions += 2;
+            conditions += 1;
         }
         if their_expansions < 2 && bot.time > 155f32 && bot.time < 270f32 {
             conditions += 2;
