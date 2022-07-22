@@ -9,7 +9,7 @@ authors = ["Raoni Campos"]
 [dependencies]
 caninana-core = { path = "../core" }
 caninana-openings = { path = "../openings" }
-rust-sc2 = { git = "https://github.com/UltraMachine/rust-sc2.git" }
+rust-sc2 = { git = "https://github.com/UltraMachine/rust-sc2.git", rev="5bcde2d" }
 clap = {version = "3.1", features = ["derive", "cargo"] }
 
 rand = "0.8"

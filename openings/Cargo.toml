@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 caninana-core = { path = "../core" }
-rust-sc2 = { git = "https://github.com/UltraMachine/rust-sc2.git" }
+rust-sc2 = { git = "https://github.com/UltraMachine/rust-sc2.git", rev="5bcde2d" }
