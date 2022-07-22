@@ -179,7 +179,7 @@ fn main() -> SC2Result<()> {
         _ => run_ladder_game(
             &mut bot,
             app.ladder_server.unwrap().as_str(),
-            app.game_port.unwrap().to_string().as_str(),
+            app.game_port.unwrap(),
             app.start_port.unwrap(),
             app.opponent.as_deref(),
         ),
