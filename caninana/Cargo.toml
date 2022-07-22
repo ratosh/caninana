@@ -1,6 +1,6 @@
 [package]
 name = "caninana"
-version = "1.1.9"
+version = "1.2.0"
 edition = "2021"
 authors = ["Raoni Campos"]
 
@@ -9,7 +9,7 @@ authors = ["Raoni Campos"]
 [dependencies]
 caninana-core = { path = "../core" }
 caninana-openings = { path = "../openings" }
-rust-sc2 = {version = "1.1", features = ["enemies_cache"] }
+rust-sc2 = { git = "https://github.com/UltraMachine/rust-sc2.git" }
 clap = {version = "3.1", features = ["derive", "cargo"] }
 
 rand = "0.8"
